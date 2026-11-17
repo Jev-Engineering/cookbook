@@ -9,231 +9,78 @@ from __future__ import annotations
 
 import functools
 import json
-import re
 import sys
 import types
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 import pytest
+from markdown_it import MarkdownIt
 
 from jev_cookbook import LiveBackend, Noul, NoulAnswer, Provenance
 
 REPO = Path(__file__).resolve().parents[1]
 DOCS = REPO / "docs"
 
-_COMMENT = re.compile(r"<!--.*?-->", re.S)
-_BLANK_LINE = re.compile(r"\n[ \t]*\n")
-_BACKTICKS = re.compile(r"`+")
-# An inline link needs its opening bracket (an escaped "[" is neutralised before this runs).
-_LINK = re.compile(
-    r"(?P<image>!)?\[(?:[^\[\]]|\[[^\]]*\])*\]"
-    r"\((<[^>#]+>|[^)\s#]+)(?:#[^)\s]*)?(?:\s+(?:\"[^\"]*\"|'[^']*'))?\)"
-)
-_DEFINITION = re.compile(
-    r" {0,3}\[([^\[\]\n]+)\]:[ \t]*(?:\n[ \t]*)?"
-    r"(<[^<>\n]*>|[^<>\s]+)(?:[ \t]+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*(?:\n|\Z)"
-)
-_FULL_REFERENCE = re.compile(r"(!)?\[([^\[\]]+)\]\[([^\[\]]*)\]")
-_SHORTCUT = re.compile(r"(?<!!)\[([^\[\]]+)\](?![(\[])")
-_ESCAPED = re.compile(r"\\([\\!\[\]`])")
-
-_FENCE = re.compile(r"[ \t]*(?P<mark>`{3,}|~{3,})(?P<info>.*)")
-_LIST_ITEM = re.compile(r"( *)(?:[-*+]|\d{1,9}[.)])(?P<gap> +|\t|$)")
-_ATX_HEADING = re.compile(r" {0,3}#{1,6}(?:[ \t]|$)")
-
-
-def _indent(line: str) -> int:
-    """Width of the leading whitespace of ``line``, a tab counting to the next multiple of 4."""
-    width = 0
-    for char in line:
-        if char == " ":
-            width += 1
-        elif char == "\t":
-            width += 4 - width % 4
-        else:
-            break
-    return width
-
-
-def without_code_blocks(text: str) -> str:
-    """``text`` with code blocks and standalone HTML comments replaced by block breaks.
-
-    Fence indentation is relative to the enclosing list item's content column. An unfinished
-    fence ends at the end of its container. Indented code starts four columns past the content
-    column and cannot interrupt a paragraph. The scanner handles space-padded list markers and
-    top-level ATX headings. It has no block quote handling or same-line indented list code.
-    """
-    kept: list[str] = []
-    fence: tuple[str, int, int] | None = None  # character, length, container column
-    in_code = False  # inside an indented code block
-    in_comment = False  # standalone HTML comment block
-    after_block = True
-    contents: list[int] = []  # content columns of the enclosing list items, outermost first
-    for line in text.splitlines():
-        indent = _indent(line)
-        mark = _FENCE.fullmatch(line)
-        if fence is not None:
-            char, size, column = fence
-            if line.strip() and indent < column:
-                fence = None  # the list item ends before this line
-                after_block = True
-            elif (
-                mark
-                and indent <= column + 3
-                and mark.group("mark")[0] == char
-                and len(mark.group("mark")) >= size
-                and not mark.group("info").strip()
-            ):
-                fence = None
-                after_block = True
-                continue
-            else:
-                continue
-        if not line.strip():
-            if not in_code:
-                kept.append(line)
-            after_block = True
-            continue
-        item = _LIST_ITEM.match(line)
-        heading = _ATX_HEADING.match(line)
-        if after_block or item or mark or heading:
-            while contents and indent < contents[-1]:
-                contents.pop()
-        column = contents[-1] if contents else 0
-        if in_comment or (column <= indent <= column + 3 and line.lstrip().startswith("<!--")):
-            if not in_comment:
-                kept.append("")
-            in_comment = "-->" not in line
-            after_block = True
-            continue
-        if (after_block or in_code) and indent >= column + 4:
-            if not in_code:
-                kept.append("")
-            in_code = True
-            continue
-        in_code = False
-        if item and indent <= column + 3:
-            gap = item.group("gap")
-            spaces = len(gap) if gap.startswith(" ") and len(gap) <= 4 else 1
-            column = item.start("gap") + spaces
-            contents.append(column)
-            indent = item.end() if gap.startswith(" ") else column
-            mark = _FENCE.fullmatch(line[item.end() :])
-        if mark and column <= indent <= column + 3:
-            marker = mark.group("mark")
-            if marker[0] != "`" or "`" not in mark.group("info"):
-                fence = (marker[0], len(marker), column)
-                kept.append("")
-                continue
-        kept.append(line)
-        after_block = bool(heading)
-    return "\n".join(kept)
-
-
-def without_code_spans(text: str) -> str:
-    """``text`` without inline code spans (CommonMark). A span opens at a backtick run that no
-    backslash escapes and closes at the next run of exactly the same length; a run with no such
-    closer, or one a blank line away, is literal text. Inside a span a backslash is literal, so
-    ``\\``` still closes it."""
-    out: list[str] = []
-    i = 0
-    while i < len(text):
-        if text[i] == "\\":
-            out.append(text[i : i + 2])
-            i += 2
-            continue
-        if text[i] != "`":
-            out.append(text[i])
-            i += 1
-            continue
-        opener = _BACKTICKS.match(text, i)
-        size = opener.end() - i
-        close = next(
-            (m for m in _BACKTICKS.finditer(text, opener.end()) if m.end() - m.start() == size),
-            None,
-        )
-        if close and not _BLANK_LINE.search(text, opener.end(), close.start()):
-            i = close.end()
-        else:
-            out.append(opener.group())
-            i = opener.end()
-    return "".join(out)
-
-
-def prose(text: str) -> str:
-    """``text`` without code blocks, inline code spans and HTML comments, none of which GitHub
-    renders as a link. Code spans go before comments, so a ``<!--`` written inside a code span
-    opens no comment; a code span never runs past a blank line."""
-    return _COMMENT.sub("", without_code_spans(without_code_blocks(text)))
+_MARKDOWN = MarkdownIt("commonmark")
 
 
 @functools.cache
 def linked_pages(page: Path) -> frozenset[Path]:
-    """The markdown files ``page`` links to (inline links, and reference links whose definition
-    the page uses), resolved, ignoring code, HTML comments, escaped brackets and URLs."""
-    text = _ESCAPED.sub(lambda m: "\0" if m[1] != "\\" else "\\", prose(page.read_text("utf-8")))
-    definitions, body = _reference_definitions(text)
-    targets = [target for image, target in _LINK.findall(body) if not image]
-    body = _LINK.sub("\0", body)
-    used = {
-        _label(label or shown) for image, shown, label in _FULL_REFERENCE.findall(body) if not image
-    }
-    used.update(_label(label) for label in _SHORTCUT.findall(_FULL_REFERENCE.sub("\0", body)))
-    targets.extend(definitions[label] for label in used if label in definitions)
+    """Resolve local Markdown targets from rendered link tokens."""
     found: set[Path] = set()
-    for target in targets:
-        target = target.strip("<>")
-        if "://" in target or target.startswith("mailto:") or not target.endswith(".md"):
-            continue
-        base = REPO if target.startswith("/") else page.parent
-        found.add((base / target.lstrip("/")).resolve())
+    for block in _MARKDOWN.parse(page.read_text("utf-8")):
+        for inline in block.children or ():
+            if inline.type != "link_open":
+                continue
+            href = inline.attrGet("href")
+            if not isinstance(href, str):
+                continue
+            try:
+                url = urlsplit(href)
+            except ValueError:
+                continue
+            if url.scheme or url.netloc:
+                continue
+            target = unquote(url.path)
+            if not target.endswith(".md") or "\0" in target:
+                continue
+            base = REPO if target.startswith("/") else page.parent
+            found.add((base / target.lstrip("/")).resolve())
     return frozenset(found)
 
 
-def _reference_definitions(text: str) -> tuple[dict[str, str], str]:
-    """Read simple definitions at block starts, keeping the first definition for each label.
-
-    Blank lines and ATX headings delimit blocks. This scanner handles one-line labels and a
-    destination on either the same or the following line. It does not parse container-relative
-    definitions, multiline titles, or general CommonMark inline nesting.
-    """
-    definitions = {}
-    body = []
-    at_start = True
-    offset = 0
-    while offset < len(text):
-        definition = _DEFINITION.match(text, offset) if at_start else None
-        if definition:
-            label, destination = definition.groups()
-            definitions.setdefault(_label(label), destination.strip("<>").split("#", 1)[0])
-            offset = definition.end()
-            continue
-        newline = text.find("\n", offset)
-        end = len(text) if newline == -1 else newline + 1
-        line = text[offset:end]
-        body.append(line)
-        at_start = not line.strip() or bool(_ATX_HEADING.match(line))
-        offset = end
-    return definitions, "".join(body)
-
-
-def _label(label: str) -> str:
-    """A link label as CommonMark matches it: case-folded, inner whitespace collapsed."""
-    return " ".join(label.split()).casefold()
-
-
 def section(text: str, heading: str) -> str:
-    """The body under ``heading`` (a full heading line such as ``## Name``), up to the next
-    heading of the same or a higher level (fewer or equal ``#``). The heading line may carry
-    trailing spaces and a CRLF. Code blocks are removed first, so a ``# comment`` inside one is
-    not taken for a heading."""
-    level = len(heading) - len(heading.lstrip("#"))
-    text = without_code_blocks(text)
-    match = re.search(
-        rf"^{re.escape(heading)}[ \t]*\n(.*?)(?=^#{{1,{level}}}[ \t]|\Z)", text, re.S | re.M
-    )
-    assert match, f"no section {heading!r}"
-    return match.group(1)
+    """Extract source below a top-level heading, up to the next heading of equal or higher level.
+
+    The caller identifies a heading with its level and Markdown text (for example, ``## Name``).
+    Code blocks and standalone comments are omitted so examples cannot satisfy prose assertions.
+    """
+    marker, _, title = heading.partition(" ")
+    level = len(marker)
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    tokens = _MARKDOWN.parse(text)
+    start = None
+    stop = len(lines)
+    ignored_lines: set[int] = set()
+    for index, token in enumerate(tokens):
+        if token.map is None:
+            continue
+        first_line, after_line = token.map
+        if token.type == "heading_open" and token.level == 0:
+            depth = int(token.tag[1:])
+            if start is None and depth == level and tokens[index + 1].content == title:
+                start = after_line
+            elif start is not None and depth <= level:
+                stop = first_line
+                break
+        elif start is not None and (
+            token.type in {"code_block", "fence"}
+            or (token.type == "html_block" and token.content.lstrip().startswith("<!--"))
+        ):
+            ignored_lines.update(range(first_line, after_line))
+    assert start is not None, f"no section {heading!r}"
+    return "\n".join(lines[index] for index in range(start, stop) if index not in ignored_lines)
 
 
 def squash(text: str) -> str:
@@ -256,15 +103,13 @@ def test_linked_pages_reads_fragments_and_skips_code_and_urls(tmp_path):
     assert linked_pages(tmp_path / "page.md") == expected
 
 
-def test_prose_keeps_links_after_a_comment_opener_in_code_and_a_stray_backtick():
+def test_links_survive_a_comment_opener_in_code_and_a_stray_backtick(tmp_path):
     text = (
         "Use `<!--` to hide notes. See [a](a.md).\n\n"
         "Press ` to open the console.\n\nSee [b](b.md).\n\n"
         "````\n```\n[c](c.md)\n```\n````\n\n~~~\n[d](d.md)\n~~~\n\nSee [e](e.md) and `x`.\n"
     )
-    kept = prose(text)
-    assert "[a](a.md)" in kept and "[b](b.md)" in kept and "[e](e.md)" in kept
-    assert "c.md" not in kept and "d.md" not in kept
+    assert _links(tmp_path, text) == {"a.md", "b.md", "e.md"}
 
 
 def test_linked_pages_reads_root_relative_and_angle_targets_and_commonmark_fences(tmp_path):
@@ -340,6 +185,19 @@ def test_a_section_heading_may_carry_trailing_spaces_and_a_crlf():
     assert "second" in section(text, "## B")
 
 
+@pytest.mark.parametrize("boundary", ["  ## B", "##", "B\n---"])
+def test_a_section_ends_at_any_top_level_heading_of_the_same_depth(boundary):
+    text = f"## A\n\ninside\n\n{boundary}\n\noutside\n"
+    body = section(text, "## A")
+    assert "inside" in body and "outside" not in body
+
+
+def test_subheadings_inside_containers_and_code_do_not_end_a_section():
+    text = "  ## A ##\n\n> ## Quote\n\n```\n## Example\n```\n\ninside\n\n## B\n\noutside\n"
+    body = section(text, "## A")
+    assert "inside" in body and "outside" not in body and "Example" not in body
+
+
 def test_a_reference_definition_counts_only_when_the_page_uses_its_label(tmp_path):
     sample = (
         "See [shown][Used Label], [again][] and [short], plus [inline](d.md).\n\n"
@@ -370,6 +228,7 @@ def test_an_escaped_bracket_starts_no_link(tmp_path):
         "```\nexample\n```\n    [sample](sample.md)\n\n[real](real.md)",
         "Text\n    ```\nmore\n\n[real](real.md)",
         "<!--\n```\n-->\n[real](real.md)",
+        "Paragraph\n* * *\n    [sample](sample.md)\n\n[real](real.md)",
     ],
 )
 def test_only_fences_valid_in_their_block_hide_links(tmp_path, sample):
@@ -384,6 +243,7 @@ def test_only_fences_valid_in_their_block_hide_links(tmp_path, sample):
         "![ref] ![alt][ref] ![ref][] ![alt](sample.md) [real](real.md)\n\n[ref]: sample.md",
         "Paragraph\n[ref]: sample.md\n\n[ref] [real](real.md)",
         r"\[escaped](sample.md) \\[real](real.md) \\\[escaped](sample.md)",
+        r"[visible][edge\]]" "\n\n" r"[edge\[]: sample.md" "\n" r"[edge\]]: real.md",
     ],
 )
 def test_only_rendered_links_count_as_reachable(tmp_path, sample):
