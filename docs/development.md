@@ -83,10 +83,12 @@ Both are described below and in [notebook-ci.md](notebook-ci.md).
 
 A fourth workflow, `Windows soak` (`.github/workflows/windows-soak.yml`), is manual only: it runs
 on `workflow_dispatch`, never on a push or pull request, and none of its jobs is a required check.
-It runs the full `pytest` suite on `windows-latest` `runs` times (default 10, at most 20), each in
-its own job on a fresh runner, and writes each run's outcome and pytest summary to the job summary.
-Dispatch it with `gh workflow run windows-soak.yml --ref main`; ten clean runs are the record #328
-asks for.
+It runs the full `pytest` suite on `windows-latest` `runs` times (default 10, at most 20), with
+one job at a time and a fresh runner for each job. Each job summary records the commit, outcome,
+and pytest summary. Dispatch it with `gh workflow run windows-soak.yml --ref main` and record the
+run URL and the individual results on #328. The hosted soak measures repeated clean Windows
+starts. To reproduce the original Windows development-machine contention, run the full suite
+on that machine while the other suites are active and record that separately.
 
 The two test jobs differ on purpose: `Tests (py3.14)` installs `.[dev,ml,live]` so the SDK-backed
 tests in `tests/test_live_sdk.py` run, while `Tests (py3.10)` installs `.[dev,ml]` and proves

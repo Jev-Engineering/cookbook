@@ -2,9 +2,8 @@ name: Windows soak
 
 # Manual only: starts when someone runs it from the Actions tab (or `gh workflow run`), never on a
 # push or pull request, and none of its jobs is a required check (#328). It runs the full pytest
-# suite on windows-latest `runs` times, each in its own job on a fresh runner, so the issue's
-# criterion of ten clean full Windows runs can be recorded from one dispatch. Keyless: no secrets
-# are used and nothing calls the live API.
+# suite on windows-latest `runs` times, in sequential jobs on fresh runners. The results measure
+# repeated hosted Windows runs. Keyless: no secrets are used and nothing calls the live API.
 
 on:
   workflow_dispatch:
@@ -29,8 +28,8 @@ jobs:
         env:
           RUNS: ${{ inputs.runs }}
         run: |
-          if ! [[ "$RUNS" =~ ^[0-9]+$ ]] || [ "$RUNS" -lt 1 ] || [ "$RUNS" -gt 20 ]; then
-            echo "runs must be an integer from 1 to 20, got: $RUNS" >&2
+          if ! [[ "$RUNS" =~ ^([1-9]|1[0-9]|20)$ ]]; then
+            echo "runs must be a decimal integer from 1 to 20" >&2
             exit 1
           fi
           echo "matrix={\"run\":[$(seq -s, 1 "$RUNS")]}" >> "$GITHUB_OUTPUT"
@@ -42,6 +41,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

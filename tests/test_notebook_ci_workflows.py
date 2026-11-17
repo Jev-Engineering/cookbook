@@ -738,11 +738,13 @@ def test_windows_soak_is_manual_only_and_never_a_required_check():
     """#328: the soak workflow starts only from a manual dispatch (never a push or pull request),
     runs the full suite on Windows, and ci.yml does not mention it."""
     body = code((WORKFLOWS / "windows-soak.yml").read_text(encoding="utf-8"))
-    assert re.search(r"^on:\n  workflow_dispatch:", body, re.MULTILINE)
-    triggers = body.split("\npermissions:")[0]
-    for trigger in ("push:", "pull_request", "schedule:", "workflow_run"):
-        assert trigger not in triggers, trigger
+    triggers = body.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
+    assert re.findall(r"^  ([\w-]+):", triggers, re.MULTILINE) == ["workflow_dispatch"]
+    # Check the small decimal range before invoking seq. Large inputs are never parsed
+    # as machine integers, so overflow cannot bypass the input validation.
+    assert '[[ "$RUNS" =~ ^([1-9]|1[0-9]|20)$ ]]' in body
     assert "runs-on: windows-latest" in body
+    assert "max-parallel: 1" in body
     assert "pytest 2>&1 | tee pytest.log" in body
     assert "secrets." not in body
     assert "windows" not in code(CI).lower()
