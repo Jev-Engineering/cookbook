@@ -26,8 +26,9 @@ from typing import Any
 
 from PIL import Image
 
-from jev_cookbook import Choice
+from jev_cookbook import Choice, ChoiceAnswer
 from jev_cookbook import synthetic_images as si
+from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.simulation import ReviewQueue, Routed, fill_review_queue
 from jev_cookbook.vision import image_asset, image_reference, resolve_asset_path
 
@@ -147,20 +148,16 @@ def build_questions() -> dict[str, Any]:
     for name, (reference, _asset) in reference_assets().items():
         criteria[name] = (
             f"The catalogue product {name}. Its reference image is {reference}. The query shows "
-            "this product when its tin has the same body colour, lid colour and label emblem as "
-            "the tin in this reference image."
+            "this product when this is the only reference whose tin agrees with every visible "
+            "feature: body colour, lid colour and label emblem."
         )
     criteria[NO_MATCH] = (
-        "The tin in the query is not any product above: its body colour, lid colour and label "
-        "emblem together are not those of any reference image, or the query shows no tin at "
-        "all. Choose this even when the tin looks close to one product but differs from it in a "
-        "feature you can see."
+        "The tin in the query is not any product above: every reference differs in at least "
+        "one visible feature, or the query shows no tin at all."
     )
     criteria[UNCERTAIN] = (
-        "What the query shows fits two or more of the products above equally well and the image "
-        "does not settle which, because a feature that tells them apart is hidden or not "
-        "visible. Choose a product, not this, when what is visible already rules out every "
-        "other product."
+        "What the query shows fits two or more of the products above: each agrees with every "
+        "visible feature, so the hidden features leave multiple possible matches."
     )
     return {
         "sku": Choice(
@@ -220,21 +217,48 @@ class Outcome:
     answer: Any = field(default=None, repr=False, compare=False)
 
 
-def decide_sku(capture: str, answer: Any, threshold: float) -> Outcome:
+def choose_threshold(
+    answers: Iterable[ChoiceAnswer], gold: Iterable[str], *, target_accuracy: float
+) -> tuple[float | None, int]:
+    """Freeze a validation cutoff and count its candidates. None means withhold all deliveries."""
+    eligible = [
+        (a.choice == g, a.confidence)
+        for a, g in zip(answers, gold, strict=True)
+        if a.choice != UNCERTAIN
+    ]
+    if not eligible:
+        return None, 0
+    try:
+        threshold = select_confidence_threshold(
+            [right for right, _ in eligible],
+            [confidence for _, confidence in eligible],
+            target_accuracy=target_accuracy,
+        )
+    except ValueError as error:
+        if str(error) != f"no threshold reaches accuracy {target_accuracy}":
+            raise
+        return None, len(eligible)
+    return threshold, len(eligible)
+
+
+def decide_sku(capture: str, answer: Any, threshold: float | None) -> Outcome:
     """Deliver a product or ``no_match`` only when Jev is confident; otherwise queue a review.
 
     ``uncertain`` is a deferral ("ask a person"), so it is always a review, whatever its
     confidence. Every other option, ``no_match`` included, is delivered when the answer's
     confidence is at least ``threshold`` and is a review below it. ``no_match`` is not exempted
-    from that gate. The rule is code, so it holds whatever the model answers: an option that is
+    from that gate. With no validated threshold, every eligible answer goes to review.
+    The rule is code, so it holds whatever the model answers: an option that is
     not in the catalogue's list raises instead of being delivered.
     """
-    if not 0.0 <= threshold <= 1.0:
+    if threshold is not None and not 0.0 <= threshold <= 1.0:
         raise ValueError(f"threshold must be between 0 and 1, got {threshold!r}")
     if answer.choice not in OPTIONS:
         raise ValueError(f"{answer.choice!r} is not one of {OPTIONS}")
     if answer.choice == UNCERTAIN:
         return Outcome(capture, REVIEW, answer.choice, None, "the answer is uncertain", answer)
+    if threshold is None:
+        return Outcome(capture, REVIEW, answer.choice, None, "no validated threshold", answer)
     # Written so that a NaN confidence (every comparison with it is False) is a review, not a delivery.
     if not answer.confidence >= threshold:
         return Outcome(

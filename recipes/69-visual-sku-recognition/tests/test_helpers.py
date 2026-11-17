@@ -2,6 +2,7 @@
 
 import hashlib
 import importlib.util
+import inspect
 import json
 import shutil
 from collections import Counter
@@ -53,17 +54,14 @@ def stored_answers():
 
 
 def frozen_threshold(answers):
-    """The notebook's selection, mirrored: the lowest confidence at which every validation answer
-    that is not ``uncertain`` and clears it is right."""
     labels = load_labels(RECIPE)
-    pool = [
-        (answers[e.id].choice == labels[e.id], answers[e.id].confidence)
-        for e in load_inputs(RECIPE)
-        if e.split == "validation" and answers[e.id].choice != "uncertain"
-    ]
-    threshold = select_confidence_threshold(
-        [ok for ok, _ in pool], [c for _, c in pool], target_accuracy=1.0
+    validation = [e for e in load_inputs(RECIPE) if e.split == "validation"]
+    threshold, _ = helpers.choose_threshold(
+        [answers[e.id] for e in validation],
+        [labels[e.id] for e in validation],
+        target_accuracy=1.0,
     )
+    assert threshold is not None
     return threshold
 
 
@@ -109,12 +107,18 @@ def test_the_question_is_one_choice_with_a_reference_image_in_every_product_crit
     for name, (reference, _asset) in references.items():
         assert question.criteria[name].count(reference) == 1
         assert reference.startswith("image:sha256:")
+        assert (
+            "only reference whose tin agrees with every visible feature" in question.criteria[name]
+        )
     # The two outcome options are words only, so they carry no copy of any image.
     for outcome in ("no_match", "uncertain"):
         assert "image:sha256:" not in question.criteria[outcome]
     assert "image:sha256:" not in question.instructions
     assert question.instructions.startswith("Which option is the tin shown in the `query` image?")
     assert question.criteria["no_match"].startswith("The tin in the query is not any product above")
+    assert (
+        "every reference differs in at least one visible feature" in question.criteria["no_match"]
+    )
     assert question.criteria["uncertain"].startswith("What the query shows fits two or more")
 
 
@@ -291,6 +295,40 @@ def test_queue_reviews_queues_only_reviews_with_their_reasons():
         (0, {"capture": "Q-2", "model_choice": "BIVEN"}, "confidence below the threshold"),
         (1, {"capture": "Q-3", "model_choice": "uncertain"}, "the answer is uncertain"),
     ]
+
+
+@pytest.mark.parametrize(
+    ("answers", "labels", "candidates"),
+    [
+        ([answer("uncertain", top=1.0)], ["uncertain"], 0),
+        ([answer("DEGUM", top=1.0), answer("BIVEN", top=0.9)], ["BIVEN", "BIVEN"], 2),
+    ],
+)
+def test_infeasible_calibration_withholds_even_perfectly_confident_answers(
+    answers, labels, candidates
+):
+    threshold, count = helpers.choose_threshold(answers, labels, target_accuracy=1.0)
+    assert threshold is None and count == candidates
+
+    outcomes = [
+        helpers.decide_sku("product", answer("DEGUM", top=1.0), threshold),
+        helpers.decide_sku("negative", answer("no_match", top=1.0), threshold),
+        helpers.decide_sku("defer", answer("uncertain", top=1.0), threshold),
+    ]
+    assert [o.label for o in outcomes] == [None, None, None]
+    queue = ReviewQueue()
+    routed = helpers.queue_reviews(queue, outcomes)
+    assert routed.review_keys == ("product", "negative", "defer")
+    assert [i.reason for i in queue.pending()] == [
+        "no validated threshold",
+        "no validated threshold",
+        "the answer is uncertain",
+    ]
+
+
+def test_calibration_does_not_swallow_unrelated_input_errors():
+    with pytest.raises(ValueError, match="zip"):
+        helpers.choose_threshold([answer("uncertain")], [], target_accuracy=1.0)
 
 
 def test_the_review_queue_the_notebook_fills_from_test_holds_these_captures_and_reasons():
@@ -476,12 +514,12 @@ def test_stored_answers_are_not_all_right():
 
 
 def test_the_notebook_selects_the_threshold_by_target_accuracy_not_min_coverage():
-    # The value a test re-derives pins an objective only if no other objective reaches the same
-    # value on this pool, so the committed cell source is what pins it: the one real
-    # select_confidence_threshold call in the python-rule cell uses target_accuracy=1.0.
     notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
     cell = next(c for c in notebook["cells"] if c.get("id") == "python-rule")
     source = "".join(cell["source"])
-    assert source.count("select_confidence_threshold(") == 1
+    assert source.count("helpers.choose_threshold(") == 1
     assert source.count("target_accuracy=1.0") == 1
-    assert "min_coverage" not in source
+    calibration = inspect.getsource(helpers.choose_threshold)
+    assert calibration.count("select_confidence_threshold(") == 1
+    assert "target_accuracy=target_accuracy" in calibration
+    assert "min_coverage" not in source + calibration
