@@ -46,7 +46,7 @@ def validation_policy():
 @pytest.mark.parametrize(
     ("kwargs", "status"),
     [
-        ({"present": 0.01}, "absent"),
+        ({"present": 0.01, "unique": 0.01, "enabled": 0.01}, "absent"),
         ({"present": 0.50}, "review"),
         ({"unique": 0.02}, "review"),
         ({"unique": 0.85}, "review"),
@@ -64,6 +64,14 @@ def test_refusals_cannot_create_actions_even_with_an_available_rectangle(kwargs,
     assert len(reviews) == (status == "review")
 
 
+@pytest.mark.parametrize(("unique", "enabled"), [(0.99, 0.99), (0.51, 0.01), (0.01, 0.51)])
+def test_a_presence_no_conflicting_with_other_evidence_requires_review(unique, enabled):
+    result = helpers.route(
+        observation(present=0.01, unique=unique, enabled=enabled), POLICY, (512, 384)
+    )
+    assert result == helpers.Outcome("review", "absence conflicts with uniqueness or enabled state")
+
+
 def test_missing_confidence_is_not_zero_or_implicit_permission():
     assert (
         helpers.route(observation(confidence=None), helpers.Policy(0.9, 0), (512, 384)).status
@@ -78,7 +86,10 @@ def test_missing_confidence_is_not_zero_or_implicit_permission():
 @pytest.mark.parametrize(("probability", "threshold"), [(0.1, 0.9), (0.2, 0.8)])
 def test_absence_boundary_is_inclusive(probability, threshold):
     assert (
-        helpers.first_gate(observation(present=probability).judgments, threshold).status == "absent"
+        helpers.first_gate(
+            observation(present=probability, unique=0.02, enabled=0.02).judgments, threshold
+        ).status
+        == "absent"
     )
 
 
@@ -113,6 +124,29 @@ def test_valid_edge_box_center_is_in_image_and_log_is_simulation():
     assert record["executed"] is False
     assert record["kind"] == "simulate_click"
     assert set(record["answer"]) == {"present", "unique", "enabled", "target_box"}
+
+
+def test_focus_and_review_records_keep_the_input_and_answer_evidence():
+    [example] = [e for e in load_inputs(RECIPE) if e.id == "t02"]
+    seen = observation()
+    located, actions, reviews = helpers.simulate(example, seen, POLICY, RECIPE)
+    [action] = actions.to_dicts()
+    assert located.status == "located" and len(reviews) == 0
+    assert action["kind"] == "simulate_focus" and action["executed"] is False
+    assert action["payload"] == {
+        "example": "t02",
+        "target": "Search projects",
+        "point": list(located.point),
+    }
+    assert action["answer"]["target_box"] == seen.location.to_dict()
+
+    seen = observation(present=0.01, unique=0.99, enabled=0.01)
+    result, actions, reviews = helpers.simulate(example, seen, POLICY, RECIPE)
+    [review] = reviews.to_dicts()
+    assert result.status == "review" and len(actions) == 0
+    assert review["item"] == {"example": "t02"} and review["status"] == "pending"
+    assert review["reason"] == "absence conflicts with uniqueness or enabled state"
+    assert review["answer"]["present"] == seen.judgments["present"].to_dict()
 
 
 def test_iou_intersection_and_miss_contribute_to_full_denominator():
@@ -155,20 +189,49 @@ def test_replay_keys_follow_gates_and_absent_never_requests_box():
     policy = validation_policy()
     backend = ReplayBackend.from_json(responses_path(RECIPE))
     for example in load_inputs(RECIPE):
+        if example.id == "d02":
+            assert not example.replay_keys
+            continue
         tracking = TrackingBackend(backend)
         threshold = (
             helpers.COLLECTION_THRESHOLD if example.split == "validation" else policy.presence
         )
         seen = helpers.observe(tracking, example.fields, RECIPE, threshold)
-        if example.fields.get("counterfactual"):
-            state, assets = helpers.request_data(example.fields, RECIPE)
-            tracking.decide(state, helpers.box_questions(), assets=assets)
         assert tuple(tracking.keys) == example.replay_keys
         assert tracking.question_sets[0] == {"present", "unique", "enabled"}
         if helpers.first_gate(seen.judgments, threshold) is not None:
             assert seen.location is None
-            if not example.fields.get("counterfactual"):
-                assert len(tracking.keys) == 1
+            assert len(tracking.keys) == 1
+        else:
+            assert tracking.question_sets[1:] == [{"target_box"}]
+
+
+def test_authored_absence_answers_and_the_held_out_contradiction():
+    examples = {e.id: e for e in load_inputs(RECIPE)}
+    replay = ReplayBackend.from_json(responses_path(RECIPE))
+    threshold = validation_policy().presence
+    for ident in ("v06", "t05", "t06", "t12"):
+        tracking = TrackingBackend(replay)
+        seen = helpers.observe(tracking, examples[ident].fields, RECIPE, threshold)
+        assert seen.location is None and tracking.question_sets == [
+            {"present", "unique", "enabled"}
+        ]
+        assert seen.judgments["present"].noul < 0.5
+        assert all(answer.provenance.source == "synthetic" for answer in seen.judgments.values())
+        affirmations = [seen.judgments[name].noul > 0.5 for name in ("unique", "enabled")]
+        assert affirmations == [ident == "t12"] * 2
+
+
+def test_synthetic_absence_witness_has_no_request_or_action():
+    witness = helpers.absence_witness()
+    [example] = [e for e in load_inputs(RECIPE) if e.id == "d02"]
+    assert example.split == "demo" and not example.replay_keys
+    assert witness.judgments["present"].provenance.source == "synthetic"
+    assert witness.location.provenance.source == "synthetic"
+    assert witness.location.confidence >= POLICY.box
+    outcome, actions, reviews = helpers.simulate(example, witness, POLICY, RECIPE)
+    assert outcome.status == "absent" and outcome.box is None
+    assert len(actions) == len(reviews) == 0
 
 
 def test_validation_selection_is_frozen_and_test_contains_accepted_error():
@@ -199,13 +262,15 @@ def test_validation_selection_is_frozen_and_test_contains_accepted_error():
     assert report.absent_review == 1
     assert gold_box(labels["t03"]["target"])["right"] == 1.0
     assert outcomes["t03"].status == "located"
-    assert summary["unsafe_actions"] > 0
+    assert summary["unsafe_proposals"] > 0
+    assert outcomes["t12"].status == "review"
+    assert outcomes["t12"].reason == "absence conflicts with uniqueness or enabled state"
 
 
 def test_selector_refuses_test_data_and_pins_both_objectives():
     with pytest.raises(ValueError, match="validation"):
         helpers.select_policy(select_split(load_inputs(RECIPE), "test"), {}, {})
-    presence_source = inspect.getsource(helpers.select_presence_gate)
+    presence_source = inspect.getsource(helpers.select_noul_gate)
     box_source = inspect.getsource(helpers.select_policy)
     assert "min_coverage=0.7" in presence_source
     assert "min_coverage=0.5" in box_source
@@ -220,7 +285,7 @@ def test_stored_answers_are_not_all_right():
         e.id: helpers.observe(backend, e.fields, RECIPE, helpers.COLLECTION_THRESHOLD)
         for e in validation
     }
-    threshold = helpers.select_presence_gate(validation, observations, labels)
+    threshold = helpers.select_noul_gate(validation, observations, labels)
     wrong_and_confident = []
     for example in select_split(examples, "test"):
         state, assets = helpers.request_data(example.fields, RECIPE)

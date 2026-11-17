@@ -21,4 +21,4 @@
 {"id": "t11", "split": "test", "fields": {"image": "assets/laurel.png", "target": "Export CSV", "kind": "menu"}, "replay_keys": ["6cee713538b721851ed3ee601dc23239efd4391a6c68fe7d094a2f35e16bdc97", "3d6b119620507726773633c936adfa3907c407b6d42beb02ab26601680cf483e"]}
 {"id": "t12", "split": "test", "fields": {"image": "assets/solstice.png", "target": "Save changes", "kind": "button"}, "replay_keys": ["cb430477a0a304c86c04cf7ab9753a7aaffcaa0f948f079c6f388602093137be"]}
 {"id": "d01", "split": "demo", "fields": {"image": "assets/orchard.png", "target": "Save changes", "kind": "button"}, "replay_keys": ["01e26cb0a5caeb5c6e9489cab6246b74e2e233fbd2d7ce7e2fb3dfd85f765537", "b721e8dcb45b14a86cf13712eb4bdd22af7d399335c0639de90e02506fc08166"]}
-{"id": "d02", "split": "demo", "fields": {"image": "assets/breeze.png", "target": "Export CSV", "kind": "menu", "counterfactual": true}, "replay_keys": ["7167d3956b9c3d8bde76e75aa82fcca58d5b0b33ae1cac11ec456e917ec3a210", "f2da51c06ebc8af5d111cf10f644f9f488c4205218c4ab034669db5115e896f7"]}
+{"id": "d02", "split": "demo", "fields": {"image": "assets/breeze.png", "target": "Export CSV", "kind": "menu"}, "replay_keys": []}

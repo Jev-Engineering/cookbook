@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from jev_cookbook import Box, Noul
+from jev_cookbook import Box, BoxAnswer, Noul, NoulAnswer, Provenance
 from jev_cookbook.evaluation import (
     evaluate_outcomes,
     noul_confidence,
@@ -100,22 +100,39 @@ def box_questions():
     }
 
 
+def classify_noul(answer, gate):
+    """Classify one proposition or abstain when its derived confidence is too low."""
+    if noul_confidence([answer.noul])[0] < gate:
+        return None
+    return answer.noul > 0.5
+
+
+def presence_disposition(judgments, gate):
+    """Resolve absence or a presence review before requesting localization."""
+    present = classify_noul(judgments["present"], gate)
+    if present is None:
+        return Outcome(REVIEW, "confidence below the threshold")
+    if not present:
+        if any(judgments[name].noul > 0.5 for name in ("unique", "enabled")):
+            return Outcome(REVIEW, "absence conflicts with uniqueness or enabled state")
+        return Outcome("absent", "target judged absent")
+    return None
+
+
 def first_gate(judgments, threshold, *, ungated=None):
     """Use the same validation-selected probability bound for the independent propositions."""
-    p = judgments["present"].noul
     gate = noul_confidence([threshold])[0]
-    if ungated != "present" and noul_confidence([p])[0] < gate:
-        return Outcome(REVIEW, "confidence below the threshold")
-    if p <= 0.5:
-        return Outcome("absent", "target judged absent")
+    blocked = presence_disposition(judgments, 0.0 if ungated == "present" else gate)
+    if blocked is not None:
+        return blocked
     for name, reason in (
         ("unique", "target is ambiguous"),
         ("enabled", "target is disabled"),
     ):
-        probability = judgments[name].noul
-        if ungated != name and noul_confidence([probability])[0] < gate:
+        decision = classify_noul(judgments[name], 0.0 if ungated == name else gate)
+        if decision is None:
             return Outcome(REVIEW, "confidence below the threshold")
-        if probability <= 0.5:
+        if not decision:
             return Outcome(REVIEW, reason)
     return None
 
@@ -134,6 +151,19 @@ def observe(backend, fields, recipe_dir, presence_threshold):
         return Observation(judgments, None)
     location = image_decide(backend, state, box_questions(), assets)["target_box"]
     return Observation(judgments, location)
+
+
+def absence_witness():
+    """Construct a synthetic absence with a plausible rectangle and make no request."""
+    provenance = Provenance.synthetic()
+    return Observation(
+        {name: NoulAnswer(0.01, provenance) for name in ("present", "unique", "enabled")},
+        BoxAnswer(
+            {"left": 0.59, "top": 0.27, "right": 0.92, "bottom": 0.38},
+            confidence=0.99,
+            provenance=provenance,
+        ),
+    )
 
 
 def route(observation, policy, dimensions):
@@ -222,9 +252,9 @@ def summarize(examples, outcomes, labels):
         "N": len(pairs),
         "answered": sum(accepted),
         "reviewed": len(pairs) - sum(accepted),
-        "simulated_actions": sum(out.box is not None for out, _ in pairs),
+        "location_proposals": sum(out.box is not None for out, _ in pairs),
         "task_success": sum(correct) / len(pairs),
-        "unsafe_actions": sum(
+        "unsafe_proposals": sum(
             out.box is not None and not success(out, gold) for out, gold in pairs
         ),
         "abstention": 1 - selective.coverage,
@@ -234,21 +264,31 @@ def summarize(examples, outcomes, labels):
     }
 
 
-def select_presence_gate(examples, observations, labels):
-    """Choose the highest answered presence accuracy at the required validation coverage."""
+def noul_gold(label):
+    """Read the three concern labels independently of the inference state."""
+    return {
+        "present": gold_box(label["target"]) is not None,
+        "unique": label["unique"],
+        "enabled": label["enabled"],
+    }
+
+
+def select_noul_gate(examples, observations, labels):
+    """Fit one confidence floor over all three independent validation judgments."""
     if not examples or any(e.split != "validation" for e in examples):
         raise ValueError("policy selection requires only validation examples")
-    probabilities = [observations[e.id].judgments["present"].noul for e in examples]
-    correct = [
-        (p > 0.5) == (gold_box(labels[e.id]["target"]) is not None)
-        for e, p in zip(examples, probabilities, strict=True)
-    ]
+    probabilities, correct = [], []
+    for example in examples:
+        for name, expected in noul_gold(labels[example.id]).items():
+            probability = observations[example.id].judgments[name].noul
+            probabilities.append(probability)
+            correct.append((probability > 0.5) == expected)
     return select_confidence_threshold(correct, noul_confidence(probabilities), min_coverage=0.7)
 
 
 def select_policy(examples, observations, labels):
     """Freeze presence before selecting the Box gate from eligible validation proposals."""
-    presence = (1 + select_presence_gate(examples, observations, labels)) / 2
+    presence = (1 + select_noul_gate(examples, observations, labels)) / 2
     confidences, correct = [], []
     for example in examples:
         seen = observations[example.id]
@@ -280,9 +320,12 @@ def measure_noul_gates(policy):
         changed = [0, 0]
         for step in range(101):
             probability = step / 100
+            held = 0.0 if name == "present" and probability <= 0.5 else 1.0
+            held_probabilities = dict.fromkeys(build_questions(), held)
+            held_probabilities[name] = probability
             judgments = {
-                question: SimpleNamespace(noul=probability if question == name else 1.0)
-                for question in build_questions()
+                question: SimpleNamespace(noul=value)
+                for question, value in held_probabilities.items()
             }
             with_gate = first_gate(judgments, policy.presence)
             without = first_gate(judgments, policy.presence, ungated=name)

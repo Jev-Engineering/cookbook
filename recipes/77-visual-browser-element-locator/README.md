@@ -38,7 +38,7 @@ ranges beside those counts. See [offline and live](../../docs/offline-and-live.m
 recording and provenance requirements.
 
 <!-- request-budget:begin -->
-In live mode this notebook makes exactly **39** requests, each decided once when every live answer matches the committed one, and up to **48** when a live answer sends it down a longer path. Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=48` or higher before running it live (the default cap is 25): the cap is inclusive and every attempt counts against it, retries included, so a lower cap stops the run partway through with `BudgetExceeded` and a run that retries needs more.
+In live mode this notebook makes exactly **37** requests, each decided once when every live answer matches the committed one, and up to **46** when a live answer sends it down a longer path. Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=46` or higher before running it live (the default cap is 25): the cap is inclusive and every attempt counts against it, retries included, so a lower cap stops the run partway through with `BudgetExceeded` and a run that retries needs more.
 <!-- request-budget:end -->
 
 ## What was and was not measured

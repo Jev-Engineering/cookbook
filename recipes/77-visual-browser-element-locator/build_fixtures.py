@@ -75,9 +75,9 @@ ROWS = [
     ("t09", "test", "menu", "standard", "disabled", 0.98, 0.99, "exact"),
     ("t10", "test", "input", "reflow", "normal", 0.98, None, "exact"),
     ("t11", "test", "menu", "standard", "normal", 0.98, 0.78, "small"),
-    ("t12", "test", "button", "reflow", "absent", 0.56, 0.99, "wrong"),
+    ("t12", "test", "button", "reflow", "absent", 0.04, 0.99, "wrong"),
     ("d01", "demo", "button", "reflow", "normal", 0.98, 0.97, "small"),
-    ("d02", "demo", "menu", "standard", "absent", 0.01, 0.99, "wrong"),
+    ("d02", "demo", "menu", "standard", "absent", None, None, None),
 ]
 
 
@@ -180,13 +180,19 @@ def fixture_parts(row, root, *, overwrite=False):
     path = image_path(workspace)
     si.write_asset(image, root, path, overwrite=overwrite)
     fields = {"image": path, "target": TARGETS[kind], "kind": kind}
-    if ident == "d02":
-        fields["counterfactual"] = True
+    if probability is None:
+        return fields, gold, None
     provenance = Provenance.synthetic()
+    # The held-out contradiction claims both uniqueness and enabled state despite a no.
+    claims_absence = probability <= 0.5 and ident != "t12"
     judgments = {
         "present": NoulAnswer(probability, provenance),
-        "unique": NoulAnswer(0.06 if situation == "duplicate" else 0.98, provenance),
-        "enabled": NoulAnswer(0.03 if situation == "disabled" else 0.98, provenance),
+        "unique": NoulAnswer(
+            0.06 if claims_absence or situation == "duplicate" else 0.98, provenance
+        ),
+        "enabled": NoulAnswer(
+            0.03 if claims_absence or situation == "disabled" else 0.98, provenance
+        ),
     }
     predicted = rectangle(kind, layout)
     if error == "wrong":
@@ -222,13 +228,14 @@ def requests(rows, parts, root):
     for row in rows:
         ident, split = row[:2]
         fields, gold, observation = parts[ident]
+        if observation is None:
+            yield ident, split, fields, gold, []
+            continue
         state, assets = helpers.request_data(fields, root)
         first = helpers.build_questions()
         items = [(replay_key(state, first, assets=assets), observation.judgments)]
         threshold = helpers.COLLECTION_THRESHOLD if split == "validation" else policy.presence
-        if helpers.first_gate(observation.judgments, threshold) is None or fields.get(
-            "counterfactual"
-        ):
+        if helpers.first_gate(observation.judgments, threshold) is None:
             second = helpers.box_questions()
             items.append(
                 (replay_key(state, second, assets=assets), {"target_box": observation.location})
