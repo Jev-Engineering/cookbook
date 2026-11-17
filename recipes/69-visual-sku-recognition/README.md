@@ -95,7 +95,8 @@ validation answer, its objective forces accuracy among delivered answers to 1.00
 
 ## Next steps
 
-In the notebook's validation step, change `target_accuracy=1.0` to `0.8` and run from that
-step down. Watch held-out coverage and risk rise. Compare the reference-image criteria here
+In the notebook's validation step, change `target_accuracy=1.0` to `0.8`. Restart the kernel
+and run the whole notebook offline so the request audit starts empty. Watch held-out coverage
+and risk rise. Compare the reference-image criteria here
 with the text criteria in [CMDB asset matching](../22-cmdb-asset-matching/) and follow the
 simulated review pattern in [Abstention and review queues](../38-abstention-and-review-queues/).

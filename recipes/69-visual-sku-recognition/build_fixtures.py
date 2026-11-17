@@ -1,7 +1,7 @@
 """Write assets/, assets-manifest.json and fixtures/ for recipe 69.
 
     python build_fixtures.py                     # from anywhere; it writes next to this file
-    python build_fixtures.py --force             # also overwrite a responses.json holding a recorded answer
+    python build_fixtures.py --force             # also replace recorded or invalid responses.json
     python build_fixtures.py --overwrite-assets  # accept a picture that changed (replay keys change too)
 
 The images are invented tea tins drawn here with jev_cookbook.synthetic_images primitives
@@ -23,11 +23,12 @@ responses.json holds even one recorded answer (provenance "recorded", captured f
 call), running this script again must not silently replace it with a synthetic probability.
 inputs.jsonl and labels.jsonl are always rewritten from ROWS, because neither ever holds a
 model's answer; responses.json is rewritten only when it does not yet exist, holds only
-synthetic answers, or --force is given.
+valid synthetic answers, or --force is given. A file that cannot be read or validated is protected.
 """
 
 import argparse
 import json
+import stat
 from pathlib import Path
 
 from jev_cookbook import (
@@ -39,6 +40,7 @@ from jev_cookbook import (
     replay_key,
 )
 from jev_cookbook import synthetic_images as si
+from jev_cookbook.fixtures import FixtureFileError, load_responses, responses_path
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -469,34 +471,32 @@ def build_responses(rows, keys=None):
     return responses
 
 
-def _is_recorded(path: Path) -> bool:
-    """True if ``path`` exists and holds at least one response whose model is not
-    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that fails to parse, or
-    whose top level is not a JSON object, cannot hold a valid synthetic response either, so it
-    is treated as not recorded rather than raising; inside an object, an entry that is itself
-    not an object is treated as if it were recorded, so it blocks an overwrite instead of being
-    silently skipped."""
-    if not path.exists():
-        return False
+def _response_protection(recipe_dir: Path) -> str | None:
+    """Explain why an existing response file is unsafe to replace, or allow a synthetic rewrite."""
+    path = responses_path(recipe_dir)
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return False
-    if not isinstance(data, dict):
-        return False
-    return any(
-        not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
-    )
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return "the existing file cannot be inspected"
+    if not stat.S_ISREG(mode):
+        return "the existing file is not a regular response file"
+    try:
+        data = load_responses(recipe_dir)
+    except FixtureFileError:
+        return "the existing file cannot be validated as synthetic and may contain recorded answers"
+    if any(entry["model"] != "synthetic" for entry in data.values()):
+        return "it holds a recorded response"
+    return None
 
 
 def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
     """Replay keys the just-rewritten ``inputs`` ask for that ``responses_file`` does not have,
     used only to warn when a ROWS edit has desynchronised the two."""
-    if not responses_file.exists():
-        return []
     try:
         data = json.loads(responses_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except (ValueError, OSError):
         return []
     if not isinstance(data, dict):
         return []
@@ -508,7 +508,7 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="overwrite responses.json even if it holds a recorded (non-synthetic) answer",
+        help="replace responses.json even if it is recorded or cannot be validated as synthetic",
     )
     parser.add_argument(
         "--overwrite-assets",
@@ -518,13 +518,14 @@ def main() -> None:
     args = parser.parse_args()
     if not ROWS:
         raise SystemExit("ROWS is empty: add examples to build_fixtures.py")
-    responses_file = HERE / "fixtures" / "responses.json"
-    if args.overwrite_assets and _is_recorded(responses_file) and not args.force:
+    responses_file = responses_path(HERE)
+    protection = _response_protection(HERE) if args.overwrite_assets and not args.force else None
+    if protection:
         # A redrawn picture changes the replay key of every request that carries it, which would
         # orphan the recorded answers kept in responses.json; refuse before any file is touched.
         raise SystemExit(
-            f"refusing --overwrite-assets: {responses_file} holds a recorded response, and a "
-            "changed picture changes its replay keys (pass --force too to rewrite both); "
+            f"refusing --overwrite-assets for {responses_file}: {protection}. A changed picture "
+            "changes its replay keys (pass --force too to rewrite both); "
             "nothing was written"
         )
     rendered = render_images(ROWS)
@@ -547,12 +548,15 @@ def main() -> None:
     for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
         text = "".join(json.dumps(row) + "\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\n")
-    if _is_recorded(responses_file) and not args.force:
+    protection = None if args.force else _response_protection(HERE)
+    if protection:
         message = (
-            f"refusing to overwrite {responses_file}: it holds a recorded response "
+            f"refusing to overwrite {responses_file}: {protection} "
             "(pass --force to overwrite it anyway)"
         )
-        if _unresolved_keys(inputs, responses_file):
+        if protection == "it holds a recorded response" and _unresolved_keys(
+            inputs, responses_file
+        ):
             message += (
                 "\ninputs.jsonl and labels.jsonl above were rewritten from ROWS; "
                 "responses.json was not, and at least one of the keys the rewritten inputs "

@@ -156,3 +156,46 @@ def test_a_mismatching_query_leaves_a_missing_reference_unwritten(tmp_path, monk
     assert not missing.exists()
     assert {p: p.read_bytes() for p in tmp_path.rglob("*.png")} == before
     assert bad.exists()
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [None, b"{", b"[]", b"{}", b"\xff", b'{"' + b"a" * 64 + b'":{"model":"synthetic"}}'],
+    ids=[
+        "unreadable",
+        "invalid-json",
+        "non-object",
+        "empty",
+        "invalid-utf8",
+        "invalid-synthetic-result",
+    ],
+)
+def test_default_regeneration_preserves_invalid_existing_responses(tmp_path, monkeypatch, contents):
+    module = _module("recipe69_build_fixtures_for_test_response_protection", tmp_path, monkeypatch)
+    (tmp_path / "build_fixtures.py").write_bytes(SCRIPT.read_bytes())
+    monkeypatch.setattr(module, "ROWS", module.ROWS[:1])
+    monkeypatch.setattr(module.helpers, "ROOT", tmp_path)
+
+    responses = tmp_path / "fixtures" / "responses.json"
+    responses.parent.mkdir()
+    unreadable = contents is None
+    if unreadable:
+        contents = (RECIPE / "fixtures" / "responses.json").read_bytes()
+    responses.write_bytes(contents)
+    read_bytes = Path.read_bytes
+
+    def simulate_unreadable(path):
+        if unreadable and path == responses:
+            raise PermissionError("simulated unreadable fixture")
+        return read_bytes(path)
+
+    with monkeypatch.context() as attempt:
+        attempt.setattr(Path, "read_bytes", simulate_unreadable)
+        with pytest.raises(SystemExit, match="cannot be validated as synthetic.*--force"):
+            module.main()
+        assert read_bytes(responses) == contents
+
+        attempt.setattr("sys.argv", ["build_fixtures.py", "--overwrite-assets"])
+        with pytest.raises(SystemExit, match=r"refusing --overwrite-assets.*cannot be validated"):
+            module.main()
+        assert read_bytes(responses) == contents
