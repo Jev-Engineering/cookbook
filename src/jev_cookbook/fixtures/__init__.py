@@ -701,7 +701,11 @@ def _transition_label_problem(label: Any) -> str | None:
                 f"'seconds' must be a number (leave the key out for a label with no time), "
                 f"found {seconds!r}"
             )
-        if not math.isfinite(seconds) or seconds < 0:
+        try:
+            finite = math.isfinite(seconds)
+        except OverflowError:  # JSON integers can exceed the float range.
+            finite = False
+        if not finite or seconds < 0:
             return f"'seconds' must be a finite number, 0 or more, found {seconds!r}"
     return None
 

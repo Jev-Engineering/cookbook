@@ -914,6 +914,11 @@ def test_the_validator_accepts_the_documented_transition_labels(tmp_path):
     ("label", "fragment"),
     [
         ({"transition": "opened", "seconds": -1.0}, "'seconds' must be a finite number, 0 or more"),
+        pytest.param(
+            {"transition": "opened", "seconds": 10**400},
+            "'seconds' must be a finite number, 0 or more",
+            id="integer-overflow",
+        ),
         ({"transition": "opened", "seconds": "2.5"}, "'seconds' must be a number"),
         ({"transition": "opened", "seconds": True}, "'seconds' must be a number"),
         ({"transition": "opened", "seconds": None}, "leave the key out for a label with no time"),
