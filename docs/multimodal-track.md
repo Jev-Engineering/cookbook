@@ -53,7 +53,8 @@ work; they are not the tickets for these recipes.
 ## Before a recipe is ready
 
 The [scaffolder](recipe-template.md) accepts ranks 1–100. Each multimodal entry records its
-recipe issue (#402–#441, assigned by issue title, not by rank) in the trusted base catalog. An entry
+recipe issue (#402–#441, assigned by issue title, not by rank; `tests/test_catalog_shape.py` pins the
+mapping) in the trusted base catalog. An entry
 with `issue: null` prints a notice when scaffolded and creates a local skeleton; keep such work local
 until a real repository issue is assigned to the slug in the trusted base catalog. A recipe pull
 request must use that assigned issue as its sole closing reference. The
