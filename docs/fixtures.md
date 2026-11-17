@@ -176,12 +176,12 @@ A recipe that scores a transition over an ordered frame sequence ([vision](visio
 
 **What the validator checks.** A label object with a top-level `transition` key and no `present` key declares the transition format. Once a label declares this format, `python -m jev_cookbook.fixtures validate` checks every label in the file and reports these problems.
 
-- a label that is not a transition label (a string, a list, or an object without `transition`, such as `{"seconds": 2.5}`), naming a label that is one;
+- a label that is not a transition label (a string, a list, or an object without `transition`, such as `{"seconds": 2.5}`), naming the first label that declares the format;
 - a key other than `transition` and `seconds`;
 - a `transition` that is not a non-empty string, or that is `uncertain`, the review label `evaluation.transition_metrics` refuses as gold by default;
 - a `seconds` value that is anything other than a JSON number, such as a string, a boolean, or `null`. The validator also rejects a decoded number that is negative or cannot convert to a finite float, such as `1e400` (which JSON reads as `inf`) or an integer outside the float range. Since `seconds` measures elapsed time from the start of the sequence, its minimum is 0.
 
-A top-level `present` key assigns a label to the Box check, even if the label also has a `transition` key. A file that mixes Box and transition labels fails the Box check. When a recipe supplies its own `uncertain_labels`, `transition_metrics` raises `ValueError` if any of them appears as a gold label.
+A top-level `present` key assigns a label to the Box check, even if the label also has a `transition` key. In a file with a top-level Box label, the Box check reports any transition labels. In a file that declares the transition format, the transition check reports a label such as `{"target": {"present": false}}` because it lacks a top-level `transition` key. When a recipe supplies its own `uncertain_labels`, `transition_metrics` raises `ValueError` if any of them appears as a gold label.
 
 ## Nesting limit
 
