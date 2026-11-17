@@ -2770,22 +2770,58 @@ def test_next_steps_links_resolve_to_a_published_recipe(recipe):
     assert not missing, "; ".join(missing)
 
 
+NEXT_STEPS_HEADING = re.compile(r" {0,3}##[ \t]+Next steps(?:[ \t]+#+)?[ \t]*")
+SECTION_HEADING = re.compile(r"^ {0,3}#{1,2}(?:[ \t]|$)", re.MULTILINE)
+
+
 def _inbound_next_steps_links() -> dict[str, set[str]]:
-    """``{slug: {slugs of published recipes whose own notebook links ../slug/}}``, over every
-    published recipe (never ``_template``, which is not a catalog slug and is not a valid link
-    target either)."""
+    """Map each published slug to the recipes that link to it from their Next steps section."""
     inbound: dict[str, set[str]] = {r["slug"]: set() for r in PUBLISHED}
     for recipe in PUBLISHED:
         for cell in notebook_cells(recipe_dir(recipe)):
             if cell["cell_type"] != "markdown":
                 continue
-            for slug in NEIGHBOUR_LINK.findall(cell_source(cell)):
+            heading, _, body = cell_source(cell).lstrip("\r\n").partition("\n")
+            if not NEXT_STEPS_HEADING.fullmatch(heading.rstrip("\r")):
+                continue
+            section = SECTION_HEADING.split(body, maxsplit=1)[0]
+            for slug in NEIGHBOUR_LINK.findall(section):
                 if slug in inbound and slug != recipe["slug"]:
                     inbound[slug].add(recipe["slug"])
     return inbound
 
 
 INBOUND_NEXT_STEPS_LINKS = _inbound_next_steps_links()
+
+
+def test_inbound_next_steps_audit_rejects_a_mid_notebook_only_link(tmp_path, monkeypatch):
+    source = {"slug": "01-source"}
+    target = {"slug": "02-target"}
+    monkeypatch.setitem(globals(), "PUBLISHED", [source, target])
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    for recipe in (source, target):
+        recipe_dir(recipe).mkdir()
+    (recipe_dir(target) / "notebook.ipynb").write_text('{"cells": []}', encoding="utf-8")
+
+    link = "[Try the target recipe](../02-target/)\n"
+    explanation = {"cell_type": "markdown", "id": "next-md", "source": ["## Explanation\n"]}
+    next_steps = {
+        "cell_type": "markdown",
+        "id": "closing-notes",
+        "source": ["## Next steps\n", "\n", link],
+    }
+    notebook = recipe_dir(source) / "notebook.ipynb"
+    cells = {"cells": [explanation, next_steps]}
+    notebook.write_text(json.dumps(cells), encoding="utf-8")
+    monkeypatch.setitem(globals(), "INBOUND_NEXT_STEPS_LINKS", _inbound_next_steps_links())
+    test_every_recipe_is_linked_from_some_other_recipes_next_steps(target)
+
+    explanation["source"].append(next_steps["source"].pop())
+    next_steps["source"].extend(["## Appendix\n", "\n", link])
+    notebook.write_text(json.dumps(cells), encoding="utf-8")
+    monkeypatch.setitem(globals(), "INBOUND_NEXT_STEPS_LINKS", _inbound_next_steps_links())
+    with pytest.raises(AssertionError, match="02-target: no other published recipe's Next steps"):
+        test_every_recipe_is_linked_from_some_other_recipes_next_steps(target)
 
 
 @pytest.mark.catalog_audit
@@ -2795,7 +2831,9 @@ def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
     at least one other recipe's Next steps" (R21) -- a per-recipe, per-check case exactly like
     ``next_steps_links_exist`` (see the module docstring's scope decisions), computed once over
     the whole published set (``_inbound_next_steps_links``, built from the same
-    ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here.
+    ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here. The reader-facing
+    ``## Next steps`` heading identifies the markdown cell. Only links under that heading count,
+    up to the end of the cell or the next heading at the same or higher level.
 
     Marked ``catalog_audit`` (#203) and deselected by default (see ``pyproject.toml``'s
     ``addopts``): a new recipe's own pull request can never satisfy this check. The recipe
