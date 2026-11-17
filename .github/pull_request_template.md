@@ -3,6 +3,10 @@ Closes #
 ## What this adds
 
 
+## Honesty (section 2), every pull request
+
+- [ ] No claim of recorded, measured or live results (quality, latency, cost, accuracy) in the code, docs, notebooks or this description unless it comes from a recorded live run; synthetic fixtures show a pipeline works, not how Jev performs
+
 ## Recipe checklist
 
 Skip this section for foundation work. The full contract is in [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md).
