@@ -26,16 +26,20 @@ _BLANK_LINE = re.compile(r"\n[ \t]*\n")
 _BACKTICKS = re.compile(r"`+")
 # An inline link needs its opening bracket (an escaped "[" is neutralised before this runs).
 _LINK = re.compile(
-    r"\[(?:[^\[\]]|\[[^\]]*\])*\]"
+    r"(?P<image>!)?\[(?:[^\[\]]|\[[^\]]*\])*\]"
     r"\((<[^>#]+>|[^)\s#]+)(?:#[^)\s]*)?(?:\s+(?:\"[^\"]*\"|'[^']*'))?\)"
 )
-_DEFINITION = re.compile(r"^[ ]{0,3}\[([^\]]+)\]:[ \t]*<?([^>\s#]+)[^\n]*\n?", re.M)
-_FULL_REFERENCE = re.compile(r"\[((?:[^\[\]]|\\.)+)\]\[([^\]]*)\]")
-_SHORTCUT = re.compile(r"\[([^\[\]]+)\](?![(\[])")
-_ESCAPED = re.compile(r"\\([\[\]`])")
+_DEFINITION = re.compile(
+    r" {0,3}\[([^\[\]\n]+)\]:[ \t]*(?:\n[ \t]*)?"
+    r"(<[^<>\n]*>|[^<>\s]+)(?:[ \t]+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*(?:\n|\Z)"
+)
+_FULL_REFERENCE = re.compile(r"(!)?\[([^\[\]]+)\]\[([^\[\]]*)\]")
+_SHORTCUT = re.compile(r"(?<!!)\[([^\[\]]+)\](?![(\[])")
+_ESCAPED = re.compile(r"\\([\\!\[\]`])")
 
 _FENCE = re.compile(r"[ \t]*(?P<mark>`{3,}|~{3,})(?P<info>.*)")
 _LIST_ITEM = re.compile(r"( *)(?:[-*+]|\d{1,9}[.)])(?P<gap> +|\t|$)")
+_ATX_HEADING = re.compile(r" {0,3}#{1,6}(?:[ \t]|$)")
 
 
 def _indent(line: str) -> int:
@@ -52,56 +56,77 @@ def _indent(line: str) -> int:
 
 
 def without_code_blocks(text: str) -> str:
-    """``text`` without the code blocks GitHub renders, whose contents link nothing.
+    """``text`` with code blocks and standalone HTML comments replaced by block breaks.
 
-    Fenced blocks: three or more backticks or tildes at any indentation (so a fence nested deep in
-    a list item counts); a backtick fence's info string holds no backtick; it closes at a line of
-    the same character, at least as long, with only spaces after it; an unclosed fence runs to the
-    end. Indented blocks: a line indented four columns past the enclosing list item's content (four
-    columns when outside a list, a tab counting to the next multiple of four) that follows a blank
-    line or another line of the block. An indented line right after a paragraph line is a lazy
-    continuation, not code. Limits: block quotes are not tracked, nor is a list item whose marker
-    is followed by an indented code block on the same line.
+    Fence indentation is relative to the enclosing list item's content column. An unfinished
+    fence ends at the end of its container. Indented code starts four columns past the content
+    column and cannot interrupt a paragraph. The scanner handles space-padded list markers and
+    top-level ATX headings. It has no block quote handling or same-line indented list code.
     """
     kept: list[str] = []
-    fence: tuple[str, int] | None = None  # (character, length) while inside a fenced block
+    fence: tuple[str, int, int] | None = None  # character, length, container column
     in_code = False  # inside an indented code block
-    after_blank = True
+    in_comment = False  # standalone HTML comment block
+    after_block = True
     contents: list[int] = []  # content columns of the enclosing list items, outermost first
     for line in text.splitlines():
+        indent = _indent(line)
         mark = _FENCE.fullmatch(line)
         if fence is not None:
-            if (
+            char, size, column = fence
+            if line.strip() and indent < column:
+                fence = None  # the list item ends before this line
+                after_block = True
+            elif (
                 mark
-                and mark.group("mark")[0] == fence[0]
-                and len(mark.group("mark")) >= fence[1]
+                and indent <= column + 3
+                and mark.group("mark")[0] == char
+                and len(mark.group("mark")) >= size
                 and not mark.group("info").strip()
             ):
                 fence = None
-            continue
+                after_block = True
+                continue
+            else:
+                continue
         if not line.strip():
             if not in_code:
                 kept.append(line)
-            after_blank = True
+            after_block = True
             continue
-        indent = _indent(line)
-        if (after_blank or in_code) and indent >= (contents[-1] if contents else 0) + 4:
+        item = _LIST_ITEM.match(line)
+        heading = _ATX_HEADING.match(line)
+        if after_block or item or mark or heading:
+            while contents and indent < contents[-1]:
+                contents.pop()
+        column = contents[-1] if contents else 0
+        if in_comment or (column <= indent <= column + 3 and line.lstrip().startswith("<!--")):
+            if not in_comment:
+                kept.append("")
+            in_comment = "-->" not in line
+            after_block = True
+            continue
+        if (after_block or in_code) and indent >= column + 4:
+            if not in_code:
+                kept.append("")
             in_code = True
             continue
         in_code = False
-        item = _LIST_ITEM.match(line)
-        if after_blank or item or line.startswith("#"):
-            while contents and indent < contents[-1]:
-                contents.pop()
-        if item:
+        if item and indent <= column + 3:
             gap = item.group("gap")
             spaces = len(gap) if gap.startswith(" ") and len(gap) <= 4 else 1
-            contents.append(len(item.group(0)) - len(gap) + spaces)
-        if mark and not (mark.group("mark")[0] == "`" and "`" in mark.group("info")):
-            fence = (mark.group("mark")[0], len(mark.group("mark")))
-        else:
-            kept.append(line)
-        after_blank = False
+            column = item.start("gap") + spaces
+            contents.append(column)
+            indent = item.end() if gap.startswith(" ") else column
+            mark = _FENCE.fullmatch(line[item.end() :])
+        if mark and column <= indent <= column + 3:
+            marker = mark.group("mark")
+            if marker[0] != "`" or "`" not in mark.group("info"):
+                fence = (marker[0], len(marker), column)
+                kept.append("")
+                continue
+        kept.append(line)
+        after_block = bool(heading)
     return "\n".join(kept)
 
 
@@ -146,14 +171,15 @@ def prose(text: str) -> str:
 def linked_pages(page: Path) -> frozenset[Path]:
     """The markdown files ``page`` links to (inline links, and reference links whose definition
     the page uses), resolved, ignoring code, HTML comments, escaped brackets and URLs."""
-    text = _ESCAPED.sub("\0", prose(page.read_text("utf-8")))
-    definitions = _DEFINITION.findall(text)
-    body = _DEFINITION.sub("", text)
-    used = set()
-    for shown, label in _FULL_REFERENCE.findall(body):
-        used.add(_label(label or shown))
-    used |= {_label(m) for m in _SHORTCUT.findall(_FULL_REFERENCE.sub("", body))}
-    targets = _LINK.findall(body) + [t for label, t in definitions if _label(label) in used]
+    text = _ESCAPED.sub(lambda m: "\0" if m[1] != "\\" else "\\", prose(page.read_text("utf-8")))
+    definitions, body = _reference_definitions(text)
+    targets = [target for image, target in _LINK.findall(body) if not image]
+    body = _LINK.sub("\0", body)
+    used = {
+        _label(label or shown) for image, shown, label in _FULL_REFERENCE.findall(body) if not image
+    }
+    used.update(_label(label) for label in _SHORTCUT.findall(_FULL_REFERENCE.sub("\0", body)))
+    targets.extend(definitions[label] for label in used if label in definitions)
     found: set[Path] = set()
     for target in targets:
         target = target.strip("<>")
@@ -162,6 +188,33 @@ def linked_pages(page: Path) -> frozenset[Path]:
         base = REPO if target.startswith("/") else page.parent
         found.add((base / target.lstrip("/")).resolve())
     return frozenset(found)
+
+
+def _reference_definitions(text: str) -> tuple[dict[str, str], str]:
+    """Read simple definitions at block starts, keeping the first definition for each label.
+
+    Blank lines and ATX headings delimit blocks. This scanner handles one-line labels and a
+    destination on either the same or the following line. It does not parse container-relative
+    definitions, multiline titles, or general CommonMark inline nesting.
+    """
+    definitions = {}
+    body = []
+    at_start = True
+    offset = 0
+    while offset < len(text):
+        definition = _DEFINITION.match(text, offset) if at_start else None
+        if definition:
+            label, destination = definition.groups()
+            definitions.setdefault(_label(label), destination.strip("<>").split("#", 1)[0])
+            offset = definition.end()
+            continue
+        newline = text.find("\n", offset)
+        end = len(text) if newline == -1 else newline + 1
+        line = text[offset:end]
+        body.append(line)
+        at_start = not line.strip() or bool(_ATX_HEADING.match(line))
+        offset = end
+    return definitions, "".join(body)
 
 
 def _label(label: str) -> str:
@@ -177,7 +230,7 @@ def section(text: str, heading: str) -> str:
     level = len(heading) - len(heading.lstrip("#"))
     text = without_code_blocks(text)
     match = re.search(
-        rf"^{re.escape(heading)}[ \t]*\r?\n(.*?)(?=^#{{1,{level}}}[ \t]|\Z)", text, re.S | re.M
+        rf"^{re.escape(heading)}[ \t]*\n(.*?)(?=^#{{1,{level}}}[ \t]|\Z)", text, re.S | re.M
     )
     assert match, f"no section {heading!r}"
     return match.group(1)
@@ -306,6 +359,35 @@ def test_an_escaped_backtick_opens_no_code_span(tmp_path):
 
 def test_an_escaped_bracket_starts_no_link(tmp_path):
     assert _links(tmp_path, "Literal \\[a](a.md) and [b](b.md).\n") == {"b.md"}
+
+
+@pytest.mark.parametrize(
+    "sample",
+    [
+        "```\n    ```\n[sample](sample.md)\n```\n\n[real](real.md)",
+        "- ```\n  [sample](sample.md)\n  ```\n\n[real](real.md)",
+        "- ```\n  [sample](sample.md)\n[real](real.md)",
+        "```\nexample\n```\n    [sample](sample.md)\n\n[real](real.md)",
+        "Text\n    ```\nmore\n\n[real](real.md)",
+        "<!--\n```\n-->\n[real](real.md)",
+    ],
+)
+def test_only_fences_valid_in_their_block_hide_links(tmp_path, sample):
+    assert _links(tmp_path, sample) == {"real.md"}
+
+
+@pytest.mark.parametrize(
+    "sample",
+    [
+        "[ref]\n\n[REF]: real.md\n[ref]: sample.md",
+        "[ref]\n\n[ref]:\n  real.md",
+        "![ref] ![alt][ref] ![ref][] ![alt](sample.md) [real](real.md)\n\n[ref]: sample.md",
+        "Paragraph\n[ref]: sample.md\n\n[ref] [real](real.md)",
+        r"\[escaped](sample.md) \\[real](real.md) \\\[escaped](sample.md)",
+    ],
+)
+def test_only_rendered_links_count_as_reachable(tmp_path, sample):
+    assert _links(tmp_path, sample) == {"real.md"}
 
 
 # -- reachability -------------------------------------------------------------------------------
