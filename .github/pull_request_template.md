@@ -5,7 +5,7 @@ Closes #
 
 ## Honesty (section 2), every pull request
 
-- [ ] No claim of recorded, measured or live results (quality, latency, cost, accuracy) in the code, docs, notebooks or this description unless it comes from a recorded live run; synthetic fixtures show a pipeline works, not how Jev performs
+- [ ] Any statement or implication about Jev's quality, latency, or cost in the changes or PR description, including attributed claims, is limited to what recorded live inference measured on the held-out `test` split and states the model version returned by the API, capture date, and N.
 
 ## Recipe checklist
 
@@ -17,7 +17,7 @@ Skip this section for foundation work. The full contract is in [CONTRIBUTING.md]
 - [ ] Notebook runs top to bottom offline, with no key and no network
 - [ ] Live path is opt-in and uses the same question definitions
 - [ ] Every response fixture records its provenance; the notebook states which mode it ran in
-- [ ] No claim about Jev's quality, latency, or cost without recorded live inference
+- [ ] Synthetic or scripted metrics are labelled as pipeline checks beside each number. If no live run was made, the recipe README says "not measured live".
 - [ ] Fixtures are synthetic, include the hard cases, and carry gold labels
 - [ ] Python owns every side effect; actions are simulated
 - [ ] Evaluation against gold labels, with the baseline the issue names
