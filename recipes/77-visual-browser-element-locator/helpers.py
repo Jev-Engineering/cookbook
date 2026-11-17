@@ -194,6 +194,8 @@ def route(observation, policy, dimensions):
         left, top, right, bottom = normalized_to_pixels(box, width, height)
     except (TypeError, ValueError, KeyError):
         return Outcome(REVIEW, "box outside image bounds or invalid")
+    if left >= right or top >= bottom:
+        return Outcome(REVIEW, "box has no pixel area")
     point = ((left + right - 1) // 2, (top + bottom - 1) // 2)
     if not (0 <= point[0] < width and 0 <= point[1] < height):
         return Outcome(REVIEW, "center outside image bounds")

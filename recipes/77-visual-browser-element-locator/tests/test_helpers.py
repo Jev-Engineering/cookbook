@@ -87,6 +87,16 @@ def test_missing_confidence_is_not_zero_or_implicit_permission():
     )
 
 
+def test_normalized_box_that_collapses_to_zero_pixel_area_requires_review():
+    # At a height of 384, both normalized edges round to pixel row 1.
+    thin_box = {**BOX, "top": 0.0026041666666666665, "bottom": 0.002604166666666667}
+    example = select_split(load_inputs(RECIPE), "demo")[0]
+    result, actions, reviews = helpers.simulate(example, observation(box=thin_box), POLICY, RECIPE)
+    assert result == helpers.Outcome("review", "box has no pixel area")
+    assert len(actions) == 0
+    assert len(reviews) == 1
+
+
 @pytest.mark.parametrize(("probability", "threshold"), [(0.1, 0.9), (0.2, 0.8)])
 def test_absence_boundary_is_inclusive(probability, threshold):
     assert (
