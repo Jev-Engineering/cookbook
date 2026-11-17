@@ -515,6 +515,31 @@ def test_transition_labels_and_other_labels_do_not_mix(recipe):
     assert len(messages(recipe)) == 2
 
 
+@pytest.mark.parametrize(
+    ("second_label", "transition_messages"),
+    [
+        pytest.param({"present": False}, [], id="only-box"),
+        pytest.param(
+            {"transition": "closed"},
+            [
+                "label is not a transition label ({'transition': ...}) but other labels "
+                "in this file are (for example id 't1')"
+            ],
+            id="genuine-transition",
+        ),
+    ],
+)
+def test_box_label_with_transition_key_does_not_declare_transition_format(
+    recipe, second_label, transition_messages
+):
+    both_keys = {"present": False, "transition": "opened"}
+    write(recipe, box_set(both_keys, second_label, {"present": False}, "z"))
+    found = validate_recipe(recipe)
+    assert any(p.ident == "t0" and p.message.startswith("malformed Box label") for p in found)
+    reported = [p.message for p in found if p.message.startswith("label is not a transition label")]
+    assert reported == transition_messages
+
+
 def test_the_box_label_search_is_iterative():
     """Labels read from a file nest at most MAX_DEPTH levels, but the walk does not rely on it."""
     from jev_cookbook.fixtures import _box_label_places

@@ -715,12 +715,17 @@ def _check_transition_labels(
 ) -> list[Problem]:
     """A file whose labels are transition labels must use the gold format everywhere.
 
-    A top-level label object with a ``transition`` key declares the format, as ``present``
-    declares a Box label: every label of the file must then be a well-formed transition label.
-    A label that is also a top-level Box label is left to the Box check.
+    A top-level label object with a ``transition`` key and no ``present`` key declares the
+    format. Once declared, the file must use well-formed transition labels. The Box check
+    handles labels with a top-level ``present`` key and reports any mix of the two formats.
     """
     declared = next(
-        (i for i, v in labels.items() if isinstance(v, Mapping) and "transition" in v), None
+        (
+            ident
+            for ident, label in labels.items()
+            if isinstance(label, Mapping) and "transition" in label and "present" not in label
+        ),
+        None,
     )
     if declared is None:
         return []
