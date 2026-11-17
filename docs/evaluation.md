@@ -539,17 +539,13 @@ curve = outcome_curve(test_confidence, test_correct, exempt=test_exempt)
 plot_risk_coverage(curve, label="test")  # same call as for a selective_curve result
 ```
 
-`exempt=None` (the default) means no exemptions at all: the mask reduces to `confidence >= t` for
-every `t`, and `outcome_curve` returns exactly what `selective_curve` would on the same
-`confidences`/`correct` — checked directly in `tests/test_evaluation.py`,
-`test_outcome_curve_equals_selective_curve_when_exempt_is_none`. **This is the only condition
-under which the two curves coincide.** Do not pass a rule's own `accepted` array (what
-`evaluate_outcomes` takes) as `exempt`: `accepted` means "was accepted at the gate actually used";
-`exempt` means "accepted no matter what gate is swept". Confusing the two — treating "the rule
-happened to accept this one" as "this one is exempt from the sweep" — reproduces a capped-coverage
-curve that stops rising once `t` falls below whatever gate `accepted` was built from, which is
-exactly the bug this function's signature now rules out (see "The curves coincide under a
-narrower condition" below for a worked example).
+`exempt=None` and `rejected=None` (the defaults) mean there are no unconditional branches.
+The mask reduces to `confidence >= t` for every `t`, and `outcome_curve` returns exactly what
+`selective_curve` would on the same `confidences`/`correct` — checked directly in
+`tests/test_evaluation.py`, `test_outcome_curve_equals_selective_curve_when_exempt_is_none`.
+Keep the rule's `accepted` array for `evaluate_outcomes`. It records the decisions at the gate the
+rule used. Passing it as `exempt` makes every accepted example stay selected at all thresholds
+(see "When the curves coincide" below for a worked example).
 
 **Which shipped rules `exempt` serves, and which need `rejected`.** `exempt` models an
 unconditionally *accepted* branch (CONTRIBUTING.md section 4's exemption); `rejected` models an
@@ -585,26 +581,26 @@ separately. Recipe 21 is one of the three recipes whose review asked for this fu
 first place.
 
 **Examples with no confidence to report.** `confidences` is required for every example passed in,
-`exempt` included, and every value is validated to `[0, 1]` — but some examples never go through a
-question at all. Recipe 14 short-circuits 2 of its 41 scored documents through `no_candidates`
+including exempt and rejected examples, and every value is validated to `[0, 1]`. Recipe 14
+short-circuits 2 of its 41 scored documents through `no_candidates`
 (accepted as `not_stated`, no question built, so no `Noul`/`Choice` answer exists to read a
 confidence from); recipe 22 short-circuits 4 of its 40 through `no_candidate_resolution` the same
 way. Do not invent a placeholder confidence (`0.0` or otherwise) for such an example to keep its
-row in the arrays: leave it out of `confidences`/`correct`/`exempt` entirely —
-`outcome_curve` sweeps the *answered* examples only — and report it separately with its own
-`evaluate_outcomes`-style accounting (it is still accepted, unconditionally, for that purpose). A
-placeholder is not inert even though the example would stay exempt either way: `thresholds` comes
-from `_candidate_thresholds` of every confidence passed in, so one placeholder value adds a row to
-that grid and moves the curve's x-axis, despite never changing which examples the mask selects.
+row in the arrays: leave it out of `confidences`/`correct`/`exempt`/`rejected` entirely —
+`outcome_curve` sweeps the examples that were *asked* — and report it separately with its own
+`evaluate_outcomes`-style accounting. Both recipes count their short-circuited examples as
+accepted in that separate accounting.
+Thresholds come from the non-rejected confidences, with all confidences used when every example
+is rejected. A distinct placeholder for an exempt example can add a row to the grid even though
+the exempt example is selected at every threshold.
 This is not a blanket ban on ever showing a stand-in number. `docs/recipe-template.md`'s "a
 sentinel is not the same thing as a disclosed stand-in" rule (and #164 ruling 9) allows a
 disclosed, in-range, quantified one, but only where it cannot reach a function that derives
 threshold candidates from the array — `select_confidence_threshold`, `selective_curve` and
-`outcome_curve`, the answered-examples-only rule just above. `evaluate_selective` is not one of
-those three: it
-reapplies an already-frozen threshold rather than deriving one, so a disclosed stand-in for an
-example that never had a confidence to report may be handed to it. Recipe 14 is the shipped case:
-`t17` never reaches a question (no candidate span), so `confidence_only = [1.0 if a is None else
+`outcome_curve`. Because `evaluate_selective` reapplies an already-frozen threshold, a
+disclosed stand-in for an example that never had a confidence to report may be handed to it.
+Recipe 14's `t17` never reaches a question (no candidate span), so
+`confidence_only = [1.0 if a is None else
 a.confidence for a in test_answers]` stands in `1.0`, the top of the scale, specifically so that
 it reads as a sure thing and matches what `select_span` itself did with `t17` (accepted): the
 stand-in is never the reason anything is excluded from `evaluate_selective`'s gate. The opposite
@@ -618,11 +614,10 @@ question (8 of them, `0.4000`) — the same "disclose and quantify against the n
 denominator" requirement `docs/recipe-template.md` states.
 
 **Print both Ns when a recipe short-circuits examples.** `outcome_curve`'s own denominator at
-every threshold is `len(confidences)` — the answered subset actually passed in — never the
-recipe's whole scored split, because a short-circuited example was never in `confidences` to
-begin with: no question was built for it, so there is no `Noul`/`Choice` answer to read a
-confidence from, whatever its `accepted` value turns out to be. `evaluate_outcomes`'s
-denominator, by contrast, is `len(accepted)`: the whole split, short-circuited examples included.
+every threshold is `len(confidences)`, the number of examples that were asked, including
+rejected examples. Short-circuited examples have no `Noul`/`Choice` answer and are omitted
+from `confidences`. `evaluate_outcomes` uses `len(accepted)` as its denominator, covering the
+whole split including short-circuited examples.
 A short-circuited example's own `accepted` entry follows CONTRIBUTING.md section 4 like any other:
 `not_stated` is a complete answer, not a deferral (section 4 part (a) names it explicitly), so
 recipe 14's `no_candidates` short-circuit is `accepted=True` — present in `evaluate_outcomes`'s
@@ -661,24 +656,15 @@ and it is also why a recipe built exactly that way can report either number: for
 Noul rule, `pool_label_decisions` fed to `evaluate_selective` and `pool_label_outcomes` fed to
 `evaluate_outcomes` give the same pooled coverage, accuracy and risk.
 
-**The curves coincide under a narrower condition: `exempt` empty or `None`, not merely "no second
-branch".** `outcome_curve(confidences, correct, exempt=None)` equals `selective_curve(correct,
-confidences)` exactly, by construction — `exempt=None` is unconditionally no exemptions, so this
-holds for *any* rule, confidence-only or not, as long as `exempt` is actually left empty. The
-trap is passing something else there by mistake. Recipe 06 (`pool_label_decisions`/
-`pool_label_outcomes`) is a genuinely confidence-only rule: one global confidence gate (`0.1200`)
-is its only review branch, no fallback label. Its own `accepted` array (what `pool_label_outcomes`
-builds, and what `evaluate_outcomes` correctly takes) is `confidence >= 0.1200` — a *fixed*
-snapshot of that one gate. Reusing that array as `outcome_curve`'s `exempt` argument (instead of
-leaving `exempt=None`, which is what a confidence-only rule actually calls for) does not produce
-recipe 06's curve: on its validation split, sweeping `t` down from `1.0` with `exempt` fixed to
-`confidence >= 0.12` caps coverage at `0.9368` — the share already fixed-gated in — where
-`selective_curve` on the same data rises to `1.0000` as `t` falls below every observed confidence.
-The fixed array was never "accepted no matter what `t` is swept"; it was "accepted at the one gate
-already applied", and feeding it in as `exempt` silently reintroduces exactly the fixed-mask bug
-this function's signature exists to rule out. The correct call for recipe 06 is simply
-`outcome_curve(confidence, correct)`, no `exempt` at all — which, being confidence-only, then
-agrees with `selective_curve` exactly.
+**When the curves coincide.** `outcome_curve(confidences, correct, exempt=None, rejected=None)`
+equals `selective_curve(correct, confidences)` exactly. With both masks left at their defaults,
+the curve applies a pure confidence gate to every passed example. Recipe 06
+(`pool_label_decisions`/`pool_label_outcomes`) uses one global confidence gate (`0.1200`). Its
+`accepted` array records `confidence >= 0.1200` for `evaluate_outcomes`. Passing that array as
+`exempt` would keep all those examples selected even when a swept threshold exceeds their
+confidence, inflating coverage at those thresholds. The correct call for recipe 06 is
+`outcome_curve(confidence, correct)`. Both masks default to `None`, so the result agrees with
+`selective_curve` exactly.
 
 **When they differ.** As soon as the rule has a second, unconditional branch — an explicit
 fallback option such as `no_match` or `unclear` that is never confidence-checked (CONTRIBUTING.md
@@ -731,8 +717,8 @@ order `evaluate_outcomes` takes them. Its first argument is the rule's results a
 gold, the order recipes 11, 18 and 22 already used; a recipe still writes its own `accepted_when`
 (for most, `lambda r: r.outcome != REVIEW`), because what counts as answering is the recipe's
 rule and CONTRIBUTING.md section 4, not something a shared helper can know. Passing the rule's own
-`accepted` back out of this function and into `outcome_curve` as `exempt` is the capped-coverage
-mistake described above.
+`accepted` back out of this function and into `outcome_curve` as `exempt` keeps its accepted
+examples selected at every threshold.
 
 ### Rules with a deterministic branch
 
