@@ -732,3 +732,17 @@ def test_the_checkout_is_asserted_untouched_right_after_execution():
     assertion = body[assertion_index:fresh_check_index]
     assert "git status --porcelain" in assertion
     assert "exit 1" in assertion
+
+
+def test_windows_soak_is_manual_only_and_never_a_required_check():
+    """#328: the soak workflow starts only from a manual dispatch (never a push or pull request),
+    runs the full suite on Windows, and ci.yml does not mention it."""
+    body = code((WORKFLOWS / "windows-soak.yml").read_text(encoding="utf-8"))
+    assert re.search(r"^on:\n  workflow_dispatch:", body, re.MULTILINE)
+    triggers = body.split("\npermissions:")[0]
+    for trigger in ("push:", "pull_request", "schedule:", "workflow_run"):
+        assert trigger not in triggers, trigger
+    assert "runs-on: windows-latest" in body
+    assert "pytest 2>&1 | tee pytest.log" in body
+    assert "secrets." not in body
+    assert "windows" not in code(CI).lower()

@@ -1,0 +1,78 @@
+name: Windows soak
+
+# Manual only: starts when someone runs it from the Actions tab (or `gh workflow run`), never on a
+# push or pull request, and none of its jobs is a required check (#328). It runs the full pytest
+# suite on windows-latest `runs` times, each in its own job on a fresh runner, so the issue's
+# criterion of ten clean full Windows runs can be recorded from one dispatch. Keyless: no secrets
+# are used and nothing calls the live API.
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Number of independent full-suite runs (1 to 20)
+        type: string
+        default: "10"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Soak (plan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        env:
+          RUNS: ${{ inputs.runs }}
+        run: |
+          if ! [[ "$RUNS" =~ ^[0-9]+$ ]] || [ "$RUNS" -lt 1 ] || [ "$RUNS" -gt 20 ]; then
+            echo "runs must be an integer from 1 to 20, got: $RUNS" >&2
+            exit 1
+          fi
+          echo "matrix={\"run\":[$(seq -s, 1 "$RUNS")]}" >> "$GITHUB_OUTPUT"
+
+  soak:
+    name: Soak run ${{ matrix.run }}
+    needs: plan
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      # The same install as the py3.14 leg of `Tests` in ci.yml.
+      - name: Install
+        run: pip install -e ".[dev,ml,live]"
+      - name: pytest
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest 2>&1 | tee pytest.log
+      - name: Report this run
+        if: always()
+        shell: bash
+        env:
+          RUN: ${{ matrix.run }}
+          RUNS: ${{ inputs.runs }}
+          OUTCOME: ${{ job.status }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "### Soak run $RUN of $RUNS: $OUTCOME"
+            echo "commit $SHA"
+            echo '```'
+            tail -n 5 pytest.log 2>/dev/null || echo "no pytest output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
