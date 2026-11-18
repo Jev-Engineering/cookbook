@@ -2,20 +2,27 @@
 
 Recipe 77 · Level 3 (Intermediate) · `Box` and `Noul`
 
-Locate a named button, form input, or menu item in a synthetic screenshot. Independent `Noul`
-questions assess presence, uniqueness and enabled state. When those checks pass, `Box` proposes
-the visible rectangle. Python checks its confidence and bounds, draws it, and previews a
-simulated click or focus. The action log records the proposal with `executed=False`.
+Locate a named button, form input, or menu item in a synthetic screenshot. A
+[question](../../docs/glossary.md#question) asks for one typed judgment. A
+[Noul](../../docs/glossary.md#noul) answer reports the probability of presence, uniqueness or
+enabled state. When those checks pass, `Box` proposes the visible rectangle. Python checks
+its [confidence](../../docs/glossary.md#confidence), the reported certainty of the location, and
+its bounds. It draws the rectangle and previews a simulated click or focus. The action log
+records the proposal with `executed=False`.
 
-The notebook shows typed answers and annotated screenshots. It freezes thresholds on
-validation, then reports held-out presence accuracy, coverage, risk and localization with their
-denominators. The fixtures include absent targets, duplicates, disabled controls, a clipped
-control and a similar-looking menu label. A fixed-layout baseline illustrates how reflow and
-absent targets affect a coordinate-only rule.
+The notebook shows typed answers and annotated screenshots. It freezes thresholds on validation,
+then reports held-out presence [accuracy](../../docs/glossary.md#accuracy), the fraction correct
+among answered examples, and [coverage](../../docs/glossary.md#coverage), the fraction answered.
+[Risk](../../docs/glossary.md#risk) is the fraction wrong among answered examples. The notebook
+also reports localization with its denominators. The [fixtures](../../docs/glossary.md#fixture)
+are saved examples, labels and responses that include absent targets, duplicates, disabled
+controls, a clipped control and a similar-looking menu label. A fixed-layout baseline illustrates
+how reflow and absent targets affect a coordinate-only rule.
 
-All screenshots are drawn by the recipe's generator. The asset manifest identifies their
-provenance and the gold labels keep geometry separate from inference. Every committed response
-has synthetic provenance.
+The recipe's generator draws all screenshots. The asset manifest records where they came from.
+The [gold labels](../../docs/glossary.md#gold-label) give the authored geometry for evaluation.
+Every committed response records its [provenance](../../docs/glossary.md#provenance), identifying
+it as an authored synthetic answer.
 
 From the repository root, after the [development setup](../../docs/development.md):
 
@@ -35,8 +42,9 @@ Open [the notebook](notebook.ipynb) to read the executed recipe.
 
 Install the optional live dependencies and opt in with `JEV_COOKBOOK_LIVE=1` and
 `TYPESAFE_API_KEY`. The notebook uses the same questions as replay and sets the experimental
-images header with the pinned `jev-1.14.0` model. Either request stage places its image in state
-once, for one image copy per request. The notebook prints the raw and expanded image-byte
+images header with the pinned `jev-1.14.0` model. Either request stage places its image in
+[state](../../docs/glossary.md#state), the data Jev is asked about, for one image copy per request.
+The notebook prints the raw and expanded image-byte
 ranges beside those counts. See [offline and live](../../docs/offline-and-live.md) for the
 recording and provenance requirements.
 
