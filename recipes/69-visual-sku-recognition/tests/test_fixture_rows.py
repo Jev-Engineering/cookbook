@@ -33,6 +33,8 @@ def test_a_bad_answer_row_raises_naming_the_row():
         ("DEGUM", 60, "DEGUM", 20),  # the same option twice
         ("DEGUM", 20, "BIVEN", 60),  # weights out of order
         ("DEGUM", 40, "BIVEN", 40),  # a tie
+        ("BIVEN", 1, "NOKER", 0),  # below the implicit weight of other options
+        ("DEGUM", 60, "BIVEN", 1.5),  # a fractional weight
     ):
         with pytest.raises(ValueError, match="x1"):
             module.answers_for(good[:-1] + (bad,), module.Provenance.synthetic())
@@ -113,6 +115,22 @@ def _module(name, tmp_path, monkeypatch):
     monkeypatch.setattr(module, "HERE", tmp_path)
     monkeypatch.setattr("sys.argv", ["build_fixtures.py"])
     return module
+
+
+def test_invalid_answer_aborts_before_fixture_generation(tmp_path, monkeypatch):
+    module = _module("recipe69_build_fixtures_for_test_invalid_answer", tmp_path, monkeypatch)
+    first, *rest = module.ROWS
+    invalid = (*first[:-1], ("BIVEN", 1, "NOKER", 0))
+    monkeypatch.setattr(module, "ROWS", [invalid, *rest])
+    monkeypatch.setattr("sys.argv", ["build_fixtures.py", "--overwrite-assets"])
+    monkeypatch.setattr(
+        module,
+        "render_images",
+        lambda rows: pytest.fail("images rendered before answer validation"),
+    )
+    with pytest.raises(ValueError, match="answer weights must be positive integers"):
+        module.main()
+    assert list(tmp_path.rglob("*")) == []
 
 
 def test_a_duplicate_ident_raises_naming_both_rows_before_any_file_is_written(

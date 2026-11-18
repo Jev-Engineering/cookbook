@@ -442,6 +442,8 @@ def answers_for(row, provenance: Provenance):
             raise ValueError(f"row {row[0]!r}: {option!r} is not one of {helpers.OPTIONS}")
     if top == second:
         raise ValueError(f"row {row[0]!r}: the top and runner-up options are both {top!r}")
+    if type(top_weight) is not int or type(second_weight) is not int or second_weight < 1:
+        raise ValueError(f"row {row[0]!r}: answer weights must be positive integers")
     if top_weight <= second_weight:
         raise ValueError(
             f"row {row[0]!r}: the top weight {top_weight} must exceed the runner-up's {second_weight}"
@@ -558,6 +560,10 @@ def main() -> None:
             "changes its replay keys (pass --force too to rewrite both); "
             "nothing was written"
         )
+    # Reject bad authored answers before their images or replay keys can change on disk.
+    provenance = Provenance.synthetic()
+    for row in ROWS:
+        answers_for(row, provenance)
     rendered = render_images(ROWS)
     check_queries_differ_from_references(ROWS, rendered)
     check_rows_are_distinct(ROWS, rendered)
