@@ -1,4 +1,4 @@
-"""The allowlist of known `tests/test_recipe_guard.py` failures, one entry per (slug, check_id).
+"""The allowlist of known recipe guard failures, one entry per (slug, check_id).
 
 #165's guard mechanises the Wave 2 consistency review (issue #76 comment 6079429778) and the
 PR #186 review's additions (issue #165 comments) over every published recipe at once. Running it
@@ -101,3 +101,9 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "35-semantic-feature-extraction",
     )
 }
+
+# The new matrix guard detects pre-existing drift in this published notebook.
+KNOWN_FAILURES[("46-semantic-context-paging", "matrix_column_alignment")] = (
+    "matrix_column_alignment: rubric-eval's one-character columns shift the gold 0 row "
+    "one character right when its first count is 12; see #217"
+)

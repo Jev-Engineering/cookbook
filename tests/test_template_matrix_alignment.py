@@ -12,9 +12,8 @@ column ends at the same character as the header's, and every column's right edge
 It proves itself the one way that matters, by mutation: with the cell's width fixed back to the
 label width, the same harness reports the misalignment on the case that exercises it.
 
-Scope, stated plainly: this guards the TEMPLATE'S cell only. It does not look at any published
-recipe's matrix print, and recipe 23 still carries an older formulation; converging the published
-recipes and guarding them is the rest of #217 and is not done here.
+This harness exercises the template cell with synthetic counts. The per-recipe stdout guard
+in ``test_recipe_matrix_alignment.py`` checks the tables published in committed notebooks.
 """
 
 from __future__ import annotations
