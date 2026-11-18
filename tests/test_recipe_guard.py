@@ -4213,31 +4213,28 @@ def _check_recipe_scope_registration(tree: ast.Module) -> None:
                 for node in ast.walk(statement)
             ), f"line {statement.lineno}: use RECIPES_WITH_TEMPLATE for recipe sweeps"
 
-    for test in ast.walk(tree):
-        if not isinstance(test, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+    for marker in ast.walk(tree):
+        if (
+            not isinstance(marker, ast.Call)
+            or qualified_name(marker.func) != "pytest.mark.parametrize"
+        ):
             continue
-        for decorator in test.decorator_list:
-            if (
-                not isinstance(decorator, ast.Call)
-                or qualified_name(decorator.func) != "pytest.mark.parametrize"
-            ):
-                continue
-            args = dict(zip(("argnames", "argvalues"), decorator.args, strict=False))
-            args.update((keyword.arg, keyword.value) for keyword in decorator.keywords)
-            assert isinstance(args.get("argnames"), (ast.Constant, ast.List, ast.Tuple)), (
-                f"{test.name}: use literal parameter names to make recipe scope visible"
-            )
-            names = ast.literal_eval(args["argnames"])
-            if isinstance(names, str):
-                names = [name.strip() for name in names.split(",")]
-            if "recipe" not in names:
-                continue
-            values = args["argvalues"]
-            registered = isinstance(values, ast.Call) and ast.unparse(values.func) == "guarded"
-            all_recipes = isinstance(values, ast.Name) and values.id == "RECIPES_WITH_TEMPLATE"
-            assert registered or all_recipes, (
-                f"{test.name}: use guarded() or RECIPES_WITH_TEMPLATE for recipe cases"
-            )
+        args = dict(zip(("argnames", "argvalues"), marker.args, strict=False))
+        args.update((keyword.arg, keyword.value) for keyword in marker.keywords)
+        assert isinstance(args.get("argnames"), (ast.Constant, ast.List, ast.Tuple)), (
+            f"line {marker.lineno}: use literal parameter names to make recipe scope visible"
+        )
+        names = ast.literal_eval(args["argnames"])
+        if isinstance(names, str):
+            names = [name.strip() for name in names.split(",")]
+        if "recipe" not in names:
+            continue
+        values = args["argvalues"]
+        registered = isinstance(values, ast.Call) and ast.unparse(values.func) == "guarded"
+        all_recipes = isinstance(values, ast.Name) and values.id == "RECIPES_WITH_TEMPLATE"
+        assert registered or all_recipes, (
+            f"line {marker.lineno}: use guarded() or RECIPES_WITH_TEMPLATE for recipe cases"
+        )
 
 
 def test_recipe_checks_use_the_template_scope_registration():
@@ -4278,8 +4275,20 @@ parametrize = pm.parametrize
 def test_each_recipe(recipe):
     assert recipe
 """,
+        """\
+from pytest import mark as pm
+pytestmark = [pm.parametrize(argnames="recipe", argvalues=CASES)]
+def test_each_recipe(recipe):
+    assert recipe
+""",
+        """\
+class TestRecipeCases:
+    pytestmark = pytest.mark.parametrize(argnames="recipe", argvalues=CASES)
+    def test_each_recipe(self, recipe):
+        assert recipe
+""",
     ],
-    ids=["class-method", "test-class", "assignment-alias"],
+    ids=["class-method", "test-class", "assignment-alias", "module-pytestmark", "class-pytestmark"],
 )
 def test_recipe_scope_registration_checks_ordinary_parametrization_forms(source):
     with pytest.raises(AssertionError, match=r"use guarded\(\) or RECIPES_WITH_TEMPLATE"):
