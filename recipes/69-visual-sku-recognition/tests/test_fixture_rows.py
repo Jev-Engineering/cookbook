@@ -3,9 +3,14 @@ reference image and the no-tin wording all fail or read as documented, and ``bui
 reuses the keys it is given."""
 
 import importlib.util
+import json
+import os
 from pathlib import Path
 
 import pytest
+
+from jev_cookbook import Provenance, dump_responses
+from jev_cookbook.fixtures import load_inputs, load_responses
 
 RECIPE = Path(__file__).resolve().parent.parent
 SCRIPT = RECIPE / "build_fixtures.py"
@@ -199,3 +204,112 @@ def test_default_regeneration_preserves_invalid_existing_responses(tmp_path, mon
         with pytest.raises(SystemExit, match=r"refusing --overwrite-assets.*cannot be validated"):
             module.main()
         assert read_bytes(responses) == contents
+
+
+def test_regeneration_protects_valid_recorded_provenance_until_forced(tmp_path, monkeypatch):
+    module = _module("recipe69_build_fixtures_for_test_recorded", tmp_path, monkeypatch)
+    (tmp_path / "build_fixtures.py").write_bytes(SCRIPT.read_bytes())
+    monkeypatch.setattr(module, "ROWS", [next(row for row in module.ROWS if row[1] == "test")])
+    monkeypatch.setattr(module.helpers, "ROOT", tmp_path)
+    module.main()
+
+    responses = tmp_path / "fixtures" / "responses.json"
+    synthetic = responses.read_bytes()
+    data = json.loads(synthetic)
+    (sample,) = load_inputs(tmp_path)
+    key = sample.replay_keys[0]
+    provenance = Provenance.recorded("test-model", "2026-01-01").to_dict()
+    data[key]["model"] = provenance["model"]
+    for answer in data[key]["answers"].values():
+        answer["provenance"] = provenance
+    responses.write_text(dump_responses(data), encoding="utf-8", newline="\n")
+    assert load_responses(tmp_path)[key] == data[key]
+    recorded = responses.read_bytes()
+
+    with pytest.raises(SystemExit, match="it holds a recorded response.*--force"):
+        module.main()
+    assert responses.read_bytes() == recorded
+
+    monkeypatch.setattr("sys.argv", ["build_fixtures.py", "--force"])
+    module.main()
+    assert responses.read_bytes() == synthetic
+
+
+@pytest.mark.parametrize(
+    "path_kind",
+    ["symlink", "dangling", "directory", "fifo", "uninspectable", "linked-parent", "file-parent"],
+)
+def test_force_refuses_unsafe_response_destinations(tmp_path, monkeypatch, path_kind):
+    recipe = tmp_path / "recipe"
+    recipe.mkdir()
+    module = _module("recipe69_build_fixtures_unsafe_destination", recipe, monkeypatch)
+    monkeypatch.setattr("sys.argv", ["build_fixtures.py", "--force", "--overwrite-assets"])
+    responses = recipe / "fixtures" / "responses.json"
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    target = outside / responses.name
+    if path_kind != "dangling":
+        target.write_bytes(b"synthetic sentinel outside the recipe")
+
+    if path_kind in {"linked-parent", "file-parent"}:
+        if path_kind == "linked-parent":
+            responses.parent.symlink_to(outside, target_is_directory=True)
+        else:
+            responses.parent.write_bytes(b"synthetic parent sentinel")
+        error = "its parent must be a real directory"
+    else:
+        responses.parent.mkdir()
+        error = "not a regular file"
+        if path_kind in {"symlink", "dangling"}:
+            responses.symlink_to(target)
+        elif path_kind == "directory":
+            responses.mkdir()
+        elif path_kind == "fifo":
+            if not hasattr(os, "mkfifo"):
+                pytest.skip("named pipes are unavailable on this platform")
+            os.mkfifo(responses)
+        else:
+            responses.write_bytes(b"synthetic file whose metadata cannot be inspected")
+            lstat = Path.lstat
+
+            def simulate_uninspectable(path):
+                if path == responses:
+                    raise PermissionError("simulated lstat failure")
+                return lstat(path)
+
+            monkeypatch.setattr(Path, "lstat", simulate_uninspectable)
+            error = "the path cannot be inspected"
+
+    with pytest.raises(SystemExit, match=error):
+        module.main()
+    assert not (recipe / "assets").exists()
+    if path_kind == "dangling":
+        assert not target.exists()
+    else:
+        assert target.read_bytes() == b"synthetic sentinel outside the recipe"
+    if path_kind == "uninspectable":
+        assert responses.read_bytes() == b"synthetic file whose metadata cannot be inspected"
+    if path_kind == "file-parent":
+        assert responses.parent.read_bytes() == b"synthetic parent sentinel"
+
+
+@pytest.mark.parametrize("flags", [[], ["--force"]], ids=["default", "force"])
+@pytest.mark.parametrize(
+    "output", ["assets-manifest.json", "fixtures/inputs.jsonl", "fixtures/labels.jsonl"]
+)
+def test_text_output_symlinks_are_refused(tmp_path, monkeypatch, flags, output):
+    recipe = tmp_path / "recipe"
+    recipe.mkdir()
+    module = _module("recipe69_build_fixtures_unsafe_text_output", recipe, monkeypatch)
+    monkeypatch.setattr("sys.argv", ["build_fixtures.py", *flags])
+    target = tmp_path / "sentinel"
+    target.write_bytes(b"synthetic sentinel outside the recipe")
+    path = recipe / output
+    path.parent.mkdir(exist_ok=True)
+    path.symlink_to(target)
+
+    with pytest.raises(SystemExit, match="not a regular file"):
+        module.main()
+    assert target.read_bytes() == b"synthetic sentinel outside the recipe"
+    assert path.is_symlink()
+    assert not (recipe / "assets").exists()
