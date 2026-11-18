@@ -1,13 +1,20 @@
 """Tests for recipe 46's helpers. They load the helpers by file path."""
 
 import json
+import math
 import random
 from pathlib import Path
 
 import pytest
 
 from jev_cookbook import Provenance, ScoreAnswer, get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import score_level, select_confidence_threshold, selective_curve
+from jev_cookbook.evaluation import (
+    mean_recall_at_budget,
+    recall_at_budget,
+    score_level,
+    select_confidence_threshold,
+    selective_curve,
+)
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 from jev_cookbook.simulation import Store
 
@@ -288,6 +295,33 @@ def test_paging_recall_uses_eligibility_and_the_chunk_id_tie_break(slots):
         gold and d.status == helpers.RETAINED for gold, d in zip(needed, decisions, strict=True)
     )
     assert helpers.paging_recall(classifications, scores, needed, slots) == found / sum(needed)
+
+
+@pytest.mark.parametrize("slots", [1, helpers.BUDGET_SLOTS])
+def test_mean_task_recall_skips_tasks_without_any_needed_chunks(slots):
+    classifications = [
+        helpers.Classification("a", 3, helpers.CANDIDATE, ""),
+        helpers.Classification("b", 3, helpers.REVIEW, ""),
+    ]
+    scores = {"a": 2.0, "b": 3.0}
+    task_labels = [[True, False], [False, False], [False, True]]
+    policy_recalls = [
+        helpers.paging_recall(classifications, scores, gold, slots) for gold in task_labels
+    ]
+    baseline_scores = [0, -1]
+    baseline_recalls = [recall_at_budget(gold, baseline_scores, slots) for gold in task_labels]
+    expected_baseline = 0.5 if slots == 1 else 1.0
+
+    assert policy_recalls[0] == 1.0
+    assert math.isnan(policy_recalls[1])
+    assert policy_recalls[2] == 0.0
+    assert helpers.mean_task_recall(iter(policy_recalls)) == 0.5
+    assert helpers.mean_task_recall(iter(baseline_recalls)) == expected_baseline
+    assert expected_baseline == mean_recall_at_budget(
+        ((gold, baseline_scores) for gold in task_labels), slots
+    )
+    assert math.isnan(helpers.mean_task_recall([policy_recalls[1], baseline_recalls[1]]))
+    assert math.isnan(helpers.mean_task_recall(iter(())))
 
 
 def test_allocate_budget_pages_out_the_lowest_scored_candidates_first():

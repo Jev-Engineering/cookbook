@@ -14,7 +14,10 @@ primitive that makes "never loses" a property of the store itself, not a promise
 to keep by hand.
 """
 
+import math
+from collections.abc import Iterable
 from dataclasses import dataclass
+from statistics import fmean
 from typing import Any
 
 from jev_cookbook import Score
@@ -171,6 +174,12 @@ def paging_recall(
         slots,
         eligible=[c.chunk_id in strict_scores for c in classifications],
     )
+
+
+def mean_task_recall(recalls: Iterable[float]) -> float:
+    """Average defined task recalls, returning NaN when no task has relevant gold."""
+    defined = [recall for recall in recalls if not math.isnan(recall)]
+    return fmean(defined) if defined else math.nan
 
 
 def allocate_budget(
