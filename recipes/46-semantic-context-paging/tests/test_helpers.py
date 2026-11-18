@@ -233,6 +233,63 @@ def test_allocate_budget_never_exceeds_slots_over_every_fixture_task():
         assert budget.used("slots") <= helpers.BUDGET_SLOTS
 
 
+@pytest.mark.parametrize("slots", [1, helpers.BUDGET_SLOTS])
+def test_paging_recall_matches_retained_chunks_on_every_scored_task(slots):
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    answers = {
+        e.id: backend.decide(helpers.build_state(e.fields), questions)["relevance"]
+        for e in examples
+        if e.id in labels
+    }
+    validation = [e for e in examples if e.split == "validation" and e.id in answers]
+    gate = select_confidence_threshold(
+        [score_level(answers[e.id]) == labels[e.id] for e in validation],
+        [answers[e.id].confidence for e in validation],
+        min_coverage=MIN_COVERAGE,
+    )
+
+    tasks = {}
+    for e in examples:
+        if e.id in answers:
+            tasks.setdefault((e.split, e.fields["task_id"]), []).append(e)
+    assert len(tasks) == 13
+    for task, chunks in tasks.items():
+        classifications = [
+            helpers.classify_chunk(e.fields["chunk_id"], answers[e.id], gate) for e in chunks
+        ]
+        scores = {e.fields["chunk_id"]: answers[e.id].score for e in chunks}
+        needed = [labels[e.id] == 3 for e in chunks]
+        decisions, _ = helpers.allocate_budget(classifications, scores, {}, slots)
+        found = sum(
+            gold and d.status == helpers.RETAINED for gold, d in zip(needed, decisions, strict=True)
+        )
+        assert helpers.paging_recall(classifications, scores, needed, slots) == pytest.approx(
+            found / sum(needed)
+        ), task
+
+
+@pytest.mark.parametrize("slots", [1, helpers.BUDGET_SLOTS])
+def test_paging_recall_uses_eligibility_and_the_chunk_id_tie_break(slots):
+    classifications = [
+        helpers.Classification("b", 3, helpers.CANDIDATE, ""),
+        helpers.Classification("a", 3, helpers.CANDIDATE, ""),
+        helpers.Classification("c", 3, helpers.REVIEW, ""),
+    ]
+    scores = {"a": 2.0, "b": 2.0, "c": 3.0}
+    needed = [True, False, True]
+    decisions, budget = helpers.allocate_budget(classifications, scores, {}, slots)
+    assert budget.used("slots") == min(slots, 2)
+    assert decisions[1].status == helpers.RETAINED
+    assert decisions[2].status == helpers.PAGED_OUT
+    found = sum(
+        gold and d.status == helpers.RETAINED for gold, d in zip(needed, decisions, strict=True)
+    )
+    assert helpers.paging_recall(classifications, scores, needed, slots) == found / sum(needed)
+
+
 def test_allocate_budget_pages_out_the_lowest_scored_candidates_first():
     """A budget that actually binds: with four candidates and three slots, the lowest-scored
     candidate is the one paged out, ties broken by chunk_id -- not an arbitrary subset, and not
