@@ -136,15 +136,11 @@ def _image_format(data: bytes) -> str:
 def _decode_base64(encoded: str) -> bytes:
     """Decode correctly padded base64, with the same rule on every supported Python version.
 
-    Only the padding is checked, not the unused trailing bits of the last group.
-
-    ``b64decode(validate=True)`` checks the alphabet and allows at most two trailing ``=``. Before
-    Python 3.13 it also accepted excess padding after a complete group (``"="``, ``"AAAA="``),
-    which 3.13 and later refuse. Requiring a length that is a multiple of four removes exactly
-    those strings, so the accepted set is the same everywhere and :func:`_encoded_size`, which
-    counts from the length, agrees with it.
+    Require complete groups of four and allow ``=`` only in the final two positions, even when
+    Python's strict decoder permits excess padding. This lets :func:`_encoded_size` calculate
+    the decoded length of accepted strings. Unused trailing bits may be nonzero.
     """
-    if len(encoded) % 4:
+    if len(encoded) % 4 or encoded.find("=", 0, -2) != -1:
         raise ValueError("data_base64 must be standard base64 without whitespace")
     try:
         return base64.b64decode(encoded, validate=True)

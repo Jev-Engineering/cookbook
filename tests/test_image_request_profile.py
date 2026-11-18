@@ -202,9 +202,14 @@ def _validator_length(encoded: str) -> int | None:
 _PADDED_BASE64 = re.compile(r"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?")
 
 
+@pytest.mark.parametrize("encoded", ["AAAA====", "AAAA====AAAA"])
+def test_the_validator_rejects_excess_padding_with_a_permissive_decoder(encoded, monkeypatch):
+    monkeypatch.setattr(base64, "b64decode", lambda encoded, *, validate: b"\0\0\0")
+    with pytest.raises(ValueError, match="standard base64"):
+        vision._decode_base64(encoded)
+
+
 def test_the_validator_accepts_exactly_correctly_padded_base64_on_every_python_version():
-    # Before Python 3.13, b64decode(validate=True) also accepted excess padding such as "=" or
-    # "AAAA="; the validator must refuse it everywhere, as 3.13 and later do.
     for length in range(0, 9):
         for chars in itertools.product("Aw+=", repeat=length):
             encoded = "".join(chars)
