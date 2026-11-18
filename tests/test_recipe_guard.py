@@ -4165,20 +4165,36 @@ def _check_recipe_scope_registration(tree: ast.Module) -> None:
         "_inbound_next_steps_links",
         "side_effect_inventory_gaps",
     }
-    parametrizations = {"pytest.mark.parametrize"}
+    pytest_names = {"pytest", "pytest.mark", "pytest.mark.parametrize"}
+    aliases = {}
+
+    def qualified_name(node: ast.expr) -> str:
+        name, separator, rest = ast.unparse(node).partition(".")
+        return aliases.get(name, name) + separator + rest
+
     for statement in tree.body:
         if isinstance(statement, ast.Import):
-            parametrizations.update(
-                f"{name.asname or name.name}.mark.parametrize"
+            aliases.update(
+                (name.asname or name.name, "pytest")
                 for name in statement.names
                 if name.name == "pytest"
             )
         if isinstance(statement, ast.ImportFrom) and statement.module == "pytest":
-            parametrizations.update(
-                f"{name.asname or name.name}.parametrize"
+            aliases.update(
+                (name.asname or name.name, "pytest.mark")
                 for name in statement.names
                 if name.name == "mark"
             )
+        if isinstance(statement, ast.Assign) and isinstance(
+            statement.value, (ast.Name, ast.Attribute)
+        ):
+            origin = qualified_name(statement.value)
+            if origin in pytest_names:
+                aliases.update(
+                    (target.id, origin)
+                    for target in statement.targets
+                    if isinstance(target, ast.Name)
+                )
 
         catalog_helper = (
             isinstance(statement, ast.FunctionDef) and statement.name in catalog_helpers
@@ -4189,7 +4205,7 @@ def _check_recipe_scope_registration(tree: ast.Module) -> None:
             and isinstance(statement.targets[0], ast.Name)
             and statement.targets[0].id == "RECIPES_WITH_TEMPLATE"
         )
-        if not catalog_helper and not full_set_definition:
+        if not full_set_definition and not catalog_helper:
             assert not any(
                 isinstance(node, ast.Name)
                 and node.id == "PUBLISHED"
@@ -4198,12 +4214,12 @@ def _check_recipe_scope_registration(tree: ast.Module) -> None:
             ), f"line {statement.lineno}: use RECIPES_WITH_TEMPLATE for recipe sweeps"
 
     for test in ast.walk(tree):
-        if not isinstance(test, ast.FunctionDef) or not test.name.startswith("test_"):
+        if not isinstance(test, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             continue
         for decorator in test.decorator_list:
             if (
                 not isinstance(decorator, ast.Call)
-                or ast.unparse(decorator.func) not in parametrizations
+                or qualified_name(decorator.func) != "pytest.mark.parametrize"
             ):
                 continue
             args = dict(zip(("argnames", "argvalues"), decorator.args, strict=False))
@@ -4239,18 +4255,45 @@ def test_each_recipe():
         _check_recipe_scope_registration(ast.parse(source))
 
 
-def test_recipe_scope_registration_checks_class_methods_with_aliased_markers():
-    source = """\
+@pytest.mark.parametrize(
+    "source",
+    [
+        """\
 from pytest import mark as pm
 class TestRecipeCases:
     @pm.parametrize(argnames="recipe", argvalues=CASES)
     def test_each_recipe(self, recipe):
         assert recipe
-"""
+""",
+        """\
+@pytest.mark.parametrize(argnames="recipe", argvalues=CASES)
+class TestRecipeCases:
+    def test_each_recipe(self, recipe):
+        assert recipe
+""",
+        """\
+from pytest import mark as pm
+parametrize = pm.parametrize
+@parametrize(argnames="recipe", argvalues=CASES)
+def test_each_recipe(recipe):
+    assert recipe
+""",
+    ],
+    ids=["class-method", "test-class", "assignment-alias"],
+)
+def test_recipe_scope_registration_checks_ordinary_parametrization_forms(source):
     with pytest.raises(AssertionError, match=r"use guarded\(\) or RECIPES_WITH_TEMPLATE"):
         _check_recipe_scope_registration(ast.parse(source))
     registered = source.replace("argvalues=CASES", 'argvalues=guarded("example")')
     _check_recipe_scope_registration(ast.parse(registered))
+
+
+def test_recipe_scope_registration_requires_the_template_in_the_full_set():
+    expected = _published_recipe_slugs() | {"_template"}
+    actual = [_slug(recipe) for recipe in RECIPES_WITH_TEMPLATE]
+    assert set(actual) == expected and len(actual) == len(expected), (
+        "RECIPES_WITH_TEMPLATE must contain the published recipes and the template exactly once"
+    )
 
 
 def _audited_mini_recipe(tmp_path: Path, n: int = 3) -> tuple[Path, str]:
