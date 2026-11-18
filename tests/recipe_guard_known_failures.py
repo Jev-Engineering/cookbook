@@ -68,9 +68,6 @@ _THRESHOLD_OBJECTIVE_PIN_REASON = (
 KNOWN_FAILURES: dict[tuple[str, str], str] = {
     (slug, "threshold_objective_pin"): _THRESHOLD_OBJECTIVE_PIN_REASON
     for slug in (
-        "10-answer-relevance-check",
-        "11-clarification-selection",
-        "12-thesaurus-word-selection",
         "13-candidate-rewrite-selection",
         "14-source-span-selection",
         "15-sensitive-text-triage",

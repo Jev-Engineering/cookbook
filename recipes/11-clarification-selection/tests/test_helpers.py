@@ -1,5 +1,7 @@
 """Tests for recipe 11's helpers. They load the helpers by file path."""
 
+import ast
+import json
 from pathlib import Path
 
 import pytest
@@ -243,3 +245,19 @@ def test_outcome_accounting_counts_a_wrong_proceed_against_accuracy():
 def test_outcome_accounting_rejects_empty_input():
     with pytest.raises(ValueError, match="at least one"):
         helpers.outcome_accounting([], {})
+
+
+def test_notebook_pins_the_confidence_threshold_objective():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "target_accuracy=1.0" in confidence_keywords
+    assert len(confidence_keywords) == 1
