@@ -2,7 +2,9 @@
 
 import argparse
 import json
+import stat
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -18,7 +20,7 @@ from jev_cookbook import (
 from jev_cookbook import (
     synthetic_images as si,
 )
-from jev_cookbook.fixtures import Example
+from jev_cookbook.fixtures import Example, FixtureFileError, load_responses
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -292,17 +294,39 @@ def asset_manifest(rows, root):
     return {"schema": 1, "assets": sorted(entries, key=lambda entry: entry["path"])}
 
 
-def protected(path):
-    """Fail closed for malformed files and recorded responses, including provenance."""
-    if not path.exists():
-        return False
+def protected(recipe_dir):
+    """Allow automatic replacement only for strictly validated synthetic responses."""
     try:
-        data = json.loads(path.read_text("utf-8"))
-        if not isinstance(data, dict):
-            return True
-        return any(DecisionResult.from_dict(value).source != "synthetic" for value in data.values())
-    except (ValueError, TypeError, OSError, AttributeError, KeyError):
+        data = load_responses(recipe_dir)
+    except FixtureFileError:
         return True
+    return any(value["model"] != "synthetic" for value in data.values())
+
+
+def existing_output(path, expected_type):
+    """Validate an output itself rather than following a link to another file."""
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise SystemExit(f"refusing to write: cannot inspect {path.name}") from exc
+    if not expected_type(mode):
+        raise SystemExit(f"refusing to write: unexpected output type at {path.name}")
+    return True
+
+
+def write_responses(path, responses):
+    handle = NamedTemporaryFile(
+        mode="w", dir=path.parent, encoding="utf-8", newline="\n", delete=False
+    )
+    temporary = Path(handle.name)
+    try:
+        with handle:
+            handle.write(dump_responses(responses))
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def main():
@@ -316,7 +340,12 @@ def main():
     args = parser.parse_args()
     folder = HERE / "fixtures"
     response_path = folder / "responses.json"
-    response_is_protected = protected(response_path) and not args.force
+    manifest_path = HERE / "assets-manifest.json"
+    existing_output(folder, stat.S_ISDIR)
+    for path in (folder / "inputs.jsonl", folder / "labels.jsonl", manifest_path):
+        existing_output(path, stat.S_ISREG)
+    response_exists = existing_output(response_path, stat.S_ISREG)
+    response_is_protected = response_exists and not args.force and protected(HERE)
     if response_is_protected and args.overwrite_assets:
         raise SystemExit(
             "refusing --overwrite-assets with recorded or malformed responses; use --force"
@@ -328,7 +357,7 @@ def main():
             f"refused: {exc}\nnothing else was written; use --overwrite-assets to accept the changes"
         ) from exc
 
-    (HERE / "assets-manifest.json").write_text(
+    manifest_path.write_text(
         json.dumps(asset_manifest(ROWS, HERE), indent=2) + "\n", encoding="utf-8", newline="\n"
     )
     folder.mkdir(parents=True, exist_ok=True)
@@ -343,7 +372,7 @@ def main():
             "Inputs, labels and the asset manifest were regenerated."
         )
     responses = build_responses(ROWS, parts=parts)
-    response_path.write_text(dump_responses(responses), encoding="utf-8", newline="\n")
+    write_responses(response_path, responses)
     print(f"wrote {len(inputs)} screenshots, {len(labels)} labels, {len(responses)} responses")
 
 

@@ -93,9 +93,44 @@ def test_malformed_response_file_is_also_protected(tmp_path):
 def test_structurally_malformed_response_is_protected(tmp_path, data):
     target = copy_generator(tmp_path)
     module = generator(target / "build_fixtures.py")
-    path = target / "responses.json"
+    path = target / "fixtures" / "responses.json"
+    path.parent.mkdir()
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert module.protected(path)
+    assert module.protected(target)
+
+
+def test_duplicate_response_keys_are_protected(tmp_path):
+    target = copy_generator(tmp_path)
+    module = generator(target / "build_fixtures.py")
+    path = target / "fixtures" / "responses.json"
+    path.parent.mkdir()
+    source = RECIPE / "fixtures" / path.name
+    key, response = next(iter(json.loads(source.read_text(encoding="utf-8")).items()))
+    entry = json.dumps({key: response})[1:-1]
+    path.write_text("{" + entry + "," + entry + "}", encoding="utf-8")
+    assert module.protected(target)
+
+
+@pytest.mark.parametrize("link_folder", [False, True])
+def test_force_preserves_symlink_targets(tmp_path, link_folder):
+    target = copy_generator(tmp_path)
+    backup = tmp_path / "backup"
+    backup.mkdir()
+    response = backup / "responses.json"
+    response.write_bytes(b"fixture backup")
+    folder = target / "fixtures"
+    try:
+        if link_folder:
+            folder.symlink_to(backup, target_is_directory=True)
+        else:
+            folder.mkdir()
+            (folder / response.name).symlink_to(response)
+    except (OSError, NotImplementedError):
+        pytest.skip("creating symlinks is unavailable")
+    refused = run_generator(target, "--force")
+    assert refused.returncode != 0
+    assert "refusing to write" in refused.stderr
+    assert response.read_bytes() == b"fixture backup"
 
 
 def test_rendered_text_contains_application_content_without_fixture_metadata(monkeypatch):
