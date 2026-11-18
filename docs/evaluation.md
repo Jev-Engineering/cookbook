@@ -750,10 +750,13 @@ Recipe 41 (`recipes/41-approval-scope-review/`) is the worked example. Its `eval
 prints `requests 15` for the test split. The `decide` rule reads no answer on a row whose binding
 the check refuses. The `eval-task-test` cell prints `denied: 7  review: 5  executed: 3` and coverage
 0.6667. These counts show that `check_binding` determines seven of the 10 answered outcomes.
-The `always_review` baseline's coverage of 0.4667 counts those same seven of 15. Recipe 21 meets the
-rule. Its normalization and numeric checks supply 11 of 17 answered test outcomes before a model
-call. Issue #366 tracks both reports. Recipe 42's thread escalation overrides 1 of 16 test
-outcomes, and recipe 43's retry rule overrides 2 of 21. Those shares are below the trigger.
+The `always_review` baseline's coverage of 0.4667 counts those same seven of 15. The rule also
+applies to Recipe 21. Its normalization and numeric checks supply 11 of 17 answered test outcomes
+before a model call. Issue #366 tracks follow-up reporting for Recipes 21 and 41.
+
+Recipe 42's thread escalation overrides only 1 of 16 test dispositions. Recipe 43's retry rule
+overrides 2 of 21 test outcomes by routing them to review. Neither counts among its 11 answered
+recoveries. Both checks fall outside the reporting trigger.
 
 A recipe with such a branch reports three things beside the whole-set figures. They add to the
 composed coverage, accuracy and risk and do not replace them.
