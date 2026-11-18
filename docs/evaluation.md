@@ -746,16 +746,14 @@ sent for every row. Coverage, accuracy and risk over the whole set are then domi
 check. Nothing in them is false, but they describe the guard and not the decision, and a reader
 cannot tell from them what the model contributed.
 
-Recipe 41 (`recipes/41-approval-scope-review/`) is the worked example for the second and third
-reports below, and it shows the shape: on its `test` split it sends a request for all 15 actions
-(its `eval-baseline` cell prints `requests 15`), yet `decide` reads no answer on a row whose binding
+Recipe 41 (`recipes/41-approval-scope-review/`) is the worked example. Its `eval-baseline` cell
+prints `requests 15` for the test split. The `decide` rule reads no answer on a row whose binding
 the check refuses. It prints `denied: 7  review: 5  executed: 3` and coverage 0.6667, so, derived
 from those printed counts (the notebook does not print this figure), of the 10 actions answered, 7
 are denials that are correct because `check_binding` says so, not because any answer was good
-(`always_review`'s printed coverage of 0.4667 is those same 7 of 15). It does not print the first
-report below. Recipe 43, built on a retry budget and a stop condition, is the other published recipe
-with such a check; #366 tracks bringing recipes 41 and 43 into line and settles whether 43 is in
-scope. This section is the rule new recipes are held to.
+(`always_review`'s printed coverage of 0.4667 is those same 7 of 15). Issue #366 tracks the
+model-decided report for recipe 41. Recipe 42's thread escalation overrides 1 of 16 test outcomes,
+and recipe 43's retry rule overrides 2 of 21. Those shares are below the trigger.
 
 A recipe with such a branch reports three things beside the whole-set figures. They add to the
 composed coverage, accuracy and risk and do not replace them.
