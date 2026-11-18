@@ -419,7 +419,6 @@ import json
 import operator
 import re
 import shutil
-import sys
 import textwrap
 import tokenize
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
@@ -514,7 +513,6 @@ def load_tool(name: str) -> ModuleType:
     """A tool module, loaded by file path (tools/ has no __init__.py)."""
     spec = importlib.util.spec_from_file_location(f"{name}_for_recipe_guard", REPO / "tools" / name)
     module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module  # Dataclasses resolve their module through sys.modules.
     spec.loader.exec_module(module)
     return module
 
@@ -2774,7 +2772,23 @@ def test_next_steps_links_resolve_to_a_published_recipe(recipe):
 
 NEXT_STEPS_HEADING = re.compile(r"^ {0,3}##[ \t]+Next steps(?:[ \t]+#+)?[ \t]*$", re.MULTILINE)
 SECTION_HEADING = re.compile(r"^ {0,3}#{1,2}(?:[ \t]|$)", re.MULTILINE)
-_without_code_fences = load_tool("check_recipe_scope.py").without_code_fences
+# Match in source order so a comment opener inside code or a fence inside a comment cannot
+# start another block. A closing fence uses the opener's marker and at least its length.
+NEXT_STEPS_LITERAL = re.compile(
+    r"^ {0,3}(?:(?P<backticks>`{3,})[^`\n]*|(?P<tildes>~{3,})[^\n]*)(?:\n|\Z)"
+    r"(?s:.*?)(?:^ {0,3}(?:(?P=backticks)`*|(?P=tildes)~*)[^\S\n]*$|\Z)"
+    r"|^ {0,3}<!--(?s:.*?)(?:-->|\Z)"
+    r"|<!--(?s:.*?)-->"
+    r"|(?<!`)(?P<ticks>`+)(?!`)[^\n]*?(?<!`)(?P=ticks)(?!`)",
+    re.MULTILINE,
+)
+
+
+def _mask_next_steps_literals(text: str) -> str:
+    """Keep line boundaries and avoid joining Markdown fragments across a masked span."""
+    return NEXT_STEPS_LITERAL.sub(
+        lambda match: "…" + "\n…" * match[0].count("\n"), "\n".join(text.splitlines())
+    )
 
 
 def _inbound_next_steps_links() -> dict[str, set[str]]:
@@ -2784,7 +2798,7 @@ def _inbound_next_steps_links() -> dict[str, set[str]]:
         for cell in notebook_cells(recipe_dir(recipe)):
             if cell["cell_type"] != "markdown":
                 continue
-            markdown = _without_code_fences(cell_source(cell))
+            markdown = _mask_next_steps_literals(cell_source(cell))
             for heading in NEXT_STEPS_HEADING.finditer(markdown):
                 next_heading = SECTION_HEADING.search(markdown, heading.end())
                 end = next_heading.start() if next_heading else len(markdown)
@@ -2833,8 +2847,8 @@ def test_inbound_next_steps_audit_rejects_a_mid_notebook_only_link(tmp_path, mon
         pytest.param(" \t\r\n\r\n## Next steps\r\n", "", True, id="blank-prefix"),
         pytest.param("Closing remarks.\n\n## Next steps\n", "", True, id="prose-prefix"),
         pytest.param("Closing remarks.\n", "\n## Next steps\n", False, id="before-heading"),
-        pytest.param("```md\n## Next steps\n", "```\n", False, id="fenced-heading"),
-        pytest.param("## Next steps\n\n~~~md\n", "~~~\n", False, id="fenced-link"),
+        pytest.param("```md\n## Next steps\n", "\n```\n", False, id="fenced-heading"),
+        pytest.param("## Next steps\n\n~~~md\n", "\n~~~\n", False, id="fenced-link"),
         pytest.param("## Next steps\n\n~~~\n", "", False, id="unclosed-fence"),
         pytest.param(
             "## Next steps\n\n  ````md\n```\n## Appendix\n  ````\n\n### More reading\n",
@@ -2843,16 +2857,32 @@ def test_inbound_next_steps_audit_rejects_a_mid_notebook_only_link(tmp_path, mon
             id="fenced-appendix",
         ),
         pytest.param("## Next steps\n\n## Appendix\n", "", False, id="real-appendix"),
+        pytest.param("<!--\n## Next steps\n-->\n\n", "", False, id="commented-heading"),
+        pytest.param("## Next steps\n\n<!--\n", "\n-->\n", False, id="commented-link"),
+        pytest.param("## Next steps\n\n<!--\n", "", False, id="unclosed-comment"),
+        pytest.param(
+            "## Next steps\n\n<!--\n## Appendix\n```\n-->\n\n",
+            "",
+            True,
+            id="commented-appendix-and-fence",
+        ),
+        pytest.param("## Next steps\n\n```md\n<!--\n```\n\n", "", True, id="fenced-comment-opener"),
+        pytest.param("## Next steps\n\nExample: ``", "``\n", False, id="inline-literal-link"),
+        pytest.param("## Next steps\n\nType `<!--` then ", "", True, id="inline-comment-opener"),
+        pytest.param(
+            "Remarks with a stray `.\n\n## Next steps\n", " `\n", True, id="stray-backtick"
+        ),
+        pytest.param("## Next steps\n\n- First\n  - Second\n    ", "", True, id="nested-list-link"),
     ],
 )
-def test_inbound_next_steps_audit_respects_headings_and_code_fences(
+def test_inbound_next_steps_audit_respects_markdown_boundaries(
     tmp_path, monkeypatch, before_link, after_link, counts
 ):
     source = {"slug": "01-source"}
     target = {"slug": "02-target"}
     monkeypatch.setitem(globals(), "PUBLISHED", [source, target])
     monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
-    link = "[Try the target recipe](../02-target/)\n"
+    link = "[Try the target recipe](../02-target/)"
     for recipe, cells in (
         (source, [{"cell_type": "markdown", "source": before_link + link + after_link}]),
         (target, []),
@@ -2871,9 +2901,10 @@ def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
     ``next_steps_links_exist`` (see the module docstring's scope decisions), computed once over
     the whole published set (``_inbound_next_steps_links``, built from the same
     ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here. The reader-facing
-    ``## Next steps`` heading identifies the section within a markdown cell. Fenced code is
-    ignored. Links under the heading count up to the end of the cell or the next heading at the
-    same or higher level. Inline code and HTML comments remain part of the scanned text.
+    ``## Next steps`` heading identifies the section within a markdown cell. Links under the
+    heading count up to the end of the cell or the next heading at the same or higher level.
+    Fenced code, HTML comments and single-line inline code are masked before scanning. The
+    matcher leaves indented code and inline code spanning multiple lines in the scanned text.
 
     Marked ``catalog_audit`` (#203) and deselected by default (see ``pyproject.toml``'s
     ``addopts``): a new recipe's own pull request can never satisfy this check. The recipe
