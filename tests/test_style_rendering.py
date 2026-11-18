@@ -17,6 +17,7 @@ The assertion functions are module-level and are themselves proved able to fail 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -375,13 +376,9 @@ def _separation(a, b) -> float:
     return max(dx, dy)
 
 
-def _root(ax):
-    return ax.get_figure(root=True)
-
-
 def legend_corner(ax) -> str:
     """Where ``ax``'s legend is drawn: a corner of the axes, "outside", or "elsewhere"."""
-    _draw(_root(ax))
+    _draw(ax.figure)
     box = ax.get_legend().get_window_extent()
     frame = ax.get_window_extent()
     if box.x0 >= frame.x1:
@@ -460,29 +457,54 @@ def test_the_score_legend_clears_every_value_label_by_two_pixels_on_the_final_la
 
 
 @pytest.mark.parametrize(
-    "make_axes",
+    ("layout", "make_axes"),
     [
-        pytest.param(lambda: Figure().subplots(), id="plain figure"),
-        pytest.param(lambda: Figure().subplots(2, 2)[0, 1], id="subplot grid"),
-        pytest.param(lambda: Figure().subfigures(1, 2)[1].subplots(), id="subfigure"),
-        pytest.param(lambda: Figure(layout="constrained").subplots(), id="constrained layout"),
+        pytest.param(None, lambda fig: fig.subplots(), id="plain figure"),
+        pytest.param(None, lambda fig: fig.subplots(2, 2)[0, 1], id="subplot grid"),
+        pytest.param(None, lambda fig: fig.subfigures(1, 2)[1].subplots(), id="subfigure"),
+        pytest.param("constrained", lambda fig: fig.subplots(), id="constrained layout"),
         pytest.param(
-            lambda: Figure(layout="constrained").subfigures(1, 2)[0].subplots(),
+            "constrained",
+            lambda fig: fig.subfigures(1, 2)[0].subplots(),
             id="constrained subfigure",
+        ),
+        pytest.param(
+            "constrained",
+            lambda fig: fig.subfigures(1, 1).subfigures(1, 2)[0].subplots(),
+            id="nested subfigure",
         ),
     ],
 )
 @pytest.mark.parametrize("answer", [CONFIDENT_HIGH, CONFIDENT_LOW, BOTH_ENDS_HIGH])
-def test_a_caller_supplied_axes_gets_a_legend_clear_of_its_value_labels(make_axes, answer):
+def test_a_caller_supplied_axes_gets_a_legend_clear_of_its_value_labels(layout, make_axes, answer):
     """``ax=`` is a documented parameter: it may be in a plain figure, a grid or a subfigure."""
-    ax = make_axes()
+    fig = Figure(layout=layout)
+    ax = make_axes(fig)
     out = style.plot_answer_probabilities(answer, ax=ax)
     assert out is ax.figure
     legend = ax.get_legend()
     assert legend is not None
-    _draw(_root(ax))
+    _draw(fig)
     box = legend.get_window_extent()
     assert not any(_intersect(box, t.get_window_extent()) for t in ax.texts)
+
+
+def test_score_legend_supports_the_subfigure_api_before_matplotlib_3_10():
+    fig = Figure(layout="constrained")
+    subfigure = fig.subfigures(1, 2)[0]
+    ax = subfigure.subplots()
+    style.plot_answer_probabilities(CONFIDENT_HIGH, ax=ax)
+    ax.get_legend().remove()
+
+    # Exercise the old get_figure() signature with real SubFigure artists and a real draw.
+    legacy_axes = SimpleNamespace(
+        figure=subfigure, get_figure=lambda: subfigure, texts=ax.texts, legend=ax.legend
+    )
+    style._place_score_legend(legacy_axes)
+
+    _draw(fig)
+    box = ax.get_legend().get_window_extent()
+    assert not any(_intersect(box, text.get_window_extent()) for text in ax.texts)
 
 
 def test_a_label_set_sharing_eleven_characters_renders_distinct_full_ticks():
