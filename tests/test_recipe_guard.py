@@ -419,6 +419,7 @@ import json
 import operator
 import re
 import shutil
+import sys
 import textwrap
 import tokenize
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
@@ -513,6 +514,7 @@ def load_tool(name: str) -> ModuleType:
     """A tool module, loaded by file path (tools/ has no __init__.py)."""
     spec = importlib.util.spec_from_file_location(f"{name}_for_recipe_guard", REPO / "tools" / name)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # Dataclasses resolve their module through sys.modules.
     spec.loader.exec_module(module)
     return module
 
@@ -2770,8 +2772,9 @@ def test_next_steps_links_resolve_to_a_published_recipe(recipe):
     assert not missing, "; ".join(missing)
 
 
-NEXT_STEPS_HEADING = re.compile(r" {0,3}##[ \t]+Next steps(?:[ \t]+#+)?[ \t]*")
+NEXT_STEPS_HEADING = re.compile(r"^ {0,3}##[ \t]+Next steps(?:[ \t]+#+)?[ \t]*$", re.MULTILINE)
 SECTION_HEADING = re.compile(r"^ {0,3}#{1,2}(?:[ \t]|$)", re.MULTILINE)
+_without_code_fences = load_tool("check_recipe_scope.py").without_code_fences
 
 
 def _inbound_next_steps_links() -> dict[str, set[str]]:
@@ -2781,13 +2784,13 @@ def _inbound_next_steps_links() -> dict[str, set[str]]:
         for cell in notebook_cells(recipe_dir(recipe)):
             if cell["cell_type"] != "markdown":
                 continue
-            heading, _, body = cell_source(cell).lstrip("\r\n").partition("\n")
-            if not NEXT_STEPS_HEADING.fullmatch(heading.rstrip("\r")):
-                continue
-            section = SECTION_HEADING.split(body, maxsplit=1)[0]
-            for slug in NEIGHBOUR_LINK.findall(section):
-                if slug in inbound and slug != recipe["slug"]:
-                    inbound[slug].add(recipe["slug"])
+            markdown = _without_code_fences(cell_source(cell))
+            for heading in NEXT_STEPS_HEADING.finditer(markdown):
+                next_heading = SECTION_HEADING.search(markdown, heading.end())
+                end = next_heading.start() if next_heading else len(markdown)
+                for slug in NEIGHBOUR_LINK.findall(markdown, heading.end(), end):
+                    if slug in inbound and slug != recipe["slug"]:
+                        inbound[slug].add(recipe["slug"])
     return inbound
 
 
@@ -2824,6 +2827,42 @@ def test_inbound_next_steps_audit_rejects_a_mid_notebook_only_link(tmp_path, mon
         test_every_recipe_is_linked_from_some_other_recipes_next_steps(target)
 
 
+@pytest.mark.parametrize(
+    "before_link, after_link, counts",
+    [
+        pytest.param(" \t\r\n\r\n## Next steps\r\n", "", True, id="blank-prefix"),
+        pytest.param("Closing remarks.\n\n## Next steps\n", "", True, id="prose-prefix"),
+        pytest.param("Closing remarks.\n", "\n## Next steps\n", False, id="before-heading"),
+        pytest.param("```md\n## Next steps\n", "```\n", False, id="fenced-heading"),
+        pytest.param("## Next steps\n\n~~~md\n", "~~~\n", False, id="fenced-link"),
+        pytest.param("## Next steps\n\n~~~\n", "", False, id="unclosed-fence"),
+        pytest.param(
+            "## Next steps\n\n  ````md\n```\n## Appendix\n  ````\n\n### More reading\n",
+            "",
+            True,
+            id="fenced-appendix",
+        ),
+        pytest.param("## Next steps\n\n## Appendix\n", "", False, id="real-appendix"),
+    ],
+)
+def test_inbound_next_steps_audit_respects_headings_and_code_fences(
+    tmp_path, monkeypatch, before_link, after_link, counts
+):
+    source = {"slug": "01-source"}
+    target = {"slug": "02-target"}
+    monkeypatch.setitem(globals(), "PUBLISHED", [source, target])
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    link = "[Try the target recipe](../02-target/)\n"
+    for recipe, cells in (
+        (source, [{"cell_type": "markdown", "source": before_link + link + after_link}]),
+        (target, []),
+    ):
+        folder = recipe_dir(recipe)
+        folder.mkdir()
+        (folder / "notebook.ipynb").write_text(json.dumps({"cells": cells}), encoding="utf-8")
+    assert _inbound_next_steps_links()[target["slug"]] == ({source["slug"]} if counts else set())
+
+
 @pytest.mark.catalog_audit
 @pytest.mark.parametrize("recipe", guarded("next_steps_inbound_links")())
 def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
@@ -2832,8 +2871,9 @@ def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
     ``next_steps_links_exist`` (see the module docstring's scope decisions), computed once over
     the whole published set (``_inbound_next_steps_links``, built from the same
     ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here. The reader-facing
-    ``## Next steps`` heading identifies the markdown cell. Only links under that heading count,
-    up to the end of the cell or the next heading at the same or higher level.
+    ``## Next steps`` heading identifies the section within a markdown cell. Fenced code is
+    ignored. Links under the heading count up to the end of the cell or the next heading at the
+    same or higher level. Inline code and HTML comments remain part of the scanned text.
 
     Marked ``catalog_audit`` (#203) and deselected by default (see ``pyproject.toml``'s
     ``addopts``): a new recipe's own pull request can never satisfy this check. The recipe
