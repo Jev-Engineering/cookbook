@@ -227,7 +227,7 @@ the README and every markdown cell for them:
   of the rows counted as answered), reported with no split over the rows whose outcome the model's
   answer decided, no decision-level comparison with its baselines, or a baseline figure that cannot
   move and is not said to be fixed ([evaluation.md](evaluation.md#rules-with-a-deterministic-branch)).
-  The rule binds new recipes; recipes 41 and 43 are tracked by #366.
+  The rule binds new recipes. Issue #366 tracks the audit and fixes for published recipes.
 - A prose quantity about the committed structure written as a word ("nine leaves"). The prose check
   reads digits, so the reviewer reads the number words in the README and every markdown cell and
   checks each against the committed data: such a quantity is asserted by a test, whatever spelling

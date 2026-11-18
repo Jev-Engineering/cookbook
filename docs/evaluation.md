@@ -751,9 +751,10 @@ prints `requests 15` for the test split. The `decide` rule reads no answer on a 
 the check refuses. It prints `denied: 7  review: 5  executed: 3` and coverage 0.6667, so, derived
 from those printed counts (the notebook does not print this figure), of the 10 actions answered, 7
 are denials that are correct because `check_binding` says so, not because any answer was good
-(`always_review`'s printed coverage of 0.4667 is those same 7 of 15). Issue #366 tracks the
-model-decided report for recipe 41. Recipe 42's thread escalation overrides 1 of 16 test outcomes,
-and recipe 43's retry rule overrides 2 of 21. Those shares are below the trigger.
+(`always_review`'s printed coverage of 0.4667 is those same 7 of 15). Recipe 21 also meets the
+rule. Its normalization and numeric checks supply 11 of 17 answered test outcomes before a model
+call. Issue #366 tracks both reports. Recipe 42's thread escalation overrides 1 of 16 test
+outcomes, and recipe 43's retry rule overrides 2 of 21. Those shares are below the trigger.
 
 A recipe with such a branch reports three things beside the whole-set figures. They add to the
 composed coverage, accuracy and risk and do not replace them.
