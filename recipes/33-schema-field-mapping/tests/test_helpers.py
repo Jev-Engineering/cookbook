@@ -1,5 +1,6 @@
 """Tests for recipe 33's helpers. They load the helpers by file path."""
 
+import ast
 import importlib.util
 import json
 import re
@@ -681,3 +682,19 @@ def test_the_notebooks_min_coverage_matches_this_files_pinned_value():
     match = re.search(r"MIN_COVERAGE\s*=\s*([0-9.]+)", source)
     assert match, "notebook cell 'python-threshold' no longer defines MIN_COVERAGE"
     assert float(match.group(1)) == MIN_COVERAGE
+
+
+def test_notebook_pins_the_confidence_threshold_objective():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "min_coverage=MIN_COVERAGE" in confidence_keywords
+    assert len(confidence_keywords) == 1

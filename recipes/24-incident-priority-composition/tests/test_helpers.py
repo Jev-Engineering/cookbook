@@ -1,5 +1,7 @@
 """Tests for recipe 24's helpers. They load the helpers by file path."""
 
+import ast
+import json
 from itertools import product
 from pathlib import Path
 
@@ -348,3 +350,19 @@ def test_the_review_queue_holds_every_review_outcome_from_both_splits_and_nothin
     assert all(item["reason"] == "confidence below the threshold" for item in queue.to_dicts())
     demo_ids = {e.id for e in select_split(examples, "demo")}
     assert demo_ids.isdisjoint(submitted_ids)
+
+
+def test_notebook_pins_the_confidence_threshold_objective():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "target_accuracy=1.0" in confidence_keywords
+    assert len(confidence_keywords) == 1

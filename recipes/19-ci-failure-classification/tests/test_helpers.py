@@ -1,5 +1,7 @@
 """Tests for recipe 19's helpers. They load the helpers by file path."""
 
+import ast
+import json
 import re
 from collections import Counter
 from pathlib import Path
@@ -319,3 +321,19 @@ def test_every_workflow_row_is_exercised_by_an_accepted_answer():
             if entry["reason"] == "no option fits"
         }
         assert fired == set(helpers.WORKFLOWS.values()), (split, fired)
+
+
+def test_notebook_pins_the_confidence_threshold_objective():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "target_accuracy=1.0" in confidence_keywords
+    assert len(confidence_keywords) == 1

@@ -1,7 +1,9 @@
 """Tests for recipe 30's helpers. They load the helpers by file path."""
 
+import ast
 import functools
 import importlib.util
+import inspect
 import json
 from pathlib import Path
 
@@ -497,3 +499,34 @@ def test_the_committed_notebook_freezes_the_threshold_this_recipe_selects():
     assert len(threshold_lines) == 1, threshold_lines
     assert f"{real_threshold():.4f}" in threshold_lines[0]
     assert real_threshold() == pytest.approx(0.45)
+
+
+def test_notebook_pins_the_confidence_threshold_objective():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "min_coverage=helpers.MIN_COVERAGE" in confidence_keywords
+    assert len(confidence_keywords) == 1
+
+
+def test_helper_pins_its_confidence_threshold_objective():
+    source = inspect.getsource(helpers.choose_threshold)
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for call in ast.walk(ast.parse(source))
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "min_coverage=MIN_COVERAGE" in confidence_keywords
+    assert len(confidence_keywords) == 1
+    assert helpers.MIN_COVERAGE == 0.75

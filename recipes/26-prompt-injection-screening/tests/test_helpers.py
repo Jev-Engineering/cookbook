@@ -1,5 +1,7 @@
 """Tests for recipe 26's helpers. They load the helpers by file path."""
 
+import ast
+import json
 from pathlib import Path
 
 import pytest
@@ -397,3 +399,30 @@ def test_discusses_decision_is_independently_consequential_on_the_fixtures():
     changed = helpers.screen(helpers.decide_labels(flipped, thresholds, gate))
     assert changed.outcome != baseline.outcome
     assert changed.outcome == helpers.PASS
+
+
+def test_notebook_pins_each_threshold_objective():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    threshold_calls = [
+        call
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+    ]
+    business_keywords = [
+        ast.unparse(keyword)
+        for call in threshold_calls
+        if call.func.id == "select_threshold"
+        for keyword in call.keywords
+    ]
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for call in threshold_calls
+        if call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert business_keywords.count("objective='f1'") == 2
+    assert "target_accuracy=1.0" in confidence_keywords
+    assert len(business_keywords) == 2
+    assert len(confidence_keywords) == 1

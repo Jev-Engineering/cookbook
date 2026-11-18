@@ -1,5 +1,7 @@
 """Tests for recipe 22's helpers. They load the helpers by file path."""
 
+import ast
+import json
 import math
 from pathlib import Path
 
@@ -477,3 +479,19 @@ def test_the_nstl_and_mrdn_aliases_are_load_bearing_for_the_overlap_baseline(
     # report no_match instead of the right record. A mutation that deleted either alias entry
     # would fail this test by returning helpers.NO_MATCH here.
     assert helpers.baseline_overlap_cutoff(vendor, product) == expected
+
+
+def test_notebook_pins_the_confidence_threshold_objective():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "target_accuracy=1.0" in confidence_keywords
+    assert len(confidence_keywords) == 1

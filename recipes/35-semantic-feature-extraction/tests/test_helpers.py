@@ -6,6 +6,7 @@ against literal expected values, so an edit to any of them fails a test rather t
 producing a different reported number without anyone noticing the change.
 """
 
+import ast
 import math
 from pathlib import Path
 
@@ -639,3 +640,28 @@ def test_stored_answers_are_not_all_right():
         if confidence >= confidence_gate and not correct
     ]
     assert wrong_above_gate, "expected at least one wrong, confidently-scored test answer"
+
+
+def test_helpers_pin_the_feature_threshold_and_diagnostic_objectives():
+    source = (RECIPE / "helpers.py").read_text(encoding="utf-8")
+    threshold_calls = [
+        call
+        for call in ast.walk(ast.parse(source))
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+    ]
+    business_objectives = [
+        ast.unparse(argument)
+        for call in threshold_calls
+        if call.func.id == "select_threshold"
+        for argument in call.args[2:3]
+    ]
+    diagnostic_keywords = [
+        ast.unparse(keyword)
+        for call in threshold_calls
+        if call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "'f1'" in business_objectives
+    assert len(business_objectives) == 1
+    assert "min_coverage=0.5" in diagnostic_keywords
+    assert len(diagnostic_keywords) == 1
