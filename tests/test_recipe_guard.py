@@ -427,6 +427,7 @@ from types import ModuleType
 from typing import NamedTuple
 
 import pytest
+from markdown_it import MarkdownIt
 
 from jev_cookbook import Noul, load_helpers
 from jev_cookbook import fixtures as jc_fixtures
@@ -2721,7 +2722,9 @@ def test_every_plot_call_has_a_printed_table(recipe):
 # check 6: every Next-steps link target exists on disk
 # --------------------------------------------------------------------------------------------
 
-NEIGHBOUR_LINK = re.compile(r"\]\(\.\./((?:[0-9]{2}|100)-[a-z0-9-]+)/\)")
+NEIGHBOUR_FOLDER = r"\.\./((?:[0-9]{2}|100)-[a-z0-9-]+)/"
+NEIGHBOUR_LINK = re.compile(rf"\]\({NEIGHBOUR_FOLDER}\)")
+NEIGHBOUR_HREF = re.compile(NEIGHBOUR_FOLDER)
 
 
 def test_recipe_100_next_steps_link_must_resolve_to_a_published_notebook(tmp_path, monkeypatch):
@@ -2770,25 +2773,29 @@ def test_next_steps_links_resolve_to_a_published_recipe(recipe):
     assert not missing, "; ".join(missing)
 
 
-NEXT_STEPS_HEADING = re.compile(r"^ {0,3}##[ \t]+Next steps(?:[ \t]+#+)?[ \t]*$", re.MULTILINE)
-SECTION_HEADING = re.compile(r"^ {0,3}#{1,2}(?:[ \t]|$)", re.MULTILINE)
-# Match in source order so a comment opener inside code or a fence inside a comment cannot
-# start another block. A closing fence uses the opener's marker and at least its length.
-NEXT_STEPS_LITERAL = re.compile(
-    r"^ {0,3}(?:(?P<backticks>`{3,})[^`\n]*|(?P<tildes>~{3,})[^\n]*)(?:\n|\Z)"
-    r"(?s:.*?)(?:^ {0,3}(?:(?P=backticks)`*|(?P=tildes)~*)[^\S\n]*$|\Z)"
-    r"|^ {0,3}<!--(?s:.*?)(?:-->|\Z)"
-    r"|<!--(?s:.*?)-->"
-    r"|(?<!`)(?P<ticks>`+)(?!`)[^\n]*?(?<!`)(?P=ticks)(?!`)",
-    re.MULTILINE,
-)
+_MARKDOWN = MarkdownIt("commonmark")
 
 
-def _mask_next_steps_literals(text: str) -> str:
-    """Keep line boundaries and avoid joining Markdown fragments across a masked span."""
-    return NEXT_STEPS_LITERAL.sub(
-        lambda match: "…" + "\n…" * match[0].count("\n"), "\n".join(text.splitlines())
-    )
+def _next_steps_targets(markdown: str) -> set[str]:
+    """Find recipe-folder links in a top-level Next steps section of one Markdown cell."""
+    targets = set()
+    in_next_steps = False
+    tokens = iter(_MARKDOWN.parse(markdown))
+    for token in tokens:
+        if token.type == "heading_open" and token.level == 0 and token.tag in {"h1", "h2"}:
+            heading = next(tokens)
+            title = "".join(
+                part.content for part in heading.children or () if part.type != "html_inline"
+            ).strip()
+            in_next_steps = token.tag == "h2" and title == "Next steps"
+        elif in_next_steps and token.type == "inline":
+            for part in token.children or ():
+                if part.type == "link_open":
+                    href = part.attrGet("href")
+                    match = NEIGHBOUR_HREF.fullmatch(href) if isinstance(href, str) else None
+                    if match:
+                        targets.add(match[1])
+    return targets
 
 
 def _inbound_next_steps_links() -> dict[str, set[str]]:
@@ -2798,13 +2805,9 @@ def _inbound_next_steps_links() -> dict[str, set[str]]:
         for cell in notebook_cells(recipe_dir(recipe)):
             if cell["cell_type"] != "markdown":
                 continue
-            markdown = _mask_next_steps_literals(cell_source(cell))
-            for heading in NEXT_STEPS_HEADING.finditer(markdown):
-                next_heading = SECTION_HEADING.search(markdown, heading.end())
-                end = next_heading.start() if next_heading else len(markdown)
-                for slug in NEIGHBOUR_LINK.findall(markdown, heading.end(), end):
-                    if slug in inbound and slug != recipe["slug"]:
-                        inbound[slug].add(recipe["slug"])
+            for slug in _next_steps_targets(cell_source(cell)):
+                if slug in inbound and slug != recipe["slug"]:
+                    inbound[slug].add(recipe["slug"])
     return inbound
 
 
@@ -2873,6 +2876,11 @@ def test_inbound_next_steps_audit_rejects_a_mid_notebook_only_link(tmp_path, mon
             "Remarks with a stray `.\n\n## Next steps\n", " `\n", True, id="stray-backtick"
         ),
         pytest.param("## Next steps\n\n- First\n  - Second\n    ", "", True, id="nested-list-link"),
+        pytest.param("## Next steps\n\n> ```md\n> ", "\n> ```\n", False, id="quoted-fence"),
+        pytest.param("## Next steps\n\n    ", "", False, id="indented-code"),
+        pytest.param("## Next steps\n\nExample: `\n", "`", False, id="multiline-code-span"),
+        pytest.param("## Next steps\n\nAppendix\n--------\n\n", "", False, id="setext-appendix"),
+        pytest.param("## Next steps <!-- editorial note -->\n\n", "", True, id="heading-comment"),
     ],
 )
 def test_inbound_next_steps_audit_respects_markdown_boundaries(
@@ -2899,12 +2907,10 @@ def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
     """G1(f) clause 2 (issue #76 comment 6079429778): "every published recipe is the target of
     at least one other recipe's Next steps" (R21) -- a per-recipe, per-check case exactly like
     ``next_steps_links_exist`` (see the module docstring's scope decisions), computed once over
-    the whole published set (``_inbound_next_steps_links``, built from the same
-    ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here. The reader-facing
-    ``## Next steps`` heading identifies the section within a markdown cell. Links under the
-    heading count up to the end of the cell or the next heading at the same or higher level.
-    Fenced code, HTML comments and single-line inline code are masked before scanning. The
-    matcher leaves indented code and inline code spanning multiple lines in the scanned text.
+    the whole published set (``_inbound_next_steps_links``) and looked up per recipe here.
+    A top-level H2 titled Next steps identifies the section within a Markdown cell. CommonMark
+    link tokens with a recipe-folder destination count until the next top-level H1 or H2 or
+    the end of the cell. Code, comments and raw HTML do not produce Markdown link tokens.
 
     Marked ``catalog_audit`` (#203) and deselected by default (see ``pyproject.toml``'s
     ``addopts``): a new recipe's own pull request can never satisfy this check. The recipe
