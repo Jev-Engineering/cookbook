@@ -1,5 +1,7 @@
 """Tests for recipe 06's helpers. They load the helpers by file path."""
 
+import ast
+import json
 from pathlib import Path
 
 import pytest
@@ -186,3 +188,30 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
     questions = helpers.build_questions()
     for example in load_inputs(RECIPE):
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
+
+
+def test_notebook_pins_both_threshold_objectives():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    threshold_calls = [
+        call
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+    ]
+    business_objectives = [
+        ast.unparse(argument)
+        for call in threshold_calls
+        if call.func.id == "select_threshold"
+        for argument in call.args[2:3]
+    ]
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for call in threshold_calls
+        if call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "'f1'" in business_objectives
+    assert len(business_objectives) == 1
+    assert "target_accuracy=0.97" in confidence_keywords
+    assert len(confidence_keywords) == 1
