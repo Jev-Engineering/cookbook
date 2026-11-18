@@ -2,8 +2,10 @@
 
 import importlib.util
 import json
+import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -49,6 +51,24 @@ def test_generator_reproduces_every_fixture_and_screenshot(tmp_path):
     assert (target / "assets-manifest.json").read_bytes() == (
         RECIPE / "assets-manifest.json"
     ).read_bytes()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="requires a POSIX umask")
+def test_generated_text_uses_process_umask(tmp_path):
+    target = copy_generator(tmp_path)
+    manifest = target / "assets-manifest.json"
+    manifest.write_text("stale manifest", encoding="utf-8")
+    manifest.chmod(0o640)
+    result = subprocess.run(
+        [sys.executable, str(target / "build_fixtures.py")],
+        capture_output=True,
+        text=True,
+        umask=0o007,
+    )
+    assert result.returncode == 0, result.stderr
+    assert stat.S_IMODE(manifest.stat().st_mode) == 0o640
+    for name in ("inputs.jsonl", "labels.jsonl", "responses.json"):
+        assert stat.S_IMODE((target / "fixtures" / name).stat().st_mode) == 0o660
 
 
 def test_regenerating_text_outputs_preserves_other_links(tmp_path):

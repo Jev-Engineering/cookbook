@@ -4,7 +4,7 @@ import argparse
 import json
 import stat
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import TemporaryDirectory
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -303,34 +303,31 @@ def protected(recipe_dir):
     return any(value["model"] != "synthetic" for value in data.values())
 
 
-def existing_output(path, expected_type):
+def existing_output_mode(path, expected_type):
     """Validate an output itself rather than following a link to another file."""
     try:
         mode = path.lstat().st_mode
     except FileNotFoundError:
-        return False
+        return None
     except OSError as exc:
         raise SystemExit(f"refusing to write: cannot inspect {path.name}") from exc
     if not expected_type(mode):
         raise SystemExit(f"refusing to write: unexpected output type at {path.name}")
-    return True
+    return mode
 
 
 def write_text(path, text, *, should_replace=None):
     """Replace the output without modifying other links to its previous file."""
-    handle = NamedTemporaryFile(
-        mode="w", dir=path.parent, encoding="utf-8", newline="\n", delete=False
-    )
-    temporary = Path(handle.name)
-    try:
-        with handle:
-            handle.write(text)
+    with TemporaryDirectory(dir=path.parent) as staging_dir:
+        staged = Path(staging_dir) / path.name
+        staged.write_text(text, encoding="utf-8", newline="\n")
+        current_mode = existing_output_mode(path, stat.S_ISREG)
+        if current_mode is not None:
+            staged.chmod(stat.S_IMODE(current_mode))
         if should_replace is not None and not should_replace():
             return False
-        temporary.replace(path)
+        staged.replace(path)
         return True
-    finally:
-        temporary.unlink(missing_ok=True)
 
 
 def main():
@@ -345,10 +342,10 @@ def main():
     folder = HERE / "fixtures"
     response_path = folder / "responses.json"
     manifest_path = HERE / "assets-manifest.json"
-    existing_output(folder, stat.S_ISDIR)
+    existing_output_mode(folder, stat.S_ISDIR)
     for path in (folder / "inputs.jsonl", folder / "labels.jsonl", manifest_path):
-        existing_output(path, stat.S_ISREG)
-    response_exists = existing_output(response_path, stat.S_ISREG)
+        existing_output_mode(path, stat.S_ISREG)
+    response_exists = existing_output_mode(response_path, stat.S_ISREG) is not None
     response_is_protected = response_exists and not args.force and protected(HERE)
     if response_is_protected and args.overwrite_assets:
         raise SystemExit(
@@ -378,7 +375,7 @@ def main():
     response_bytes = response_text.encode("utf-8")
 
     def should_replace_response():
-        if not existing_output(response_path, stat.S_ISREG):
+        if existing_output_mode(response_path, stat.S_ISREG) is None:
             return True
         try:
             if response_path.read_bytes() == response_bytes:
