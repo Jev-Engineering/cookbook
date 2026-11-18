@@ -2767,14 +2767,9 @@ def _inbound_next_steps_links() -> dict[str, set[str]]:
 INBOUND_NEXT_STEPS_LINKS = _inbound_next_steps_links()
 
 
+# Inbound targets must be published in the catalog.
 @pytest.mark.catalog_audit
-@pytest.mark.parametrize(
-    "recipe",
-    guarded(
-        "next_steps_inbound_links",
-        skip_template="Next steps links target published catalog recipes.",
-    ),
-)
+@pytest.mark.parametrize("recipe", guarded("next_steps_inbound_links", skip_template="Unpublished"))
 def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
     """G1(f) clause 2 (issue #76 comment 6079429778): "every published recipe is the target of
     at least one other recipe's Next steps" (R21) -- a per-recipe, per-check case exactly like
