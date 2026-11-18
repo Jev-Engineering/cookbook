@@ -4155,19 +4155,55 @@ def test_each_template_drift_fails_the_request_audit_check_on_its_own_comparison
         test_the_live_budget_note_matches_the_request_audit({"slug": "_template"})
 
 
-def test_recipe_checks_use_the_template_scope_registration():
-    """Check recipe parametrizations and direct sweeps of the recipe corpus for scope bypasses."""
-    tree = ast.parse(Path(__file__).read_text("utf-8"))
-    for test in tree.body:
+def _check_recipe_scope_registration(tree: ast.Module) -> None:
+    # Catalog metadata and explicitly registered exclusions can use the published set. Other
+    # recipe cases start with the full set, including the template.
+    catalog_helpers = {
+        "guarded",
+        "_published_recipe_numbers",
+        "_published_recipe_slugs",
+        "_inbound_next_steps_links",
+        "side_effect_inventory_gaps",
+    }
+    parametrizations = {"pytest.mark.parametrize"}
+    for statement in tree.body:
+        if isinstance(statement, ast.Import):
+            parametrizations.update(
+                f"{name.asname or name.name}.mark.parametrize"
+                for name in statement.names
+                if name.name == "pytest"
+            )
+        if isinstance(statement, ast.ImportFrom) and statement.module == "pytest":
+            parametrizations.update(
+                f"{name.asname or name.name}.parametrize"
+                for name in statement.names
+                if name.name == "mark"
+            )
+
+        catalog_helper = (
+            isinstance(statement, ast.FunctionDef) and statement.name in catalog_helpers
+        )
+        full_set_definition = (
+            isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+            and statement.targets[0].id == "RECIPES_WITH_TEMPLATE"
+        )
+        if not catalog_helper and not full_set_definition:
+            assert not any(
+                isinstance(node, ast.Name)
+                and node.id == "PUBLISHED"
+                and isinstance(node.ctx, ast.Load)
+                for node in ast.walk(statement)
+            ), f"line {statement.lineno}: use RECIPES_WITH_TEMPLATE for recipe sweeps"
+
+    for test in ast.walk(tree):
         if not isinstance(test, ast.FunctionDef) or not test.name.startswith("test_"):
             continue
-        assert not any(
-            isinstance(node, ast.Name) and node.id == "PUBLISHED" for node in ast.walk(test)
-        ), f"{test.name}: use RECIPES_WITH_TEMPLATE for recipe sweeps"
         for decorator in test.decorator_list:
             if (
                 not isinstance(decorator, ast.Call)
-                or ast.unparse(decorator.func) != "pytest.mark.parametrize"
+                or ast.unparse(decorator.func) not in parametrizations
             ):
                 continue
             args = dict(zip(("argnames", "argvalues"), decorator.args, strict=False))
@@ -4186,6 +4222,35 @@ def test_recipe_checks_use_the_template_scope_registration():
             assert registered or all_recipes, (
                 f"{test.name}: use guarded() or RECIPES_WITH_TEMPLATE for recipe cases"
             )
+
+
+def test_recipe_checks_use_the_template_scope_registration():
+    _check_recipe_scope_registration(ast.parse(Path(__file__).read_text("utf-8")))
+
+
+def test_recipe_scope_registration_rejects_a_published_only_module_alias():
+    source = """\
+RECIPE_CASES = [recipe for recipe in PUBLISHED]
+def test_each_recipe():
+    for recipe in RECIPE_CASES:
+        assert recipe
+"""
+    with pytest.raises(AssertionError, match="use RECIPES_WITH_TEMPLATE for recipe sweeps"):
+        _check_recipe_scope_registration(ast.parse(source))
+
+
+def test_recipe_scope_registration_checks_class_methods_with_aliased_markers():
+    source = """\
+from pytest import mark as pm
+class TestRecipeCases:
+    @pm.parametrize(argnames="recipe", argvalues=CASES)
+    def test_each_recipe(self, recipe):
+        assert recipe
+"""
+    with pytest.raises(AssertionError, match=r"use guarded\(\) or RECIPES_WITH_TEMPLATE"):
+        _check_recipe_scope_registration(ast.parse(source))
+    registered = source.replace("argvalues=CASES", 'argvalues=guarded("example")')
+    _check_recipe_scope_registration(ast.parse(registered))
 
 
 def _audited_mini_recipe(tmp_path: Path, n: int = 3) -> tuple[Path, str]:
