@@ -26,6 +26,9 @@ python tools/execute_notebook.py recipes/77-visual-browser-element-locator
 pytest recipes/77-visual-browser-element-locator
 ```
 
+Run fixture generation and response recording for this recipe sequentially. Start the next
+writer only after the previous one finishes so it sees the latest response file.
+
 Open [the notebook](notebook.ipynb) to read the executed recipe.
 
 ## Switch to live

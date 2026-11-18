@@ -46,6 +46,28 @@ def test_generator_reproduces_every_fixture_and_screenshot(tmp_path):
         actual = {p.name: p.read_bytes() for p in (target / folder).iterdir()}
         expected = {p.name: p.read_bytes() for p in (RECIPE / folder).iterdir()}
         assert actual == expected
+    assert (target / "assets-manifest.json").read_bytes() == (
+        RECIPE / "assets-manifest.json"
+    ).read_bytes()
+
+
+def test_regenerating_text_outputs_preserves_other_links(tmp_path):
+    target = copy_generator(tmp_path)
+    paths = ("assets-manifest.json", "fixtures/inputs.jsonl", "fixtures/labels.jsonl")
+    (target / "fixtures").mkdir()
+    prior = tmp_path / "previous.txt"
+    prior.write_bytes(b"previous synthetic text")
+    for name in paths:
+        try:
+            (target / name).hardlink_to(prior)
+        except (OSError, NotImplementedError):
+            pytest.skip("creating hard links is unavailable")
+
+    result = run_generator(target)
+    assert result.returncode == 0, result.stderr
+    assert prior.read_bytes() == b"previous synthetic text"
+    for name in paths:
+        assert (target / name).read_bytes() == (RECIPE / name).read_bytes()
 
 
 def test_responses_use_exact_recorder_serialization(tmp_path):
@@ -53,6 +75,18 @@ def test_responses_use_exact_recorder_serialization(tmp_path):
     module = generator(target / "build_fixtures.py")
     responses = module.build_responses(module.ROWS, target)
     assert (RECIPE / "fixtures" / "responses.json").read_text("utf-8") == dump_responses(responses)
+
+
+def test_identical_synthetic_responses_are_left_in_place(tmp_path):
+    target = copy_generator(tmp_path)
+    first = run_generator(target)
+    assert first.returncode == 0, first.stderr
+    path = target / "fixtures" / "responses.json"
+    before = path.stat()
+    again = run_generator(target)
+    assert again.returncode == 0, again.stderr
+    after = path.stat()
+    assert (after.st_ino, after.st_mtime_ns) == (before.st_ino, before.st_mtime_ns)
 
 
 def test_recorded_guard_preserves_answers_but_regenerates_inputs_and_labels(tmp_path):
@@ -76,6 +110,34 @@ def test_recorded_guard_preserves_answers_but_regenerates_inputs_and_labels(tmp_
     forced = run_generator(target, "--force")
     assert forced.returncode == 0, forced.stderr
     assert path.read_bytes() == (RECIPE / "fixtures" / "responses.json").read_bytes()
+
+
+def test_response_guard_rechecks_after_rendering(tmp_path, monkeypatch):
+    target = copy_generator(tmp_path)
+    first = run_generator(target)
+    assert first.returncode == 0, first.stderr
+    module = generator(target / "build_fixtures.py")
+    path = target / "fixtures" / "responses.json"
+    data = json.loads(path.read_text("utf-8"))
+    next(iter(data.values()))["model"] = "jev-1.14.0"
+    recorded = json.dumps(data).encode("utf-8")
+    original_dump = module.dump_responses
+
+    def finish_recording(responses):
+        text = original_dump(responses)
+        path.write_bytes(recorded)
+        return text
+
+    monkeypatch.setattr(sys, "argv", [str(target / "build_fixtures.py")])
+    monkeypatch.setattr(module, "dump_responses", finish_recording)
+    with pytest.raises(SystemExit, match="recorded or malformed responses"):
+        module.main()
+    assert path.read_bytes() == recorded
+    assert {file.name for file in path.parent.iterdir()} == {
+        "inputs.jsonl",
+        "labels.jsonl",
+        "responses.json",
+    }
 
 
 def test_malformed_response_file_is_also_protected(tmp_path):

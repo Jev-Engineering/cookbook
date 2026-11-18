@@ -316,15 +316,19 @@ def existing_output(path, expected_type):
     return True
 
 
-def write_responses(path, responses):
+def write_text(path, text, *, should_replace=None):
+    """Replace the output without modifying other links to its previous file."""
     handle = NamedTemporaryFile(
         mode="w", dir=path.parent, encoding="utf-8", newline="\n", delete=False
     )
     temporary = Path(handle.name)
     try:
         with handle:
-            handle.write(dump_responses(responses))
+            handle.write(text)
+        if should_replace is not None and not should_replace():
+            return False
         temporary.replace(path)
+        return True
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -357,23 +361,39 @@ def main():
             f"refused: {exc}\nnothing else was written; use --overwrite-assets to accept the changes"
         ) from exc
 
-    manifest_path.write_text(
-        json.dumps(asset_manifest(ROWS, HERE), indent=2) + "\n", encoding="utf-8", newline="\n"
-    )
+    write_text(manifest_path, json.dumps(asset_manifest(ROWS, HERE), indent=2) + "\n")
     folder.mkdir(parents=True, exist_ok=True)
     inputs, labels = build_inputs_and_labels(ROWS, parts=parts)
     for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
-        (folder / name).write_text(
-            "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8", newline="\n"
-        )
+        write_text(folder / name, "".join(json.dumps(row) + "\n" for row in rows))
+    protected_message = (
+        "refusing to overwrite recorded or malformed responses; use --force explicitly. "
+        "Inputs, labels and the asset manifest were regenerated."
+    )
     if response_is_protected:
-        raise SystemExit(
-            "refusing to overwrite recorded or malformed responses; use --force explicitly. "
-            "Inputs, labels and the asset manifest were regenerated."
-        )
+        raise SystemExit(protected_message)
+
     responses = build_responses(ROWS, parts=parts)
-    write_responses(response_path, responses)
-    print(f"wrote {len(inputs)} screenshots, {len(labels)} labels, {len(responses)} responses")
+    response_text = dump_responses(responses)
+    response_bytes = response_text.encode("utf-8")
+
+    def should_replace_response():
+        if not existing_output(response_path, stat.S_ISREG):
+            return True
+        try:
+            if response_path.read_bytes() == response_bytes:
+                return False
+        except OSError:
+            pass  # Let the provenance check handle unreadable files.
+        if not args.force and protected(HERE):
+            raise SystemExit(protected_message)
+        return True
+
+    replaced = write_text(response_path, response_text, should_replace=should_replace_response)
+    response_status = (
+        f"{len(responses)} responses" if replaced else f"kept {len(responses)} responses"
+    )
+    print(f"wrote {len(inputs)} screenshots, {len(labels)} labels, {response_status}")
 
 
 if __name__ == "__main__":
