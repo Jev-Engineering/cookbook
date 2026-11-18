@@ -2881,6 +2881,7 @@ def test_inbound_next_steps_audit_rejects_a_mid_notebook_only_link(tmp_path, mon
         pytest.param("## Next steps\n\nExample: `\n", "`", False, id="multiline-code-span"),
         pytest.param("## Next steps\n\nAppendix\n--------\n\n", "", False, id="setext-appendix"),
         pytest.param("## Next steps <!-- editorial note -->\n\n", "", True, id="heading-comment"),
+        pytest.param("## Next steps\n\n!", "", False, id="image-is-not-a-link"),
     ],
 )
 def test_inbound_next_steps_audit_respects_markdown_boundaries(
@@ -2899,6 +2900,16 @@ def test_inbound_next_steps_audit_respects_markdown_boundaries(
         folder.mkdir()
         (folder / "notebook.ipynb").write_text(json.dumps({"cells": cells}), encoding="utf-8")
     assert _inbound_next_steps_links()[target["slug"]] == ({source["slug"]} if counts else set())
+
+
+def test_inbound_next_steps_audit_resolves_markdown_reference_links():
+    markdown = """[recipe]: ../02-target/
+
+## Next steps
+
+See [the neighbouring recipe][recipe].
+"""
+    assert _next_steps_targets(markdown) == {"02-target"}
 
 
 @pytest.mark.catalog_audit
