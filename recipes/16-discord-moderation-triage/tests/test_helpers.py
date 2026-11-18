@@ -1,5 +1,7 @@
 """Tests for recipe 16's helpers. They load the helpers by file path."""
 
+import ast
+import json
 from pathlib import Path
 
 import pytest
@@ -190,3 +192,19 @@ def test_a_wrong_stored_answer_is_confident_at_or_above_the_frozen_gate():
         if triage.choice != labels[e.id] and triage.confidence >= FROZEN_GATE:
             confident_and_wrong.append(e.id)
     assert confident_and_wrong, "at least one wrong answer should clear the frozen gate"
+
+
+def test_notebook_pins_the_confidence_threshold_objective():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "target_accuracy=1.0" in confidence_keywords
+    assert len(confidence_keywords) == 1

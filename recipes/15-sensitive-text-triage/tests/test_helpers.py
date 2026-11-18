@@ -9,6 +9,8 @@ stay correct if the formula's exact value is ever revisited again. Tests that on
 plausible formula revision would move those.
 """
 
+import ast
+import json
 from pathlib import Path
 
 import pytest
@@ -244,3 +246,30 @@ def test_stored_answers_are_not_all_right():
         for conf, correct in zip(test_confidence, test_correct, strict=True)
     ]
     assert any(wrong_but_cleared_the_gate)
+
+
+def test_notebook_pins_both_threshold_objectives():
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    threshold_calls = [
+        call
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        for call in ast.walk(ast.parse("".join(cell["source"])))
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+    ]
+    business_keywords = [
+        ast.unparse(keyword)
+        for call in threshold_calls
+        if call.func.id == "select_threshold"
+        for keyword in call.keywords
+    ]
+    confidence_keywords = [
+        ast.unparse(keyword)
+        for call in threshold_calls
+        if call.func.id == "select_confidence_threshold"
+        for keyword in call.keywords
+    ]
+    assert "objective='f1'" in business_keywords
+    assert "min_coverage=0.8" in confidence_keywords
+    assert len(business_keywords) == 1
+    assert len(confidence_keywords) == 1
