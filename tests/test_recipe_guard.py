@@ -2785,9 +2785,11 @@ def _next_steps_targets(markdown: str) -> set[str]:
         if token.type == "heading_open" and token.level == 0 and token.tag in {"h1", "h2"}:
             heading = next(tokens)
             title = "".join(
-                part.content for part in heading.children or () if part.type != "html_inline"
-            ).strip()
-            in_next_steps = token.tag == "h2" and title == "Next steps"
+                " " if part.type in {"softbreak", "hardbreak"} else part.content
+                for part in heading.children or ()
+                if part.type != "html_inline"
+            )
+            in_next_steps = token.tag == "h2" and title.split() == ["Next", "steps"]
         elif in_next_steps and token.type == "inline":
             for part in token.children or ():
                 if part.type == "link_open":
@@ -2881,6 +2883,10 @@ def test_inbound_next_steps_audit_rejects_a_mid_notebook_only_link(tmp_path, mon
         pytest.param("## Next steps\n\nExample: `\n", "`", False, id="multiline-code-span"),
         pytest.param("## Next steps\n\nAppendix\n--------\n\n", "", False, id="setext-appendix"),
         pytest.param("## Next steps <!-- editorial note -->\n\n", "", True, id="heading-comment"),
+        pytest.param(
+            "## Next <!-- editorial note --> steps\n\n", "", True, id="comment-between-words"
+        ),
+        pytest.param("Next\nsteps\n----------\n\n", "", True, id="wrapped-setext-title"),
         pytest.param("## Next steps\n\n!", "", False, id="image-is-not-a-link"),
     ],
 )
