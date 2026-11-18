@@ -88,10 +88,9 @@ skipped one by one: each test and each parametrized case counts as its own skip,
 for the module. The `-rs` short summary folds skips that share a location and reason into one
 line, so count the skips from the totals or the `skipped=` figure, not from that list. One more
 SDK-backed test, in `tests/test_notebook_ci_netguard.py`, carries the same `live_sdk` marker and
-is skipped the same way. The
-two `Tests` legs also differ by interpreter and by the resolved package versions, because other
-tests skip depending on those, so their totals are not a like-for-like pair; compare runs on the
-same interpreter.
+is skipped on the same condition. The two `Tests` legs also differ by interpreter and by the
+resolved package versions, because other tests skip depending on those. Compare runs on the same
+interpreter for a like-for-like pair.
 
 Both install the `ml` extra, because the test jobs import every recipe's `helpers.py` and
 `tests/`, and `ml` is the extra a recipe is told it may use. Neither applies
@@ -151,13 +150,11 @@ added and with the SDK version, so none of them is frozen in the repository.
 
 The skip is per test. The `live_sdk` marker is applied by `pytestmark` in
 `tests/test_live_sdk.py` and on the one SDK-backed test in `tests/test_notebook_ci_netguard.py`,
-and registered in `tests/conftest.py`. Both skip before the test body runs, so each skip is one
-test, and the skip count equals the number of SDK-gated tests not run. Only a missing
-`typesafe_sdk` or `httpx2` skips (the netguard test reads that condition from
-`tests/conftest.py`'s module list; `tests/test_live_sdk.py` names the same two modules in its
-own `LIVE_EXTRA_MODULES`): an installed SDK that cannot import, including one missing a submodule of its own,
-fails collection of `tests/test_live_sdk.py` instead of skipping, and fails the netguard test,
-which imports both modules first, with the same import error.
+and registered in `tests/conftest.py`. Both files use the same module list and import check from
+`tests/conftest.py`. A genuinely missing `typesafe_sdk` or `httpx2` causes a per-test skip
+before the test body runs. An installed module with an import error, including a missing submodule
+of its own, stops collection when the run includes `tests/test_live_sdk.py`. When the
+SDK-backed netguard test runs without that file, its setup fails with the original import error.
 
 To compare two runs, run the same command, with the same paths and the same `-k` or `-m`, once
 with `pip install -e ".[dev,ml]"` and once with `pip install -e ".[dev,ml,live]"`. In a
