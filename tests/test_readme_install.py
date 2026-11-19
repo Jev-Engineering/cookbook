@@ -1,5 +1,6 @@
-"""The ``.[dev,ml]`` README rule in ``tests/readme_install.py``: its one known wrong refusal and its
-two blind spots (#358), each pinned on a small README written for the case."""
+"""The ``.[dev,ml]`` README rule in ``tests/readme_install.py``: its one known wrong refusal (the
+back-reference, #358 item 3a) and its "regenerate" and "byte-identical" blind spot (#358 item 3b),
+each pinned on a small README written for the case. Paragraphs are split exactly as on main."""
 
 from __future__ import annotations
 
@@ -51,51 +52,6 @@ def test_a_reproduction_paragraph_is_recognised_by_its_synonyms(words):
     assert len(readme_install.combined_reproduction_installs(readme)) == 1
 
 
-def test_an_install_in_a_fence_below_the_reproduction_prose_is_refused():
-    readme = (
-        "# Recipe\n\n"
-        "To reproduce the committed notebook outputs, run:\n\n"
-        "```bash\n"
-        'pip install -e ".[dev,ml]"\n'
-        "\n"
-        "python tools/execute_notebook.py recipes/NN-slug\n"
-        "```\n\n"
-        "## Switch to live\n"
-    )
-    found = readme_install.combined_reproduction_installs(readme)
-    assert len(found) == 1
-    assert "reproduce" in found[0] and ".[dev,ml]" in found[0]
-
-
-def test_a_fence_below_unrelated_prose_may_install_dev_and_ml():
-    # the tests' install in a fence under "Run it offline" prose is the place the string is right
-    readme = (
-        "# Recipe\n\n"
-        "## Run it offline\n\n"
-        "From the repository root:\n\n"
-        "```bash\n"
-        'pip install -e ".[dev,ml]"\n'
-        "pytest recipes/NN-slug\n"
-        "```\n\n"
-        "Reproducing the committed outputs byte for byte needs\n"
-        '`pip install -e ".[ml]" -c .github/constraints-notebooks.txt`.\n'
-    )
-    assert readme_install.combined_reproduction_installs(readme) == []
-
-
-def test_blank_lines_inside_a_fence_do_not_split_it():
-    readme = "To reproduce the outputs:\n\n```\nfirst\n\n\nsecond\n```\n\nAfter.\n"
-    assert readme_install.paragraphs(readme) == [
-        "To reproduce the outputs: ``` first second ```",
-        "After.",
-    ]
-
-
-def test_an_unclosed_fence_runs_to_the_end_and_joins_the_prose_before_it():
-    readme = 'To reproduce the outputs:\n\n```bash\npip install -e ".[dev,ml]"\n'
-    assert len(readme_install.combined_reproduction_installs(readme)) == 1
-
-
 def test_a_readme_without_a_fence_is_split_by_blank_lines_only():
     # as before #358: blank (or whitespace-only) lines split, nothing else does
     readme = "One\nline.\n\n  \nTwo.\n"
@@ -104,29 +60,12 @@ def test_a_readme_without_a_fence_is_split_by_blank_lines_only():
 
 # The cases below are the Gate B findings on #470 (round 1), each pinned on the README that showed it.
 
-_REPRODUCTION_SENTENCE = (
-    "Reproducing the committed outputs byte for byte needs\n"
-    '`pip install -e ".[ml]" -c .github/constraints-notebooks.txt`.'
-)
-
-
-def test_a_tests_install_fence_introduced_after_a_reproduction_sentence_is_not_refused():
-    # the paragraph's last sentence introduces the tests, so the fence is not reproduction prose's
-    readme = (
-        "# Recipe\n\n"
-        f"{_REPRODUCTION_SENTENCE} To run the tests:\n\n"
-        "```bash\n"
-        'pip install -e ".[dev,ml]"\n'
-        "pytest recipes/NN-slug\n"
-        "```\n"
-    )
-    assert readme_install.combined_reproduction_installs(readme) == []
-
 
 def test_a_fence_comment_saying_regenerate_does_not_make_the_tests_install_a_reproduction():
     readme = (
         "## Run it offline\n\n"
-        'From the repository root, in an environment with `pip install -e ".[dev,ml]"`:\n\n'
+        # no blank line before the fence: the prose and the fence are one paragraph, as on main
+        'From the repository root, in an environment with `pip install -e ".[dev,ml]"`:\n'
         "```bash\n"
         "pytest recipes/NN-slug\n"
         "python tools/execute_notebook.py recipes/NN-slug   # regenerate the committed outputs\n"
@@ -140,100 +79,8 @@ def test_only_the_templates_above_is_for_wording_is_a_back_reference():
     assert len(readme_install.combined_reproduction_installs(readme)) == 1
 
 
-def test_inline_triple_backtick_code_at_the_start_of_a_line_is_not_a_fence():
-    readme = (
-        "## Run it offline\n\n"
-        '```pip install -e ".[dev,ml]"``` for the tests.\n\n'
-        f"{_REPRODUCTION_SENTENCE}\n\n"
-        "## Switch to live\n"
-    )
-    assert len(readme_install.paragraphs(readme)) == 4
-    assert readme_install.combined_reproduction_installs(readme) == []
-
-
-def test_triple_backticks_inside_an_indented_code_block_are_not_a_fence():
-    readme = (
-        "An example of a fence:\n\n"
-        "    ```bash\n"
-        '    pip install -e ".[dev,ml]"\n\n'
-        f"{_REPRODUCTION_SENTENCE}\n"
-    )
-    assert len(readme_install.paragraphs(readme)) == 3
-    assert readme_install.combined_reproduction_installs(readme) == []
-
-
-def test_a_fence_indented_under_a_list_item_is_still_a_fence():
-    readme = (
-        "1. To reproduce the committed outputs, run:\n\n"
-        "    ```bash\n"
-        '    pip install -e ".[dev,ml]"\n\n'
-        "    python tools/execute_notebook.py recipes/NN-slug\n"
-        "    ```\n"
-    )
-    assert len(readme_install.combined_reproduction_installs(readme)) == 1
-
-
-def test_a_fence_closes_only_on_its_own_character_and_length_with_no_info_string():
-    readme = (
-        "Intro.\n\n"
-        "````md\n"
-        "```bash\n"
-        "x\n"
-        "```\n"
-        "still inside\n"
-        "````\n\n"
-        "~~~\n"
-        "```\n"
-        "~~~text\n"
-        "still inside\n"
-        "~~~~\n\n"
-        "After.\n"
-    )
-    assert readme_install.paragraphs(readme) == [
-        "Intro.",
-        "````md ```bash x ``` still inside ````",
-        "~~~ ``` ~~~text still inside ~~~~",
-        "After.",
-    ]
-
-
-def test_an_install_fence_a_few_steps_below_the_reproduction_prose_is_refused():
-    readme = (
-        "## Reproduce the outputs\n\n"
-        "To reproduce the committed outputs:\n\n"
-        "1. Create a fresh virtual environment.\n\n"
-        "2. Install the package.\n\n"
-        "```bash\n"
-        'pip install -e ".[dev,ml]"\n'
-        "```\n"
-    )
-    found = readme_install.combined_reproduction_installs(readme)
-    assert len(found) == 1
-    assert found[0].startswith("To reproduce the committed outputs:")
-
-
-@pytest.mark.parametrize(
-    "between",
-    [
-        "## Run the tests\n\n",  # a heading: the fence is in another section
-        "One.\n\nTwo.\n\nThree.\n\nFour.\n\n",  # more blocks than the rule reaches back over
-        "```text\nan earlier fence\n```\n\n",  # the prose introduced that fence, not this one
-        "To run the tests:\n\n",  # a nearer introduction, not about reproducing
-    ],
-)
-def test_the_reach_back_from_a_fence_to_reproduction_prose_is_bounded(between):
-    readme = (
-        "To reproduce the committed outputs:\n\n"
-        f"{between}"
-        "```bash\n"
-        'pip install -e ".[dev,ml]"\n'
-        "```\n"
-    )
-    assert readme_install.combined_reproduction_installs(readme) == []
-
-
 # The cases below are the Gate B findings on #470 (round 2, at f922ff0), each pinned on the README
-# that showed it. Findings 1-3 were regressions: each README is refused, as it is on main.
+# that showed it. Findings 1-3 were regressions there: each README is refused, as it is on main.
 
 _INSTALL = 'pip install -e ".[dev,ml]"'
 _FENCE = f"```bash\n{_INSTALL}\n```\n"
@@ -280,12 +127,77 @@ def test_regenerating_something_other_than_the_outputs_is_not_refused(readme):
     assert readme_install.combined_reproduction_installs(readme) == []
 
 
-@pytest.mark.parametrize("underline", ["-------------", "============="])
-def test_a_setext_heading_ends_the_reach_back_like_a_hash_heading(underline):
-    # finding 5: the tests' install under its own (underlined) heading is not refused
-    readme = (
-        "To reproduce the committed outputs:\n\n"
-        f"Run the tests\n{underline}\n\n"
-        f"```bash\n{_INSTALL}\npytest\n```\n"
-    )
+# The cases below are the Gate B findings on #470 (round 3, at 2bf6a14) that apply to 3a and 3b.
+
+
+@pytest.mark.parametrize(
+    "readme",
+    [
+        # finding 3: the backtick before .[dev,ml] closes the span `x`, it does not open one
+        "To reproduce the outputs install `x`.[dev,ml]` above is for y.\n",
+        "To reproduce the outputs install ``x``.[dev,ml]`` above is for y.\n",
+    ],
+)
+def test_a_closing_backtick_does_not_make_a_back_reference(readme):
+    assert len(readme_install.combined_reproduction_installs(readme)) == 1
+
+
+@pytest.mark.parametrize(
+    "readme",
+    [
+        "To reproduce, install `x` first; `.[dev,ml]` above is for `ruff` and `pytest`.\n",
+        "To reproduce, `.[dev,ml]`\nabove is for `ruff` and `pytest`.\n",
+        "To reproduce, ``.[dev,ml]`` above is for `ruff` and `pytest`.\n",
+    ],
+)
+def test_a_back_reference_after_other_code_spans_or_a_line_break_is_not_refused(readme):
     assert readme_install.combined_reproduction_installs(readme) == []
+
+
+@pytest.mark.parametrize(
+    "words",
+    [
+        # finding 8: passive and possessive forms
+        "The committed outputs are regenerated with",
+        "To regenerate the recipe's committed outputs run",
+        "The notebook is regenerated with",
+        "The notebook outputs can only be regenerated with",
+    ],
+)
+def test_regenerating_the_outputs_in_the_passive_or_possessive_is_recognised(words):
+    readme = f"# Recipe\n\n{words} `{_INSTALL}`.\n"
+    assert len(readme_install.combined_reproduction_installs(readme)) == 1
+
+
+@pytest.mark.parametrize(
+    "readme",
+    [
+        f"The fixtures are regenerated with `{_INSTALL}`.\n",
+        f"The fixture outputs are regenerated with `{_INSTALL}`.\n",
+        f"To regenerate the notebook's fixtures, run `{_INSTALL}`.\n",
+        # a blank line splits the fence into two paragraphs, but the second is still fenced code
+        "## Run it offline\n\n"
+        "```bash\n"
+        "pytest recipes/NN-slug\n"
+        "\n"
+        f"{_INSTALL}\n"
+        "python tools/execute_notebook.py recipes/NN-slug   # regenerate the committed outputs\n"
+        "```\n",
+    ],
+)
+def test_regenerating_other_things_or_in_a_fence_after_a_blank_line_is_not_refused(readme):
+    assert readme_install.combined_reproduction_installs(readme) == []
+
+
+def _readmes():
+    root = Path(__file__).resolve().parents[1] / "recipes"
+    return sorted(root.glob("*/README.md"))
+
+
+@pytest.mark.parametrize("path", _readmes(), ids=lambda path: path.parent.name)
+def test_the_prose_is_what_the_scope_checks_fence_reader_keeps(path):
+    # fenced code is what tools/check_recipe_scope.py's without_code_fences removes, nothing else
+    readme = path.read_text("utf-8")
+    prose = " ".join(readme_install.paragraph_prose(readme)).split()
+    assert prose == readme_install._scope.without_code_fences(readme).split()
+    assert len(readme_install.paragraph_prose(readme)) == len(readme_install.paragraphs(readme))
