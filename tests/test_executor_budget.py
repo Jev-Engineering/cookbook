@@ -32,10 +32,13 @@ def test_the_fit_message_names_the_reserve_and_the_job_timeout_to_update():
 
 
 def test_the_reserve_is_at_least_the_largest_measured_tests_job():
-    # 408 s: the longest of 16 green Tests jobs measured for #347 (see the module docstring); a
-    # reserve below the measurement would let the largest guard fire after the job is killed.
-    assert executor_budget.SUITE_SECONDS >= 408
-    assert "282 to 408 s" in executor_budget.__doc__
+    # MEASURED_JOB_SECONDS: the longest of the green Tests jobs measured for #347 (see the module
+    # docstring); a reserve below the measurement would let the largest guard fire after the job
+    # is killed.
+    measured = executor_budget.MEASURED_JOB_SECONDS
+    assert executor_budget.SUITE_SECONDS >= measured
+    doc = " ".join(executor_budget.__doc__.split())
+    assert f" to {measured} s (``MEASURED_JOB_SECONDS``)" in doc
 
 
 def test_the_reserve_and_the_largest_guard_fit_the_job_as_read_from_ci_yml():
@@ -52,7 +55,7 @@ def test_the_docstring_figures_are_the_ones_the_numbers_give():
     job = executor_budget.ci_test_job_seconds()
     reserve = executor_budget.SUITE_SECONDS
     largest = max(executor_budget.every_guard(execute_notebook).values())
-    margin = round((reserve / 408 - 1) * 100)
+    margin = round((reserve / executor_budget.MEASURED_JOB_SECONDS - 1) * 100)
     assert f"plus about {margin}%, {reserve} s" in doc
     assert f"({job // 60}, {job} s)" in doc
     assert f"what is left, {job - reserve} s" in doc
