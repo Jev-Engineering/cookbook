@@ -1,5 +1,6 @@
 """The rule about ``.[dev,ml]`` in a recipe README, shared by ``tests/test_recipe_guard.py`` (every
-published README and the template) and ``tests/test_new_recipe.py`` (the scaffold's output).
+published README and the template), ``tests/test_new_recipe.py`` (the scaffold's output) and
+``tests/test_readme_install.py`` (the rule's own cases).
 
 What the rule is for (#127, #137, #162, docs/recipe-template.md step 6). The ``Notebook (<recipe>)``
 job installs ``.[ml]`` under ``.github/constraints-notebooks.txt`` and runs neither ``ruff`` nor
@@ -19,7 +20,11 @@ One sentence in a reproduction paragraph is not refused (#358 item 3a): the temp
 back-reference to the tests' install, "``.[dev]`` above is for ``ruff`` and ``pytest``", as a
 scikit-learn recipe adapts it once its tests' install is ``.[dev,ml]``. Exactly the inline code
 span `` `.[dev,ml]` ``, then whitespace, then "above is for `` `ruff` `` and `` `pytest` ``" is
-exempt; the words may be separated by any run of whitespace, line breaks included. Code spans are
+exempt; the words may be separated by any run of whitespace, line breaks included. The sentence
+must end its clause there: after `` `pytest` `` come optional closing brackets, then ``,``, ``.``,
+``;`` or the end of the paragraph, and the rest of that sentence (up to a ``.`` followed by
+whitespace) must not say "reproduc...", "byte..." or "constraints-notebooks". The template's own
+continuation, ", which that job does not run; see ...", passes. Code spans are
 read left to right, so the backtick in front of ``.[dev,ml]`` must open the span: the closing
 backtick of an earlier span does not. Each such sentence cancels the one ``.[dev,ml]`` it holds;
 every other occurrence in a reproduction paragraph is still refused.
@@ -40,7 +45,11 @@ REPRODUCTION = re.compile(
 CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.DOTALL)
 # What follows `.[dev,ml]` in the template's back-reference sentence (recipes/_template/README.md,
 # tools/new_recipe.py), with any run of whitespace between the words.
-BACK_REFERENCE_TAIL = re.compile(r"\s+above\s+is\s+for\s+`ruff`\s+and\s+`pytest`")
+# It must end its clause: optional closing brackets, then `,`, `.`, `;` or the end of the paragraph.
+BACK_REFERENCE_TAIL = re.compile(r"\s+above\s+is\s+for\s+`ruff`\s+and\s+`pytest`[)\]]*(?:[,.;]|$)")
+# The rest of the back-reference's sentence must not itself be about reproducing.
+SENTENCE_END = re.compile(r"\.(?:\s|$)")
+REPRODUCING_REMAINDER = re.compile(r"reproduc|byte|constraints-notebooks", re.IGNORECASE)
 
 # The install the Notebook job runs, and the line a README documents for reproducing outputs.
 REPRODUCTION_INSTALL = 'pip install -e ".[ml]" -c .github/constraints-notebooks.txt'
@@ -54,17 +63,24 @@ def paragraphs(readme: str) -> list[str]:
     return [" ".join(block.split()) for block in re.split(r"\n\s*\n", readme) if block.strip()]
 
 
+def _is_back_reference(text: str, span: re.Match[str]) -> bool:
+    """Whether ``span`` opens the template's back-reference sentence: a code span opened by its own
+    single backtick and holding exactly ``.[dev,ml]``, then "above is for `ruff` and `pytest`" at
+    the end of a clause, with nothing about reproducing in the rest of the sentence."""
+    if span.group(1) != "`" or span.group(2) != COMBINED:
+        return False
+    tail = BACK_REFERENCE_TAIL.match(text, span.end())
+    if tail is None:
+        return False
+    # from the boundary character itself, so a "." boundary ends the sentence right there
+    end = SENTENCE_END.search(text, tail.end() - 1)
+    remainder = text[tail.end() - 1 : end.end() if end else len(text)]
+    return not REPRODUCING_REMAINDER.search(remainder)
+
+
 def _back_references(text: str) -> int:
-    """How many times ``text`` holds the template's back-reference sentence: a code span opened by
-    its own single backtick and holding exactly ``.[dev,ml]``, then "above is for `ruff` and
-    `pytest`"."""
-    return sum(
-        1
-        for span in CODE_SPAN.finditer(text)
-        if span.group(1) == "`"
-        and span.group(2) == COMBINED
-        and BACK_REFERENCE_TAIL.match(text, span.end())
-    )
+    """How many times ``text`` holds the template's back-reference sentence."""
+    return sum(1 for span in CODE_SPAN.finditer(text) if _is_back_reference(text, span))
 
 
 def combined_reproduction_installs(readme: str) -> list[str]:

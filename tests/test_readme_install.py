@@ -82,6 +82,40 @@ def test_anything_but_the_templates_back_reference_is_refused_as_on_main(readme)
     assert len(readme_install.combined_reproduction_installs(readme)) == 1
 
 
+# The template's own sentence (recipes/_template/README.md, tools/new_recipe.py), adapted to ml.
+_TEMPLATE_SENTENCE = (
+    "Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs "
+    "for the `Notebook (<recipe>)` job: "
+    '`pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python 3.14; `nbclient` and '
+    "`ipykernel` are core dependencies, so this alone is enough to execute the notebook — "
+    "`.[dev,ml]` above is for `ruff` and `pytest`, which that job does not run; see "
+    "[docs/recipe-template.md](../../docs/recipe-template.md) step 6).\n"
+)
+
+
+def test_the_full_template_sentence_adapted_to_ml_is_not_refused():
+    assert readme_install.combined_reproduction_installs(_TEMPLATE_SENTENCE) == []
+
+
+@pytest.mark.parametrize(
+    "readme",
+    [
+        # #470 code review at e40100e, finding 1: the exemption was a prefix match
+        "To reproduce the outputs use the constraints. `.[dev,ml]` above is for `ruff` and "
+        "`pytest` and also reproduces the notebook outputs.\n",
+        "To reproduce run pip install -e `.[dev,ml]` above is for `ruff` and `pytest` "
+        "-c .github/constraints-notebooks.txt.\n",
+        # a boundary, but the rest of the sentence is itself about reproducing
+        "To reproduce, `.[dev,ml]` above is for `ruff` and `pytest`, and it reproduces the outputs.\n",
+        "To reproduce, `.[dev,ml]` above is for `ruff` and `pytest`; also byte for byte outputs.\n",
+        "Outputs: `.[dev,ml]` above is for `ruff` and `pytest`, "
+        "with -c .github/constraints-notebooks.txt.\n",
+    ],
+)
+def test_the_back_reference_must_end_its_clause_and_not_go_on_about_reproducing(readme):
+    assert len(readme_install.combined_reproduction_installs(readme)) == 1
+
+
 @pytest.mark.parametrize(
     "readme",
     [
