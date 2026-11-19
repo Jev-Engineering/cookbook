@@ -1,7 +1,7 @@
-"""The ``.[dev,ml]`` README rule in ``tests/readme_install.py``: the "byte-for-byte" and
-"byte-identical" spellings of a reproduction paragraph (#358 item 3b, in part), each pinned on a
-small README written for the case. Everything else gives the same verdict as main's rule, including
-the template's back-reference sentence once a scikit-learn recipe adapts it (#358 item 3a, #592)."""
+"""The ``.[dev,ml]`` README rule in ``tests/readme_install.py``: the "byte-for-byte" spelling of a
+reproduction paragraph (#358 item 3b, in part), pinned on a small README written for the case.
+Everything else gives the same verdict as main's rule, including the template's back-reference
+sentence once a scikit-learn recipe adapts it (#358 item 3a, #592)."""
 
 from __future__ import annotations
 
@@ -26,8 +26,6 @@ _INSTALL = 'pip install -e ".[dev,ml]"'
 @pytest.mark.parametrize(
     "words",
     [
-        "For byte-identical outputs, install",
-        "For Byte-Identical outputs, install",
         "For byte-for-byte outputs, install",
         "For BYTE-FOR-BYTE outputs, install",
         "For byte for byte outputs, install",
@@ -39,11 +37,24 @@ def test_a_reproduction_paragraph_is_recognised_by_its_synonyms(words):
     assert len(readme_install.combined_reproduction_installs(readme)) == 1
 
 
+def test_a_tests_paragraph_that_says_byte_identical_is_not_refused():
+    # #470 code review at 672b254, finding 1: "byte-identical" also describes what the tests check
+    # (docs/recipe-template.md), so it does not make a paragraph a reproduction paragraph.
+    readme = (
+        f"# Recipe\n\nRun the tests with `{_INSTALL}`; they check responses.json is"
+        " byte-identical to dump_responses.\n"
+    )
+    assert readme_install.combined_reproduction_installs(readme) == []
+
+
 def test_an_ml_recipes_back_reference_sentence_is_refused_as_on_main():
+    """Pins main's known wrong refusal of this sentence, tracked in #592: when #592 lands this test
+    is meant to fail and be changed to assert the sentence is accepted."""
     # The template as a scikit-learn recipe adapts it: the tests' install and the back-reference
     # sentence both say .[dev,ml]. The sentence sits in the reproduction paragraph, so main refuses
     # that paragraph and so does this rule; an exemption for it is #592.
     readme = readme_install.with_documented_test_install(TEMPLATE_README.read_text("utf-8"))
+    assert "`.[dev]` above is for" in readme, "the template's back-reference sentence was reworded"
     readme = readme.replace("`.[dev]` above is for", "`.[dev,ml]` above is for", 1)
     refused = readme_install.combined_reproduction_installs(readme)
     assert len(refused) == 1

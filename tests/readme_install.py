@@ -12,9 +12,8 @@ running a recipe's *tests*. Since #238 both ``Tests`` jobs install ``ml`` and a 
 ``helpers.py`` uses scikit-learn needs ``pip install -e ".[dev,ml]"`` to run ``pytest`` at all.
 
 So the rule is now about the paragraph, not the whole file: a paragraph that is about reproducing
-committed outputs (it names the constraints file, or says "reproduc...", "byte for byte",
-"byte-for-byte" or "byte-identical") must not contain ``.[dev,ml]``. Anywhere else the string is
-allowed.
+committed outputs (it names the constraints file, or says "reproduc...", "byte for byte" or
+"byte-for-byte") must not contain ``.[dev,ml]``. Anywhere else the string is allowed.
 
 This is a plain module (not a test file), loaded by path like the other helpers in tests/.
 """
@@ -25,7 +24,7 @@ import re
 
 COMBINED = ".[dev,ml]"
 REPRODUCTION = re.compile(
-    r"constraints-notebooks|reproduc|byte for byte|byte-for-byte|byte-identical", re.IGNORECASE
+    r"constraints-notebooks|reproduc|byte for byte|byte-for-byte", re.IGNORECASE
 )
 
 # The install the Notebook job runs, and the line a README documents for reproducing outputs.
