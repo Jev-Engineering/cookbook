@@ -93,7 +93,8 @@ def fit_problem(user: str, guard: int, job_seconds: int | None = None) -> str:
     return (
         f"{user}: hang guard {guard} s + SUITE_SECONDS {SUITE_SECONDS} s = "
         f"{guard + SUITE_SECONDS} s exceeds the CI {CI_TEST_JOB!r} job's timeout-minutes "
-        f"({job} s). Re-measure the Tests job duration and update SUITE_SECONDS in "
+        f"({job} s). Re-measure the Tests job duration and update MEASURED_JOB_SECONDS and "
+        f"SUITE_SECONDS together (and the measurement in the module docstring) in "
         f"tests/executor_budget.py, or raise timeout-minutes in .github/workflows/ci.yml; do not "
         f"shorten the guard below what tools/execute_notebook.py may legitimately take."
     )

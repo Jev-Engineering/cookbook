@@ -26,6 +26,7 @@ def test_the_fit_message_names_the_reserve_and_the_job_timeout_to_update():
     message = executor_budget.fit_problem("tests/x.py", 900, job_seconds=1200)
     assert "tests/x.py" in message
     assert f"SUITE_SECONDS {executor_budget.SUITE_SECONDS} s" in message
+    assert "update MEASURED_JOB_SECONDS and SUITE_SECONDS together" in message
     assert f"{900 + executor_budget.SUITE_SECONDS} s exceeds" in message
     assert "(1200 s)" in message
     assert "tests/executor_budget.py" in message and ".github/workflows/ci.yml" in message
@@ -45,7 +46,10 @@ def test_the_reserve_and_the_largest_guard_fit_the_job_as_read_from_ci_yml():
     job = executor_budget.ci_test_job_seconds()
     largest = max(executor_budget.every_guard(execute_notebook).values())
     assert executor_budget.fits_in_the_ci_test_job(largest, job)
-    assert not executor_budget.fits_in_the_ci_test_job(job - executor_budget.SUITE_SECONDS + 1, job)
+    # both sides of the boundary: a guard that uses exactly what is left fits, one more second not
+    room = job - executor_budget.SUITE_SECONDS
+    assert executor_budget.fits_in_the_ci_test_job(room, job)
+    assert not executor_budget.fits_in_the_ci_test_job(room + 1, job)
 
 
 def test_the_docstring_figures_are_the_ones_the_numbers_give():
