@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"entity": "P01", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P01|works_at|O1"], ["put", "edge:P01|works_at|O2"]]}}
+{"id": "v02-initial", "label": {"entity": "P02", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P02|works_at|O3"], ["put", "edge:P02|works_at|O4"]]}}
+{"id": "v03-no-match", "label": {"entity": "no_match", "conflict": false, "update": []}}
+{"id": "v04-unsupported", "label": {"entity": "P03", "conflict": false, "supported": false, "ended": false, "update": []}}
+{"id": "v05-invariant", "label": {"entity": "P04", "conflict": false, "supported": true, "ended": false, "update": []}}
+{"id": "v06-left-only", "label": {"entity": "P05", "conflict": false, "supported": false, "ended": true, "update": []}}
+{"id": "v07-conflict", "label": {"entity": "P06", "conflict": true, "update": []}}
+{"id": "v08", "label": {"entity": "P08", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P08|works_at|O2"], ["put", "edge:P08|works_at|O6"]]}}
+{"id": "v09-initial", "label": {"entity": "P09", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P09|works_at|O2"], ["put", "edge:P09|works_at|O5"]]}}
+{"id": "v10", "label": {"entity": "P11", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P11|works_at|O6"], ["put", "edge:P11|works_at|O1"]]}}
+{"id": "v11-invariant", "label": {"entity": "P13", "conflict": false, "supported": true, "ended": false, "update": []}}
+{"id": "v12-no-match", "label": {"entity": "no_match", "conflict": false, "update": []}}
+{"id": "t01", "label": {"entity": "P12", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P12|works_at|O3"], ["put", "edge:P12|works_at|O2"]]}}
+{"id": "t02-initial", "label": {"entity": "P07", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P07|works_at|O4"], ["put", "edge:P07|works_at|O1"]]}}
+{"id": "t03-left-only", "label": {"entity": "P14", "conflict": false, "supported": false, "ended": true, "update": []}}
+{"id": "t04-invariant", "label": {"entity": "P15", "conflict": false, "supported": true, "ended": false, "update": []}}
+{"id": "t05-unsupported", "label": {"entity": "P10", "conflict": false, "supported": false, "ended": false, "update": []}}
+{"id": "t06-conflict", "label": {"entity": "P16", "conflict": true, "update": []}}
+{"id": "t07-no-match", "label": {"entity": "no_match", "conflict": false, "update": []}}
+{"id": "t08-wrong-match", "label": {"entity": "P18", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P18|works_at|O5"], ["put", "edge:P18|works_at|O2"]]}}
+{"id": "t09", "label": {"entity": "P19", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P19|works_at|O2"], ["put", "edge:P19|works_at|O5"]]}}
+{"id": "t10-missed", "label": {"entity": "P20", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P20|works_at|O3"], ["put", "edge:P20|works_at|O6"]]}}
+{"id": "t11-conflict", "label": {"entity": "P21", "conflict": true, "update": []}}
+{"id": "t12-low-confidence", "label": {"entity": "P17", "conflict": false, "supported": true, "ended": true, "update": [["delete", "edge:P17|works_at|O1"], ["put", "edge:P17|works_at|O3"]]}}
