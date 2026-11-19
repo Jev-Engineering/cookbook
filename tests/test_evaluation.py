@@ -2697,19 +2697,28 @@ def test_accepted_when_and_acts_when_must_return_a_bool_not_a_truthy_value():
 def _private_names_imported(source: str) -> list[str]:
     """Private names of another jev_cookbook module that a top-level module reaches into.
 
-    Reported: a private imported name in ``from .m import _x`` / ``from jev_cookbook.m import _x``,
-    and a private attribute reached on a name bound to a jev_cookbook module (``frames._x``,
-    ``jev_cookbook.frames._x``, ``f._x``). Module paths are never reported, and ``from . import m``
-    binds a module, so ``from . import _canonical`` is allowed. Level > 1 raises ValueError.
+    Reported: a private imported name in ``from .m import _x`` / ``from jev_cookbook.m import _x``
+    / ``from . import _x``, and a private attribute reached on a name bound to a jev_cookbook
+    module or to the package itself (``frames._x``, ``jev_cookbook.frames._x``, ``jc.frames._x``,
+    ``f._x``). A name counts as a module path only when it is a real module or package under
+    ``src/jev_cookbook`` (at any depth); module paths are never reported, so
+    ``from . import _canonical`` and ``from .fixtures import _scan`` are allowed. Level > 1
+    raises ValueError.
     """
     import ast
 
     def private(name: str) -> bool:
         return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
 
+    package_dir = Path(ev.__file__).parent
+    modules = {  # every real dotted module path in the package, at any depth
+        ".".join(
+            ["jev_cookbook", *path.relative_to(package_dir).with_suffix("").parts]
+        ).removesuffix(".__init__")
+        for path in package_dir.rglob("*.py")
+    }
     reported: list[str] = []
     bound: dict[str, str] = {}  # local name -> dotted jev_cookbook module path
-    modules: set[str] = set()  # every dotted module path an import statement names
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
@@ -2721,19 +2730,15 @@ def _private_names_imported(source: str) -> list[str]:
                 path = node.module or ""
             if path.split(".")[0] != "jev_cookbook":
                 continue
-            modules.add(path)
             for alias in node.names:
-                if path == "jev_cookbook":  # `from . import m`: binds a module
+                if f"{path}.{alias.name}" in modules:  # `from . import m`: binds a module
                     bound[alias.asname or alias.name] = f"{path}.{alias.name}"
-                    modules.add(f"{path}.{alias.name}")
                 elif private(alias.name):
                     reported.append(f"from {path} import {alias.name}")
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name.split(".")[0] != "jev_cookbook":
                     continue
-                parts = alias.name.split(".")
-                modules.update(".".join(parts[: i + 1]) for i in range(len(parts)))
                 if alias.asname:
                     bound[alias.asname] = alias.name
                 else:
@@ -2792,9 +2797,27 @@ def test_evaluation_imports_no_private_name_from_another_module():
         ("from .frames import __all__", []),
         ("import math\nmath._private", []),
         ("import os\nos._exit", []),
+        # the package root is a bound name too, aliased or not
+        (
+            "import jev_cookbook\njev_cookbook.frames._seconds(1, 'x')",
+            ["jev_cookbook.frames._seconds"],
+        ),
+        ("import jev_cookbook as jc\njc.frames._seconds", ["jev_cookbook.frames._seconds"]),
+        ("import jev_cookbook\njev_cookbook._canonical.plain_json(x)", []),
+        # `from . import X` binds a module only when X is a real submodule
+        ("from . import _helper", ["from jev_cookbook import _helper"]),
+        ("from jev_cookbook import _helper", ["from jev_cookbook import _helper"]),
+        # the same holds below a subpackage
+        ("from .fixtures import _scan", []),
+        (
+            "from .fixtures import permutation\npermutation._x",
+            ["jev_cookbook.fixtures.permutation._x"],
+        ),
+        ("from jev_cookbook.fixtures import _scan\n_scan._x", ["jev_cookbook.fixtures._scan._x"]),
+        ("from .fixtures import _helper", ["from jev_cookbook.fixtures import _helper"]),
     ],
 )
-def test_the_private_import_guard_catches_every_spelling(source, expected):
+def test_the_private_import_guard_catches_the_listed_spellings(source, expected):
     # the guard the test above relies on, run on planted sources so it cannot pass vacuously
     assert _private_names_imported(source) == expected
 
