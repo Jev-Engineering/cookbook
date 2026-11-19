@@ -11,73 +11,36 @@ running a recipe's *tests*. Since #238 both ``Tests`` jobs install ``ml`` and a 
 ``helpers.py`` uses scikit-learn needs ``pip install -e ".[dev,ml]"`` to run ``pytest`` at all.
 
 So the rule is now about the paragraph, not the whole file: a paragraph that is about reproducing
-committed outputs must not contain ``.[dev,ml]``. Anywhere else the string is allowed. A paragraph
-is a blank-line separated block, fenced code included: prose and a fence that touch with no blank
-line between them are one paragraph, and a blank line splits a paragraph even inside a fence.
+committed outputs (it names the constraints file, or says "reproduc...", "byte for byte",
+"byte-for-byte" or "byte-identical") must not contain ``.[dev,ml]``. Anywhere else the string is
+allowed. A paragraph is a blank-line separated block.
 
-A paragraph is about reproducing committed outputs when its text, fenced code included, names the
-constraints file or says "reproduc...", "byte for byte", "byte-for-byte" or "byte-identical"; or
-when its prose (fenced code excluded) says it regenerates the committed or notebook outputs or the
-notebook: "regenerate the committed outputs", "regenerate the recipe's committed outputs", "The
-committed outputs are regenerated with ...", "the notebook is regenerated". "regenerat..." is
-that narrow because READMEs say the catalog and the fixtures are regenerated, and a
-``# regenerate`` comment in a fence is not prose. What is fenced is decided as
-``tools/check_recipe_scope.py``'s ``without_code_fences`` decides it (its ``FENCE``, its open and
-close rules, an unclosed fence running to the end of the README), over the whole README, so a
-fence a blank line splits stays fenced in the paragraphs after the blank line (#358 item 3b).
-
-A back-reference to the tests' install is not refused (#358 item 3a): an inline code span holding
-exactly ``.[dev,ml]`` followed, after optional whitespace, by "above is for" (the template's
-"``.[dev]`` above is for ``ruff`` and ``pytest``", once a scikit-learn recipe updates it) names
-that install and does not perform it. Code spans are read left to right, so the backtick that
-opens the span must open it: the closing backtick of an earlier span does not. ``.[dev,ml]``
-inside a longer span such as ``pip install -e ".[dev,ml]"`` is an install whatever follows it, and
-every other occurrence in a reproduction paragraph is refused.
+One sentence in a reproduction paragraph is not refused (#358 item 3a): the template's
+back-reference to the tests' install, "``.[dev]`` above is for ``ruff`` and ``pytest``", as a
+scikit-learn recipe adapts it once its tests' install is ``.[dev,ml]``. Exactly the inline code
+span `` `.[dev,ml]` ``, then whitespace, then "above is for `` `ruff` `` and `` `pytest` ``" is
+exempt; the words may be separated by any run of whitespace, line breaks included. Code spans are
+read left to right, so the backtick in front of ``.[dev,ml]`` must open the span: the closing
+backtick of an earlier span does not. Each such sentence cancels the one ``.[dev,ml]`` it holds;
+every other occurrence in a reproduction paragraph is still refused.
 
 This is a plain module (not a test file), loaded by path like the other helpers in tests/.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import re
-import sys
-from pathlib import Path
 
 COMBINED = ".[dev,ml]"
 REPRODUCTION = re.compile(
-    r"constraints-notebooks|reproduc|byte[ -]for[ -]byte|byte-identical", re.IGNORECASE
-)
-# "regenerat..." about the committed or notebook outputs or the notebook, matched in prose only.
-# Active: "regenerate [the] [<owner>'s] [committed] [notebook] output(s)" or "... notebook".
-# Passive: the same thing as subject, then "is/are/can [only|also|<adverb>ly] [be] regenerated".
-# The passive subject must start at "the", an owner's "'s", "committed" or "notebook outputs", so
-# "the fixture outputs are regenerated" (a noun in front of "outputs") does not count, and
-# "the notebook's fixtures" is not the notebook.
-_THING = r"(?:(?:committed\s+)?(?:notebook\s+)?outputs?|notebook)\b(?!')"
-_SUBJECT = r"(?:the\s+(?:[\w-]+'s\s+)?|[\w-]+'s\s+|(?=committed\s|notebook\s+outputs?\b))"
-_AUXILIARY = r"(?:is|are|was|were|be|been|being|gets?|got|can|could|must|should|will|would|may)"
-REGENERATION = re.compile(
-    rf"\bregenerat\w*\s+(?:the\s+)?(?:[\w-]+'s\s+)?{_THING}"
-    rf"|\b{_SUBJECT}{_THING}\s+{_AUXILIARY}\s+"
-    rf"(?:(?:{_AUXILIARY}|only|also|\w+ly)\s+){{0,3}}regenerat",
-    re.IGNORECASE,
+    r"constraints-notebooks|reproduc|byte for byte|byte-for-byte|byte-identical", re.IGNORECASE
 )
 # An inline code span, read left to right: a run of backticks, its content, and the next run of
 # exactly as many backticks.
-CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
-ABOVE_IS_FOR = re.compile(r"\s*above\s+is\s+for\b", re.IGNORECASE)
-
-# The scope check's fence pattern, so the two tools agree on what is fenced code (as
-# tests/test_docs_links.py does by reusing its without_code_fences).
-_spec = importlib.util.spec_from_file_location(
-    "check_recipe_scope_readme_install",
-    Path(__file__).resolve().parents[1] / "tools" / "check_recipe_scope.py",
-)
-_scope = importlib.util.module_from_spec(_spec)
-sys.modules[_spec.name] = _scope  # its dataclasses resolve their module through sys.modules
-_spec.loader.exec_module(_scope)
-FENCE = _scope.FENCE
+CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.DOTALL)
+# What follows `.[dev,ml]` in the template's back-reference sentence (recipes/_template/README.md,
+# tools/new_recipe.py), with any run of whitespace between the words.
+BACK_REFERENCE_TAIL = re.compile(r"\s+above\s+is\s+for\s+`ruff`\s+and\s+`pytest`")
 
 # The install the Notebook job runs, and the line a README documents for reproducing outputs.
 REPRODUCTION_INSTALL = 'pip install -e ".[ml]" -c .github/constraints-notebooks.txt'
@@ -91,48 +54,26 @@ def paragraphs(readme: str) -> list[str]:
     return [" ".join(block.split()) for block in re.split(r"\n\s*\n", readme) if block.strip()]
 
 
-def paragraph_prose(readme: str) -> list[str]:
-    """For each of ``paragraphs(readme)``, in the same order, its lines outside fenced code,
-    whitespace collapsed. Fence state is carried across paragraphs with the open and close rules
-    of ``without_code_fences`` in tools/check_recipe_scope.py (fence lines themselves excluded)."""
-    prose = []
-    fence = None  # (character, length) while inside a fenced block
-    for block in re.split(r"\n\s*\n", readme):
-        if not block.strip():
-            continue
-        kept = []
-        for line in block.split("\n"):
-            match = FENCE.fullmatch(line)
-            if fence is None:
-                if match and not (match.group("mark")[0] == "`" and "`" in match.group("info")):
-                    fence = (match.group("mark")[0], len(match.group("mark")))
-                    continue
-                kept.append(line)
-            elif match and match.group("mark")[0] == fence[0]:
-                if len(match.group("mark")) >= fence[1] and not match.group("info").strip():
-                    fence = None
-        prose.append(" ".join(" ".join(kept).split()))
-    return prose
-
-
 def _back_references(text: str) -> int:
-    """How many times ``text`` says `` `.[dev,ml]` above is for``: a code span holding exactly
-    ``.[dev,ml]``, opened by its own backtick, then "above is for"."""
+    """How many times ``text`` holds the template's back-reference sentence: a code span opened by
+    its own single backtick and holding exactly ``.[dev,ml]``, then "above is for `ruff` and
+    `pytest`"."""
     return sum(
         1
         for span in CODE_SPAN.finditer(text)
-        if span.group(2) == COMBINED and ABOVE_IS_FOR.match(text, span.end())
+        if span.group(1) == "`"
+        and span.group(2) == COMBINED
+        and BACK_REFERENCE_TAIL.match(text, span.end())
     )
 
 
 def combined_reproduction_installs(readme: str) -> list[str]:
     """Every paragraph that is about reproducing committed outputs and also says ``.[dev,ml]``
-    other than as a back-reference (`` `.[dev,ml]` above is for``). An empty list is a pass."""
+    other than in the template's back-reference sentence. An empty list is a pass."""
     return [
-        text
-        for text, prose in zip(paragraphs(readme), paragraph_prose(readme), strict=True)
-        if (REPRODUCTION.search(text) or REGENERATION.search(prose))
-        and text.count(COMBINED) > _back_references(text)
+        p
+        for p in paragraphs(readme)
+        if REPRODUCTION.search(p) and p.count(COMBINED) > _back_references(p)
     ]
 
 
