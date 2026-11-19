@@ -9,6 +9,9 @@ constraints, a forced push runs everything, `continue-on-error` is pinned absent
 import re
 from pathlib import Path
 
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.version import InvalidVersion, Version
+
 REPO = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO / ".github" / "workflows"
 NOTEBOOKS = (WORKFLOWS / "notebooks.yml").read_text(encoding="utf-8")
@@ -734,24 +737,100 @@ def test_the_checkout_is_asserted_untouched_right_after_execution():
     assert "exit 1" in assertion
 
 
-def ml_extra_bound():
-    """The ``ml`` extra's scikit-learn requirement in pyproject.toml, as (lower, upper) tuples."""
-    pyproject = (REPO / "pyproject.toml").read_text(encoding="utf-8")
-    line = re.search(r"^ml = \[\"scikit-learn>=([0-9.]+),<([0-9.]+)\"\]$", pyproject, re.MULTILINE)
-    assert line, "the ml extra must bound scikit-learn as >=LOWER,<UPPER (#358)"
-    return tuple(tuple(int(part) for part in v.split(".")) for v in line.groups())
+def version_of(text, what):
+    """``text`` as a ``packaging`` Version, so ``1.9.1.post1`` and ``2.0`` compare correctly.
+
+    A malformed version fails with an assertion naming ``what`` instead of a parser crash.
+    """
+    try:
+        return Version(text.strip())
+    except InvalidVersion:
+        raise AssertionError(f"{what}: {text!r} is not a valid version") from None
+
+
+def ml_extra_bound(pyproject=None):
+    """The ``ml`` extra's scikit-learn requirement in pyproject.toml, as (lower, upper) Versions."""
+    if pyproject is None:
+        pyproject = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    line = re.search(r'^ml\s*=\s*\[\s*"([^"]*)"\s*,?\s*\]\s*$', pyproject, re.MULTILINE)
+    assert line, 'the ml extra must be one requirement, ml = ["scikit-learn>=LOWER,<UPPER"] (#358)'
+    try:
+        requirement = Requirement(line.group(1))
+    except InvalidRequirement:
+        raise AssertionError(f"the ml extra {line.group(1)!r} is not a valid requirement") from None
+    assert requirement.name == "scikit-learn", (
+        f"the ml extra must be scikit-learn, not {requirement.name}"
+    )
+    by_operator = {spec.operator: spec.version for spec in requirement.specifier}
+    assert set(by_operator) == {">=", "<"} and len(requirement.specifier) == 2, (
+        f"the ml extra must bound scikit-learn as >=LOWER,<UPPER (#358), not {requirement.specifier}"
+    )
+    return (
+        version_of(by_operator[">="], "the ml extra's lower bound"),
+        version_of(by_operator["<"], "the ml extra's upper bound"),
+    )
+
+
+def check_pin_inside_bound(lower, pinned, upper):
+    assert lower <= pinned < upper, (lower, pinned, upper)
+    assert upper == Version(str(pinned.major + 1)), (
+        f"the ml extra's upper bound {upper} must be the next major after the pin {pinned}"
+    )
 
 
 def test_the_ml_extra_is_bounded_around_the_notebook_pin():
     """#358: unbounded, the Tests legs could resolve a scikit-learn major the notebook job never
     runs. The notebook pin must sit inside the bound, and the upper bound is the next major."""
     lower, upper = ml_extra_bound()
-    pinned = tuple(int(part) for part in pins()["scikit-learn"].split("."))
-    assert lower <= pinned < upper, (lower, pinned, upper)
-    assert upper == (pinned[0] + 1,), upper
+    pinned = version_of(pins()["scikit-learn"], "the notebook pin of scikit-learn")
+    check_pin_inside_bound(lower, pinned, upper)
+
+
+def test_the_bound_parsing_tolerates_equivalent_spellings():
+    """A post-release pin, a trailing zero and spacing are the same bound, not a crash."""
+    spaced = 'ml = [ "scikit-learn >= 1.7.2, < 2.0" ]\n'
+    lower, upper = ml_extra_bound(spaced)
+    assert (lower, upper) == (Version("1.7.2"), Version("2"))
+    check_pin_inside_bound(lower, version_of("1.9.1.post1", "pin"), upper)
+
+
+def test_a_malformed_pin_or_bound_fails_with_a_clear_message():
+    for bad, message in [
+        (
+            lambda: version_of("1.9.x", "the notebook pin"),
+            "the notebook pin: '1.9.x' is not a valid",
+        ),
+        (lambda: ml_extra_bound('ml = ["scikit-learn>=1.7.2"]\n'), "must bound scikit-learn"),
+        (lambda: ml_extra_bound('ml = ["scikit-learn>=1.7.2,<<2"]\n'), "not a valid requirement"),
+    ]:
+        try:
+            bad()
+        except AssertionError as error:
+            assert message in str(error), str(error)
+        else:
+            raise AssertionError(f"expected a failure mentioning {message!r}")
 
 
 def test_the_docs_state_the_ml_extra_bound():
+    """Every place development.md states the bound names the package and matches pyproject.toml,
+    so raising the bound cannot leave a bare or stale copy behind."""
     lower, upper = ml_extra_bound()
-    spelled = f"scikit-learn>={'.'.join(map(str, lower))},<{'.'.join(map(str, upper))}"
-    assert f"`{spelled}`" in " ".join(DEVELOPMENT.split())
+    flat = " ".join(DEVELOPMENT.split())
+    stated = list(
+        re.finditer(r"(\S*?)>=\s*([0-9][0-9A-Za-z.]*)\s*,\s*<\s*([0-9][0-9A-Za-z.]*)", flat)
+    )
+    assert stated, "development.md must state the ml extra's bound"
+    for match in stated:
+        where = f"development.md states {match.group(0)!r}"
+        assert match.group(1).endswith("scikit-learn"), f"{where}, a bound with no package name"
+        assert version_of(match.group(2), where) == lower, f"{where}, but pyproject has {lower}"
+        assert version_of(match.group(3), where) == upper, f"{where}, but pyproject has {upper}"
+
+
+def test_the_ci_comment_describes_the_bounded_ml_extra():
+    """The ci.yml comment repeats the development.md story; it must not call the 3.14 leg's
+    scikit-learn unbounded now that the ml extra bounds it (#358)."""
+    _, upper = ml_extra_bound()
+    flat = " ".join(line.lstrip(" #") for line in CI.splitlines()).replace("`", "")
+    assert "nothing holds it there" not in flat
+    assert f"within the ml extra's <{upper.major} bound" in flat

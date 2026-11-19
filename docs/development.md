@@ -467,7 +467,7 @@ with at most three of its update pull requests open at once for each.
   A new core dependency needs a reason in its pull request.
 - **Extras** (`optional-dependencies`): anything only some recipes or contributors need.
   - `live`: `typesafe-sdk`, for opt-in live inference (`JEV_COOKBOOK_LIVE=1`).
-  - `ml`: `scikit-learn` (bounded `>=1.7.2,<2`, see [Continuous integration](#continuous-integration)), for recipes that train baselines.
+  - `ml`: `scikit-learn` (bounded `scikit-learn>=1.7.2,<2`, see [Continuous integration](#continuous-integration)), for recipes that train baselines.
   - `dev`: `ruff` (pinned exactly, so new rules or formatter changes cannot break `main`
     without a code change; bump it deliberately in its own pull request) and `pytest`.
 - **No import-time side effects.** Importing `jev_cookbook` never touches the network,
