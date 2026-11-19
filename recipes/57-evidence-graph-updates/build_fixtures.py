@@ -50,7 +50,7 @@ def _fields(mention, target, *excerpts):
 
 
 def _replace(person, old, new):
-    return [["delete", f"edge:{person}|works_at|{old}"], ["put", f"edge:{person}|works_at|{new}"]]
+    return [["delete", helpers.edge_key(person, old)], ["put", helpers.edge_key(person, new)]]
 
 
 NOTHING = []

@@ -57,6 +57,7 @@ REASON_NO_MATCH = "the mention matches no listed person"
 REASON_NO_CANDIDATE = "no candidate in the shortlist"
 REASON_UNSUPPORTED = "the evidence does not support the relationship"
 REASON_COMMITTED = "the transaction committed"
+REASON_NOT_FITTED = "a request-2 threshold is not fitted"
 
 # ---------------------------------------------------------------------------------------------
 # The seed graph. Fabricated organisations and people; every person starts with exactly one
@@ -114,24 +115,35 @@ def edge_key(person: str, org: str) -> str:
 
 
 _NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
+_PUNCTUATION = ".,;:!?\"'()"
+_TRAILING_PARENTHETICALS = re.compile(r"(\s*\([^()]*\))+\s*$")
+
+
+def _bare(word: str) -> str:
+    """One word without the punctuation around it or a trailing possessive (``'s``)."""
+    return word.strip(_PUNCTUATION).lower().removesuffix("'s").strip(_PUNCTUATION)
+
+
+def _without_suffixes(words: list[str]) -> list[str]:
+    """``words`` without trailing generational suffixes (``Jr.``, ``Jr.'s``, ``III``)."""
+    while words and _bare(words[-1]) in _NAME_SUFFIXES:
+        words = words[:-1]
+    return words
 
 
 def candidates(mention: str) -> list[str]:
     """The people Python shortlists for a mention: everyone whose surname is the mention's
-    surname, in id order. The surname is the last word, after dropping punctuation around it, a
-    trailing possessive (``'s`` or ``\u2019s``) and a generational suffix (``Jr.``); in the
-    "Surname, Given" form it is the last word before the comma, again without a suffix. An empty or blank mention has no
+    surname, in id order. The surname is the last word, after dropping a trailing parenthetical
+    (``(chemist)``), punctuation around the word, a trailing possessive (``'s`` or ``\u2019s``)
+    and a generational suffix (``Jr.``, possessive or not); in the "Surname, Given" form it is the
+    last word before the comma, again without a suffix. An empty or blank mention has no
     candidates, and ``ask_first`` sends no request for it. Jev never adds a candidate; it only
     chooses among these or ``no_match``."""
-    words = mention.replace("\u2019", "'").split()
-    while words and words[-1].strip(".,;:!?\"'()").lower() in _NAME_SUFFIXES:
-        words.pop()
+    text = _TRAILING_PARENTHETICALS.sub("", mention.replace("\u2019", "'"))
+    words = _without_suffixes(text.split())
     if words and "," in " ".join(words).rstrip(",;: "):
-        words = " ".join(words).split(",")[0].split()
-        while words and words[-1].strip(".,;:!?\"'()").lower() in _NAME_SUFFIXES:
-            words.pop()
-    surname = words[-1].strip(".,;:!?\"'()").lower() if words else ""
-    surname = surname.removesuffix("'s").strip("'")
+        words = _without_suffixes(" ".join(words).split(",")[0].split())
+    surname = _bare(words[-1]) if words else ""
     if not surname:
         return []
     return [pid for pid, (name, _, _) in PEOPLE.items() if name.split()[-1].lower() == surname]
@@ -238,11 +250,32 @@ class Settings:
     ended: float | None = None
 
 
+def _is_answered(answer: Any) -> bool:
+    """Whether a request was actually answered: a request the budget could not pay for (``None``)
+    or a mention with no candidate (``UNMATCHED``) has no probability."""
+    return answer is not None and answer != UNMATCHED
+
+
 def _answered(first: list[Any], gold: list[dict[str, Any]]) -> tuple[list[Any], list[Any]]:
-    """The (answer, gold) pairs whose request was actually answered: a request the budget could
-    not pay for (``None``) or a mention with no candidate (``UNMATCHED``) has no probability."""
-    pairs = [(a, g) for a, g in zip(first, gold, strict=True) if a is not None and a != UNMATCHED]
+    """The (answer, gold) pairs whose request was actually answered."""
+    pairs = [(a, g) for a, g in zip(first, gold, strict=True) if _is_answered(a)]
     return [a for a, _ in pairs], [g for _, g in pairs]
+
+
+def reaches_conflict_check(first: Any, gate: float) -> bool:
+    """Whether ``decide_first`` reads this request-1 answer's ``conflict`` probability: the
+    request was answered, its entity confidence is at or above the gate, and it is not
+    ``no_match``. The conflict threshold is fitted, and reported, on exactly these rows."""
+    return (
+        _is_answered(first)
+        and first["entity"].confidence >= gate
+        and first["entity"].choice != NO_MATCH
+    )
+
+
+def conflict_rows(examples: list[Any], first: dict[str, Any], gate: float) -> list[Any]:
+    """The examples whose request-1 answer reaches the conflict check, in order."""
+    return [e for e in examples if reaches_conflict_check(first[e.id], gate)]
 
 
 def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
@@ -251,12 +284,14 @@ def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
     The gate is the lowest observed confidence at which every validation entity answer at or
     above it is right (``target_accuracy=1.0``); every option, ``no_match`` included, is gated.
     The conflict threshold maximises F1 over the validation conflict answers of the rows that
-    reach the conflict check in ``decide_first``: answered, at or above the gate, and not
-    ``no_match``. Unanswered requests are left out. Both thresholds fail closed, so every
-    proposal goes to review. When no request is answered, or no gate reaches the target accuracy
-    (the selector raises ``ValueError``), the gate is infinite, so no answer passes it. When no
-    row reaches the conflict check, or the selector raises ``ValueError``, the conflict threshold
-    is minus infinity, so every probability reaches it and the proposal goes to review."""
+    reach the conflict check in ``decide_first`` (``reaches_conflict_check``): answered, at or
+    above the gate, and not ``no_match``. Unanswered requests are left out. Both thresholds fail
+    closed, so every proposal goes to review. When no request is answered, or no gate reaches the
+    target accuracy (the selector raises ``ValueError``), the gate is infinite, so no answer
+    passes it. When no row reaches the conflict check, none of those rows is a gold conflict (F1
+    is undefined at every threshold), or the selector raises ``ValueError``, the conflict
+    threshold is minus infinity, so every probability reaches it and the proposal goes to
+    review."""
     first, gold = _answered(first, gold)
     if not first:
         return Settings(gate=math.inf, conflict=-math.inf)
@@ -266,14 +301,12 @@ def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
         gate = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
     except ValueError:
         gate = math.inf
-    checked = [
-        (a, g)
-        for a, g in zip(first, gold, strict=True)
-        if a["entity"].confidence >= gate and a["entity"].choice != NO_MATCH
-    ]
+    checked = [(a, g) for a, g in zip(first, gold, strict=True) if reaches_conflict_check(a, gate)]
     try:
         if not checked:
             raise ValueError("no validation row reaches the conflict check")
+        if not any(g["conflict"] for _, g in checked):
+            raise ValueError("no validation row that reaches the conflict check is a conflict")
         conflict = select_threshold(
             [g["conflict"] for _, g in checked],
             [a["conflict"].noul for a, _ in checked],
@@ -287,8 +320,9 @@ def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
 def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str, Any]]) -> Settings:
     """The two business thresholds of request 2, each maximising F1 on validation over the rows
     that reached request 2 with the right person matched. Unanswered requests are left out; with
-    no row left, or a selector raises ``ValueError`` (no threshold
-    satisfies the objective), that threshold is infinite, so nothing passes it."""
+    no row left, or a selector raises ``ValueError`` (no threshold satisfies the objective), that
+    threshold is infinite: it is not fitted, and ``decide`` sends every proposal that reaches
+    request 2 to review."""
     second, gold = _answered(second, gold)
     if not second:
         return Settings(settings.gate, settings.conflict, math.inf, math.inf)
@@ -307,11 +341,6 @@ def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str,
     except ValueError:
         ended = math.inf
     return Settings(settings.gate, settings.conflict, supported, ended)
-
-
-def answered(examples: list[Any], first: dict[str, Any]) -> list[Any]:
-    """The examples whose request 1 was answered (not ``None``, not ``UNMATCHED``), in order."""
-    return [e for e in examples if first[e.id] is not None and first[e.id] != UNMATCHED]
 
 
 def objective_in(source: str, name: str) -> str | None:
@@ -449,25 +478,27 @@ def _answers_dict(first: Any, second: Any) -> dict[str, Any]:
 
 
 def decide_first(first: Any, settings: Settings, example: str = "") -> Decision | None:
-    """The rule's first stage. ``None`` means "ask request 2"; otherwise the final Decision."""
-    answers = _answers_dict(first, None)
+    """The rule's first stage. ``None`` means "ask request 2"; otherwise the final Decision. The
+    answers are serialised for the log only when a Decision is returned."""
     if first is None:
         return Decision(example, REVIEW, REASON_BUDGET)
     if first == UNMATCHED:
         return Decision(example, REVIEW, REASON_NO_CANDIDATE, answers={})
     entity = first["entity"]
     if entity.confidence < settings.gate:
-        return Decision(example, REVIEW, REASON_LOW_CONFIDENCE, answers=answers)
+        return Decision(example, REVIEW, REASON_LOW_CONFIDENCE, answers=_answers_dict(first, None))
     if entity.choice == NO_MATCH:
-        return Decision(example, NOT_MATCHED, REASON_NO_MATCH, answers=answers)
+        return Decision(example, NOT_MATCHED, REASON_NO_MATCH, answers=_answers_dict(first, None))
     if first["conflict"].noul >= settings.conflict:
+        answers = _answers_dict(first, None)
         return Decision(example, REVIEW, REASON_CONFLICT, entity.choice, answers=answers)
     return None
 
 
 def decide(example: Any, first: Any, second: Any, settings: Settings) -> Decision:
     """Compose both requests into one Decision for ``example`` (an Example with ``fields``).
-    ``settings`` must hold both stages (``freeze_stage_two``)."""
+    ``settings`` must hold both stages (``freeze_stage_two``). A request-2 threshold that is not
+    fitted (infinite) fails closed: the proposal goes to review, never to a reject or a write."""
     if settings.supported is None or settings.ended is None:
         raise ValueError("decide needs settings with supported and ended; call freeze_stage_two")
     early = decide_first(first, settings, example.id)
@@ -477,6 +508,8 @@ def decide(example: Any, first: Any, second: Any, settings: Settings) -> Decisio
     answers = _answers_dict(first, second)
     if second is None:
         return Decision(example.id, REVIEW, REASON_BUDGET, person, answers=answers)
+    if not (math.isfinite(settings.supported) and math.isfinite(settings.ended)):
+        return Decision(example.id, REVIEW, REASON_NOT_FITTED, person, answers=answers)
     target = example.fields["target"]
     if second["supported"].noul < settings.supported:
         return Decision(example.id, REJECTED, REASON_UNSUPPORTED, person, target, answers=answers)
@@ -517,11 +550,10 @@ def _names(name: str, excerpt: str) -> bool:
 
 def baseline_decide(example: Any) -> Decision:
     """Keyword baseline. Entity: the one candidate whose full name appears as whole words in one
-    excerpt, else ``not_matched``. No conflict check. Supported: the proposed organisation's name appears in an
-    excerpt. Ended: the current employer's name and one of ``ENDED_CUES`` (from a word boundary) both
-    appear in the same excerpt."""
+    excerpt, else ``not_matched``. No conflict check. Supported: the proposed organisation's name
+    appears as whole words in one excerpt. Ended: the current employer's name and one of
+    ``ENDED_CUES`` (from a word boundary) both appear in the same excerpt."""
     fields = example.fields
-    text = " ".join(e["text"] for e in fields["excerpts"]).lower()
     named = [
         p
         for p in candidates(fields["mention"])
@@ -531,7 +563,7 @@ def baseline_decide(example: Any) -> Decision:
         return Decision(example.id, NOT_MATCHED, REASON_NO_MATCH)
     person = named[0]
     target = fields["target"]
-    if ORGANISATIONS[target].lower() not in text:
+    if not any(_names(ORGANISATIONS[target], e["text"]) for e in fields["excerpts"]):
         return Decision(example.id, REJECTED, REASON_UNSUPPORTED, person, target)
     current = PEOPLE[person][2]
     employer = ORGANISATIONS[current].lower()

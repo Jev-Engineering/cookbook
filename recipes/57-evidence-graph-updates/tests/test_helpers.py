@@ -256,7 +256,7 @@ def test_freezing_handles_refused_requests_and_an_empty_second_stage():
     assert helpers.freeze_stage_two(expected, [], []) == refused
     calm = _first(probs, 0.0)
     d = helpers.decide(_examples()["t01"], calm, _second(0.99, 0.99), refused)
-    assert (d.outcome, d.reason) == ("rejected", "the evidence does not support the relationship")
+    assert (d.outcome, d.reason) == ("review", "a request-2 threshold is not fitted")
 
 
 def test_freezing_survives_a_selector_that_finds_no_threshold(monkeypatch):
@@ -291,7 +291,7 @@ def test_freezing_survives_a_selector_that_finds_no_threshold(monkeypatch):
     assert (stage_two.gate, stage_two.conflict) == (0.1, 0.5)
 
 
-def test_entity_hits_and_answered_leave_out_unanswered_requests():
+def test_entity_hits_and_conflict_rows_leave_out_unanswered_requests():
     probs = {"P01": 0.9, "P02": 0.05, "no_match": 0.05}
     right, low = _first(probs, 0.1), _first({"P01": 0.4, "P02": 0.35, "no_match": 0.25}, 0.1)
     gold = [{"entity": "P01"}] * 4
@@ -302,7 +302,10 @@ def test_entity_hits_and_answered_leave_out_unanswered_requests():
     assert helpers.entity_hits([None, helpers.UNMATCHED], gold[:2]) == []
     examples = [SimpleNamespace(id=str(i)) for i in range(4)]
     first = {str(i): a for i, a in enumerate(mixed)}
-    assert [e.id for e in helpers.answered(examples, first)] == ["1", "3"]
+    assert [e.id for e in helpers.conflict_rows(examples, first, 0.0)] == ["1", "3"]
+    assert [e.id for e in helpers.conflict_rows(examples, first, right["entity"].confidence)] == [
+        "1"
+    ]
 
 
 def test_decide_needs_both_stages_of_settings():
@@ -779,3 +782,124 @@ def test_the_objective_label_reads_keyword_arguments_too():
     )
     assert helpers.objective_in(all_keywords, "ended") == "recall_at_precision, target 0.9"
     assert helpers.objective_in(all_keywords, "supported") is None
+
+
+# --- fail-closed stage two, name forms, baseline matching, serialising ----------------------
+
+
+@pytest.mark.parametrize(
+    "unfitted",
+    [{"supported": math.inf}, {"ended": math.inf}, {"supported": math.inf, "ended": math.inf}],
+)
+def test_an_unfitted_request_two_threshold_sends_the_proposal_to_review(unfitted):
+    """freeze_stage_two fails closed to an infinite threshold. A proposal that reaches request 2
+    then goes to review: never an automated reject (a true update dropped unseen) and never a
+    write (with ``ended`` unfitted, a replacement would become an add with the old edge kept)."""
+    settings = helpers.Settings(**{**SETTINGS.__dict__, **unfitted})
+    example = _examples()["t01"]
+    first = _first({"P12": 0.9, "P11": 0.05, "no_match": 0.05}, 0.0)
+    decision = helpers.decide(example, first, _second(0.99, 0.99), settings)
+    assert (decision.outcome, decision.reason) == ("review", "a request-2 threshold is not fitted")
+    _, queue, outcomes = helpers.run_updates([decision], "rule:apply_update")
+    assert [(o.outcome, o.ops) for o in outcomes] == [("review", ())]
+    assert [i["reason"] for i in queue.to_dicts()] == ["a request-2 threshold is not fitted"]
+
+
+def test_a_conflict_fit_set_with_no_conflict_fails_closed():
+    """The rows that reach the conflict check hold no gold conflict: F1 is undefined at every
+    threshold, so no threshold is fitted and every proposal goes to review."""
+    rows = [
+        (_first({"P01": 0.9, "P02": 0.05, "no_match": 0.05}, 0.1), {"entity": "P01", "conflict": False}),
+        (_first({"P02": 0.9, "P01": 0.05, "no_match": 0.05}, 0.3), {"entity": "P02", "conflict": False}),
+        (_first({"P01": 0.9, "P02": 0.05, "no_match": 0.05}, 0.2), {"entity": "P01", "conflict": False}),
+    ]  # fmt: skip
+    frozen = helpers.freeze_stage_one([a for a, _ in rows], [g for _, g in rows])
+    assert math.isfinite(frozen.gate) and frozen.conflict == -math.inf
+    calm = _first({"P01": 0.95, "P02": 0.03, "no_match": 0.02}, 0.0)
+    decision = helpers.decide_first(calm, frozen, "x")
+    assert (decision.outcome, decision.reason) == ("review", "the excerpts conflict")
+
+
+@pytest.mark.parametrize(
+    "mention",
+    ["Mira Okafor Jr.'s", "Mira Okafor Jr.’s", "Mira Okafor (chemist)", "Okafor (chemist)",
+     "Mira Okafor Jr. (chemist)", "Okafor, Mira (chemist)"],
+)  # fmt: skip
+def test_candidates_read_a_possessive_suffix_and_a_trailing_parenthetical(mention):
+    assert helpers.candidates(mention) == ["P01", "P02"]
+
+
+def test_candidates_find_nothing_in_a_parenthetical_alone():
+    assert helpers.candidates("(chemist)") == []
+
+
+def _baseline_example(*texts):
+    fields = {
+        "mention": "Felix Moss",
+        "target": "O2",
+        "excerpts": [{"source": f"s{i}", "text": t} for i, t in enumerate(texts)],
+    }
+    return SimpleNamespace(id="x", fields=fields)
+
+
+def test_the_baseline_reads_the_proposed_organisation_as_whole_words_within_one_excerpt():
+    """``supported`` is the proposed organisation's name inside one excerpt, as whole words."""
+    supported = helpers.baseline_decide(_baseline_example("Felix Moss now works at Halden Institute."))  # fmt: skip
+    assert supported.outcome == "propose"
+    split = _baseline_example("Felix Moss met people from Halden", "Institute staff were there.")
+    longer = _baseline_example("Felix Moss joined the Halden Institutes Trust.")
+    for example in (split, longer):
+        decision = helpers.baseline_decide(example)
+        assert (decision.outcome, decision.reason) == (
+            "rejected",
+            "the evidence does not support the relationship",
+        )
+
+
+class _CountingAnswer:
+    """An answer that counts how often it is serialised."""
+
+    def __init__(self, inner, calls):
+        self.inner, self.calls = inner, calls
+
+    def __getattr__(self, name):
+        return getattr(self.inner, name)
+
+    def to_dict(self):
+        self.calls.append(1)
+        return self.inner.to_dict()
+
+
+def test_decide_first_serialises_no_answer_on_the_way_to_request_two():
+    """``ask_second`` calls ``decide_first`` only to test for ``None``: a proposal it lets through
+    is not serialised there, and neither is a refused or unmatched request."""
+    calls = []
+    first = {
+        name: _CountingAnswer(answer, calls)
+        for name, answer in _first({"P01": 0.9, "P02": 0.05, "no_match": 0.05}, 0.1).items()
+    }
+    assert helpers.decide_first(first, SETTINGS) is None
+    assert calls == []
+    assert helpers.decide_first(None, SETTINGS).reason == "request budget spent"
+    assert helpers.decide_first(helpers.UNMATCHED, SETTINGS).answers == {}
+    low = helpers.Settings(gate=0.99, conflict=0.8)
+    assert set(helpers.decide_first(first, low).answers) == {"entity", "conflict"}
+    assert calls == [1, 1]
+
+
+def test_build_fixtures_writes_gold_edge_keys_with_the_helpers_edge_key(monkeypatch):
+    """The gold ops in labels.jsonl must match the keys run_updates commits, so the generator
+    builds them with ``helpers.edge_key``, not a copy of its format."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "recipe57_build_fixtures_edge_key", RECIPE / "build_fixtures.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module._replace("P01", "O1", "O2") == [
+        ["delete", helpers.edge_key("P01", "O1")],
+        ["put", helpers.edge_key("P01", "O2")],
+    ]
+    monkeypatch.setattr(module.helpers, "edge_key", lambda person, org: f"E[{person}->{org}]")
+    assert module._replace("P01", "O1", "O2") == [["delete", "E[P01->O1]"], ["put", "E[P01->O2]"]]
