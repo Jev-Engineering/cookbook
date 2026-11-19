@@ -250,15 +250,19 @@ def second_answers(spec, provenance: Provenance):
 
 def _first_results(rows):
     """Request 1's result per row, as ``ask_first`` stores it: a mention with no candidate has no
-    request and no answer (``UNMATCHED``), and its spec is ``None``."""
-    return {
-        ident: (
-            DecisionResult(first_answers(spec, Provenance.synthetic()), "synthetic")
-            if helpers.candidates(fields["mention"])
-            else helpers.UNMATCHED
-        )
-        for ident, _split, fields, _label, spec in rows
-    }
+    request and no answer (``UNMATCHED``), and its spec is ``None``. A mention with candidates
+    needs a spec; a missing one is an error naming the row."""
+    out = {}
+    for ident, _split, fields, _label, spec in rows:
+        if not helpers.candidates(fields["mention"]):
+            out[ident] = helpers.UNMATCHED
+            continue
+        if spec is None:
+            raise ValueError(
+                f"{ident}: the mention has candidates, so it needs request 1's answers"
+            )
+        out[ident] = DecisionResult(first_answers(spec, Provenance.synthetic()), "synthetic")
+    return out
 
 
 def stage_one_settings(rows, first=None):

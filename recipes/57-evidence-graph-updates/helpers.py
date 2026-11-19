@@ -120,7 +120,7 @@ def candidates(mention: str) -> list[str]:
     """The people Python shortlists for a mention: everyone whose surname is the mention's
     surname, in id order. The surname is the last word, after dropping punctuation around it, a
     trailing possessive (``'s`` or ``\u2019s``) and a generational suffix (``Jr.``); in the
-    "Surname, Given" form it is the last word before the comma. An empty or blank mention has no
+    "Surname, Given" form it is the last word before the comma, again without a suffix. An empty or blank mention has no
     candidates, and ``ask_first`` sends no request for it. Jev never adds a candidate; it only
     chooses among these or ``no_match``."""
     words = mention.replace("\u2019", "'").split()
@@ -128,6 +128,8 @@ def candidates(mention: str) -> list[str]:
         words.pop()
     if words and "," in " ".join(words).rstrip(",;: "):
         words = " ".join(words).split(",")[0].split()
+        while words and words[-1].strip(".,;:!?\"'()").lower() in _NAME_SUFFIXES:
+            words.pop()
     surname = words[-1].strip(".,;:!?\"'()").lower() if words else ""
     surname = surname.removesuffix("'s").strip("'")
     if not surname:
@@ -248,27 +250,37 @@ def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
 
     The gate is the lowest observed confidence at which every validation entity answer at or
     above it is right (``target_accuracy=1.0``); every option, ``no_match`` included, is gated.
-    The conflict threshold maximises F1 over the validation conflict answers. Unanswered
-    requests are left out. When none are answered, or a selector raises ``ValueError`` because no
-    threshold qualifies (no gate reaches the target accuracy), the matching threshold is
-    infinite, so nothing passes it."""
+    The conflict threshold maximises F1 over the validation conflict answers of the rows that
+    reach the conflict check in ``decide_first``: answered, at or above the gate, and not
+    ``no_match``. Unanswered requests are left out. Both thresholds fail closed, so every
+    proposal goes to review. When no request is answered, or no gate reaches the target accuracy
+    (the selector raises ``ValueError``), the gate is infinite, so no answer passes it. When no
+    row reaches the conflict check, or the selector raises ``ValueError``, the conflict threshold
+    is minus infinity, so every probability reaches it and the proposal goes to review."""
     first, gold = _answered(first, gold)
     if not first:
-        return Settings(gate=math.inf, conflict=math.inf)
+        return Settings(gate=math.inf, conflict=-math.inf)
     correct = [a["entity"].choice == g["entity"] for a, g in zip(first, gold, strict=True)]
     confidence = [a["entity"].confidence for a in first]
     try:
         gate = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
     except ValueError:
         gate = math.inf
+    checked = [
+        (a, g)
+        for a, g in zip(first, gold, strict=True)
+        if a["entity"].confidence >= gate and a["entity"].choice != NO_MATCH
+    ]
     try:
+        if not checked:
+            raise ValueError("no validation row reaches the conflict check")
         conflict = select_threshold(
-            [g["conflict"] for g in gold],
-            [a["conflict"].noul for a in first],
+            [g["conflict"] for _, g in checked],
+            [a["conflict"].noul for a, _ in checked],
             "f1",
         )
     except ValueError:
-        conflict = math.inf
+        conflict = -math.inf
     return Settings(gate=gate, conflict=conflict)
 
 
@@ -304,17 +316,20 @@ def answered(examples: list[Any], first: dict[str, Any]) -> list[Any]:
 
 def objective_in(source: str, name: str) -> str | None:
     """The objective of the ``select_threshold`` call in ``source`` whose gold is ``g["<name>"]``
-    (``None`` when ``source`` has no such call), spelled as the notebook prints it."""
+    (``None`` when ``source`` has no such call), spelled as the notebook prints it. Each
+    argument is read by position or by keyword, in ``select_threshold``'s own parameter order."""
+    params = list(inspect.signature(select_threshold).parameters)
     for node in ast.walk(ast.parse(textwrap.dedent(source))):
         if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "select_threshold"):
             continue
-        if f"g['{name}']" not in ast.unparse(node.args[0]):
+        args = dict(zip(params, node.args, strict=False))
+        args.update({k.arg: k.value for k in node.keywords if k.arg in params})
+        if "gold" not in args or f"g['{name}']" not in ast.unparse(args["gold"]):
             continue
-        objective = ast.literal_eval(node.args[2]) if len(node.args) > 2 else "f1"
+        objective = ast.literal_eval(args["objective"]) if "objective" in args else "f1"
         label = "F1" if objective == "f1" else objective
-        for keyword in node.keywords:
-            if keyword.arg == "target":
-                label += f", target {ast.literal_eval(keyword.value)}"
+        if "target" in args:
+            label += f", target {ast.literal_eval(args['target'])}"
         return label
     return None
 

@@ -250,7 +250,7 @@ def test_freezing_handles_refused_requests_and_an_empty_second_stage():
     mixed_gold = [gold[0], *gold[:1], gold[1], gold[1]]
     assert helpers.freeze_stage_one(mixed, mixed_gold) == expected
     nothing = helpers.freeze_stage_one([None, helpers.UNMATCHED], gold)
-    assert (nothing.gate, nothing.conflict) == (math.inf, math.inf)
+    assert (nothing.gate, nothing.conflict) == (math.inf, -math.inf)
     refused = helpers.freeze_stage_two(expected, [None], [{"supported": True, "ended": False}])
     assert (refused.supported, refused.ended) == (math.inf, math.inf)
     assert helpers.freeze_stage_two(expected, [], []) == refused
@@ -262,15 +262,17 @@ def test_freezing_handles_refused_requests_and_an_empty_second_stage():
 def test_freezing_survives_a_selector_that_finds_no_threshold(monkeypatch):
     """The gate selector raises when the highest-confidence answer is wrong (no gate reaches
     accuracy 1.0). The F1 selector is made to raise here (it does not on the stored shapes, which
-    give F1 0.0), because the helpers must not depend on that. Each freezes to infinity (nothing
-    passes), the same as the empty case, and only the threshold that failed."""
+    give F1 0.0), because the helpers must not depend on that. Each fails closed, the same as the
+    empty case, and only the threshold that failed: the gate to infinity (no answer passes) and
+    the conflict threshold to minus infinity (every proposal goes to review). A gate no answer
+    passes leaves no row for the conflict fit, so that threshold fails closed too."""
     wrong_on_top = [
         _first({"P01": 0.95, "P02": 0.03, "no_match": 0.02}, 0.1),
         _first({"P01": 0.30, "P02": 0.60, "no_match": 0.10}, 0.9),
     ]
     gold = [{"entity": "P02", "conflict": False}, {"entity": "P02", "conflict": True}]
     frozen = helpers.freeze_stage_one(wrong_on_top, gold)
-    assert frozen.gate == math.inf and math.isfinite(frozen.conflict)
+    assert frozen.gate == math.inf and frozen.conflict == -math.inf
     assert helpers.decide_first(wrong_on_top[0], frozen).reason == "confidence below the threshold"
 
     def no_threshold(*_args, **_kwargs):
@@ -279,7 +281,7 @@ def test_freezing_survives_a_selector_that_finds_no_threshold(monkeypatch):
     monkeypatch.setattr(helpers, "select_threshold", no_threshold)
     right_on_top = [wrong_on_top[0], wrong_on_top[1]]
     frozen = helpers.freeze_stage_one(right_on_top, [{**g, "entity": "P01"} for g in gold])
-    assert frozen.conflict == math.inf and math.isfinite(frozen.gate)
+    assert frozen.conflict == -math.inf and math.isfinite(frozen.gate)
     stage_two = helpers.freeze_stage_two(
         helpers.Settings(0.1, 0.5),
         [_second(0.9, 0.2), _second(0.1, 0.8)],
@@ -683,3 +685,97 @@ def test_the_baseline_on_test():
         "applied", "not_matched", "rejected", "review", "review", "review",
         "not_matched", "not_matched", "applied", "review", "review", "not_matched",
     ]  # fmt: skip
+
+
+# --- fail-closed conflict check, name forms, objective labels ------------------------------
+
+
+def test_a_failed_or_empty_conflict_fit_sends_every_proposal_to_review(monkeypatch):
+    """The conflict check fails closed. With no threshold to freeze, a proposal with
+    any conflict probability, 0.0 included, goes to review, never on to request 2."""
+    calm = _first({"P01": 0.95, "P02": 0.03, "no_match": 0.02}, 0.0)
+    nothing = helpers.freeze_stage_one([None, helpers.UNMATCHED], [{}, {}])
+    assert calm["conflict"].noul >= nothing.conflict
+    assert nothing.conflict == -math.inf
+
+    def no_threshold(*_args, **_kwargs):
+        raise ValueError("no threshold satisfies the objective on this data")
+
+    monkeypatch.setattr(helpers, "select_threshold", no_threshold)
+    frozen = helpers.freeze_stage_one([calm], [{"entity": "P01", "conflict": False}])
+    assert math.isfinite(frozen.gate) and frozen.conflict == -math.inf
+    decision = helpers.decide_first(calm, frozen, "x")
+    assert (decision.outcome, decision.reason) == ("review", "the excerpts conflict")
+    assert "nothing passes it" not in inspect.getdoc(helpers.freeze_stage_one)
+
+
+def test_the_conflict_threshold_is_fit_only_on_rows_that_reach_the_conflict_check():
+    """A row below the gate or a confident no_match never reaches the conflict
+    check, so it must not move the conflict threshold. Fit on every answered row, the two
+    low-confidence gold conflicts at 0.9 and the two unreached calm rows at 0.7 push the F1
+    optimum to 0.9, above the reached real conflict at 0.6."""
+    reached = [
+        (_first({"P01": 0.9, "P02": 0.05, "no_match": 0.05}, 0.6), {"entity": "P01", "conflict": True}),
+        (_first({"P02": 0.9, "P01": 0.05, "no_match": 0.05}, 0.1), {"entity": "P02", "conflict": False}),
+    ]  # fmt: skip
+    unreached = [
+        (_first({"P01": 0.4, "P02": 0.35, "no_match": 0.25}, 0.9), {"entity": "P02", "conflict": True}),
+        (_first({"P02": 0.4, "P01": 0.35, "no_match": 0.25}, 0.9), {"entity": "P01", "conflict": True}),
+        (_first({"P01": 0.4, "P02": 0.35, "no_match": 0.25}, 0.7), {"entity": "P02", "conflict": False}),
+        (_first({"no_match": 0.9, "P01": 0.05, "P02": 0.05}, 0.7), {"entity": "no_match", "conflict": False}),
+    ]  # fmt: skip
+    rows = reached + unreached
+    frozen = helpers.freeze_stage_one([a for a, _ in rows], [g for _, g in rows])
+    assert [helpers.decide_first(a, frozen) is None for a, _ in unreached] == [False] * 4
+    assert [helpers.decide_first(a, frozen).reason for a, _ in unreached] == [
+        "confidence below the threshold"
+    ] * 3 + ["the mention matches no listed person"]
+    assert frozen.conflict == 0.6
+    real_conflict = reached[0][0]
+    assert helpers.decide_first(real_conflict, frozen).reason == "the excerpts conflict"
+
+
+@pytest.mark.parametrize("mention", ["Okafor Jr., Mira", "Okafor Jr, Mira", "Okafor III, Mira"])
+def test_a_suffix_before_the_comma_is_not_read_as_the_surname(mention):
+    """A "Surname Suffix, Given" mention shortlists the Surname people."""
+    assert helpers.candidates(mention) == helpers.candidates("Mira Okafor") == ["P01", "P02"]
+
+
+def test_the_demo_cell_prints_d01s_transaction_by_name_not_by_position():
+    """The cell labelled "d01's transaction" must select d01's record by name, so a
+    later transaction (d02 committing in a live run) is never printed under d01's label."""
+    import ast
+    import json as _json
+
+    cells = _json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))["cells"]
+    source = "".join(next(c for c in cells if c.get("id") == "python-demo")["source"])
+    assign = next(
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Assign)
+        and any(getattr(t, "id", None) == "record" for t in node.targets)
+    )
+
+    class Entry(SimpleNamespace):
+        def to_dict(self):
+            return {"name": self.name}
+
+    log = [Entry(name="seed_graph"), Entry(name="works_at:d01"), Entry(name="works_at:d02")]
+    namespace = {"demo_tx": SimpleNamespace(log=log)}
+    exec(compile(ast.Module([assign], []), "<python-demo>", "exec"), namespace)
+    assert namespace["record"]["name"] == "works_at:d01"
+
+
+def test_the_objective_label_reads_keyword_arguments_too():
+    """An objective, or the gold, passed as a keyword is read, not misreported."""
+    keyword_objective = (
+        'select_threshold([g["ended"] for g in gold], [a["ended"].noul for a in second], '
+        'objective="precision_at_recall", target=0.8)'
+    )
+    assert helpers.objective_in(keyword_objective, "ended") == "precision_at_recall, target 0.8"
+    all_keywords = (
+        'select_threshold(noul=[a["ended"].noul for a in second], '
+        'gold=[g["ended"] for g in gold], objective="recall_at_precision", target=0.9)'
+    )
+    assert helpers.objective_in(all_keywords, "ended") == "recall_at_precision, target 0.9"
+    assert helpers.objective_in(all_keywords, "supported") is None

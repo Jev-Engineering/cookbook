@@ -120,3 +120,12 @@ def test_a_second_answer_missing_when_request_two_is_asked_is_refused(tmp_path):
     rows = _with_spec(module, "v01", lambda _second: None)
     with pytest.raises(ValueError, match=r"v01: request 2 is asked .* present"):
         module.requests_for(rows)
+
+
+def test_a_row_with_candidates_but_no_spec_is_refused_by_name(tmp_path):
+    """A row whose mention has candidates needs request 1's answers; a missing spec
+    is an error that names the row, not a TypeError from unpacking None."""
+    module = _module(tmp_path, "recipe57_build_fixtures_nospec")
+    rows = [(*row[:4], None) if row[0] == "v01" else row for row in module.ROWS]
+    with pytest.raises(ValueError, match=r"^v01: the mention has candidates"):
+        module.requests_for(rows)
