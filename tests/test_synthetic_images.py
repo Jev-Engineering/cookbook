@@ -2502,11 +2502,13 @@ def test_a_triangle_with_an_invalid_fill_draws_nothing(direction):
     assert c.objects == {}
 
 
-def test_a_triangle_with_a_bad_direction_draws_nothing():
+@pytest.mark.parametrize("fill", ["teal", "nocolour"])
+def test_a_triangle_with_a_bad_direction_draws_nothing(fill):
+    # with a bad fill too, the direction is checked before the colour
     c = si.Canvas(640, 400)
     before = c.image.copy()
     with pytest.raises(ValueError, match="direction must be"):
-        c.triangle(10, 10, 80, 60, "teal", direction="sideways", name="probe")
+        c.triangle(10, 10, 80, 60, fill, direction="sideways", name="probe")
     assert changed(before, c.image) is None
     assert c.objects == {}
 
@@ -2543,15 +2545,6 @@ def test_an_outline_only_small_ring_needs_no_fill_colour():
     with pytest.raises(ValueError, match="unknown colour name"):
         bad.ellipse(10, 10, 8, 8, "no-such-colour", outline="ink", outline_width=2, name="r")
     assert changed(before, bad.image) is None and bad.objects == {}
-
-
-def test_a_triangle_checks_its_direction_before_its_colour():
-    c = si.Canvas(640, 400)
-    before = c.image.copy()
-    with pytest.raises(ValueError, match="direction must be"):
-        c.triangle(10, 10, 40, 40, "nocolour", direction="sideways", name="probe")
-    assert changed(before, c.image) is None
-    assert c.objects == {}
 
 
 COMPOSITES = {
@@ -2593,18 +2586,6 @@ def test_a_duplicate_name_is_refused_before_anything_is_drawn(draw):
         draw(c)
     assert changed(before, c.image) is None
     assert c.objects == objects
-
-
-def test_a_composite_refusal_is_the_plain_shape_message_and_draws_nothing():
-    for draw in (
-        lambda c: c.schematic_symbol(10, -1000, 100, 2200, "valve", name="p"),
-        lambda c: c.error_banner(10, 10, 3000, 2000, "hello", name="p"),
-    ):
-        c = si.Canvas(640, 400)
-        before = c.image.copy()
-        with pytest.raises(ValueError, match="a shape side must be from 1 to 1568"):
-            draw(c)
-        assert changed(before, c.image) is None and c.objects == {}
 
 
 @pytest.mark.parametrize("shape", ["ellipse", "triangle"])

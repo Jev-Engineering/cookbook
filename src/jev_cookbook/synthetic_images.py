@@ -663,7 +663,7 @@ def _check_direction(direction: Any) -> None:
 
 
 def _triangle_spans(w: int, h: int, direction: str) -> Iterable[tuple[int, int, int]]:
-    _check_direction(direction)
+    # ``direction`` is already checked: ``triangle`` calls ``_check_direction`` before drawing.
     if direction == "up":
         yield from _triangle_up_columns(w, h)
     elif direction == "down":
@@ -781,15 +781,15 @@ class Canvas:
     ) -> Drawn:
         if rect is None:
             raise ValueError(f"{kind} {name!r} lies entirely outside the {self.size} canvas")
-        if name is not None and name in self.objects:
-            raise ValueError(f"the name {name!r} is already used on this canvas")
+        self._refuse_used_name(name)
         drawn = Drawn(name, kind, *rect, self.size, parts, attrs)
         if name is not None:
             self.objects[name] = drawn
         return drawn
 
     def _refuse_used_name(self, name: str | None) -> None:
-        """Refuse a duplicate ``name`` up front (``_record`` says the same after drawing; #539)."""
+        """Refuse a duplicate ``name``; drawers that call it before drawing refuse up front, and
+        ``_record`` calls it after drawing for the rest (#539)."""
         if name is not None and name in self.objects:
             raise ValueError(f"the name {name!r} is already used on this canvas")
 
@@ -879,8 +879,9 @@ class Canvas:
         inner = (x, y, w, h)
         # Resolve every colour that will be used before the first pixel is drawn, so a bound,
         # type, colour or duplicate-``name`` refusal draws nothing (other drawers still check the
-        # name after drawing; #539). A ring with no interior needs no fill (``None`` is accepted),
-        # but any other fill is resolved, so a bad colour name is refused.
+        # name after drawing; #539). The fill is resolved only when there is an interior to paint
+        # (no outline, or one that leaves at least 1 x 1 inside it). A ring with no interior never
+        # uses its fill, so any fill is accepted there, ``None`` and an unknown name included.
         self._refuse_used_name(name)
         ring = None
         if outline is not None:
@@ -888,7 +889,7 @@ class Canvas:
             ring = _colour(outline)
             inner = (x + ow, y + ow, w - 2 * ow, h - 2 * ow)
         interior = inner[2] >= 1 and inner[3] >= 1
-        paint = _colour(fill) if interior else None  # no interior: fill unresolved, as main
+        paint = _colour(fill) if interior else None  # no interior: the fill is not resolved
         if ring is not None:
             bounds = self._spans(x, y, _ellipse_spans(w, h), ring)
         if paint is not None:
@@ -1444,6 +1445,35 @@ class Canvas:
         icon_box = (x + 10, y + 6, icon_size, icon_size)
         _shape_box(*icon_box)
         self._refuse_used_name(name)
+        # Preflight the clipped parts in drawing order: a visible body does not guarantee
+        # a visible icon, room for its mark, or a visible message. Refuse before painting.
+        self._record(None, "rect", self._clip(x, y, x + w, y + h))
+        icon_bounds = None
+        for row, first, last in _ellipse_spans(icon_size, icon_size):
+            visible = self._clip(
+                icon_box[0] + first,
+                icon_box[1] + row,
+                icon_box[0] + last + 1,
+                icon_box[1] + row + 1,
+            )
+            if visible:
+                icon_bounds = visible if icon_bounds is None else _merge(icon_bounds, visible)
+        preview = self._record(None, "ellipse", icon_bounds)
+        if text_width(glyph, scale) > preview.width or GLYPH_HEIGHT * scale > preview.height:
+            raise ValueError(f"{glyph!r} at scale {scale} does not fit in its box")
+        if not any(_GLYPHS[char] for char in _fold(message)):
+            raise ValueError("the text has no visible character (only spaces)")
+        text_x, text_y = x + 20 + icon_size, y + (h - GLYPH_HEIGHT * scale) // 2
+        self._record(
+            None,
+            "text",
+            self._clip(
+                text_x,
+                text_y,
+                text_x + text_width(message, scale),
+                text_y + GLYPH_HEIGHT * scale,
+            ),
+        )
         body = self.rect(x, y, w, h, fill, outline=accent, outline_width=2)
         icon = self.ellipse(*icon_box, accent)
         mark = self.centered_text(icon, glyph, "white", scale)
