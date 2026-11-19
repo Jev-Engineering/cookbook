@@ -7,9 +7,11 @@ constraints, a forced push runs everything, `continue-on-error` is pinned absent
 """
 
 import re
+import sys
 from pathlib import Path
 
 from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 REPO = Path(__file__).resolve().parent.parent
@@ -758,7 +760,7 @@ def ml_extra_bound(pyproject=None):
         requirement = Requirement(line.group(1))
     except InvalidRequirement:
         raise AssertionError(f"the ml extra {line.group(1)!r} is not a valid requirement") from None
-    assert requirement.name == "scikit-learn", (
+    assert canonicalize_name(requirement.name) == "scikit-learn", (
         f"the ml extra must be scikit-learn, not {requirement.name}"
     )
     by_operator = {spec.operator: spec.version for spec in requirement.specifier}
@@ -812,19 +814,53 @@ def test_a_malformed_pin_or_bound_fails_with_a_clear_message():
 
 
 def test_the_docs_state_the_ml_extra_bound():
-    """Every place development.md states the bound names the package and matches pyproject.toml,
-    so raising the bound cannot leave a bare or stale copy behind."""
+    """Every place development.md states a scikit-learn range matches pyproject.toml, so raising
+    the bound cannot leave a stale copy behind. Other packages' ranges are not the ml bound."""
     lower, upper = ml_extra_bound()
     flat = " ".join(DEVELOPMENT.split())
-    stated = list(
-        re.finditer(r"(\S*?)>=\s*([0-9][0-9A-Za-z.]*)\s*,\s*<\s*([0-9][0-9A-Za-z.]*)", flat)
+    stated = re.findall(
+        r"(?<![\w.-])(scikit[-_.]+learn\s*>=\s*[0-9][0-9A-Za-z.]*\s*,\s*<\s*[0-9][0-9A-Za-z.]*)",
+        flat,
+        re.IGNORECASE,
     )
     assert stated, "development.md must state the ml extra's bound"
-    for match in stated:
-        where = f"development.md states {match.group(0)!r}"
-        assert match.group(1).endswith("scikit-learn"), f"{where}, a bound with no package name"
-        assert version_of(match.group(2), where) == lower, f"{where}, but pyproject has {lower}"
-        assert version_of(match.group(3), where) == upper, f"{where}, but pyproject has {upper}"
+    for text in stated:
+        where = f"development.md states {text!r}"
+        requirement = Requirement(text.rstrip("."))  # a bound can end a sentence
+        assert canonicalize_name(requirement.name) == "scikit-learn", where
+        by_operator = {spec.operator: spec.version for spec in requirement.specifier}
+        assert version_of(by_operator[">="], where) == lower, f"{where}, but pyproject has {lower}"
+        assert version_of(by_operator["<"], where) == upper, f"{where}, but pyproject has {upper}"
+
+
+def test_the_docs_bound_check_reads_only_scikit_learn_in_any_spelling(monkeypatch):
+    """Another package's range is ignored, and spacing or a sentence period is the same bound;
+    a stale scikit-learn range still fails."""
+    lower, upper = ml_extra_bound()
+    module = sys.modules[__name__]
+    for extra in [
+        "The live extra is `typesafe-sdk>=0.7.5,<0.8`.",
+        f"Spaced, `scikit-learn >= {lower}, < {upper}`.",
+        f"It ends a sentence: scikit-learn>={lower},<{upper}.",
+    ]:
+        monkeypatch.setattr(module, "DEVELOPMENT", DEVELOPMENT + "\n" + extra + "\n")
+        test_the_docs_state_the_ml_extra_bound()
+    monkeypatch.setattr(module, "DEVELOPMENT", DEVELOPMENT + "\n`scikit-learn >= 0.1, < 2`\n")
+    try:
+        test_the_docs_state_the_ml_extra_bound()
+    except AssertionError as error:
+        assert "but pyproject has" in str(error), str(error)
+    else:
+        raise AssertionError("a stale scikit-learn range must fail")
+
+
+def test_the_ml_extra_name_is_compared_normalised():
+    """scikit_learn and Scikit-Learn install the same distribution as scikit-learn (PEP 503)."""
+    for spelling in ["scikit_learn", "Scikit-Learn"]:
+        assert ml_extra_bound(f'ml = ["{spelling}>=1.7.2,<2"]\n') == (
+            Version("1.7.2"),
+            Version("2"),
+        )
 
 
 def test_the_ci_comment_describes_the_bounded_ml_extra():
