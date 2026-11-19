@@ -116,7 +116,7 @@ def edge_key(person: str, org: str) -> str:
 
 _NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
 _PUNCTUATION = ".,;:!?\"'()"
-_TRAILING_PARENTHETICALS = re.compile(r"(\s*\([^()]*\))+\s*$")
+_PARENTHETICALS = re.compile(r"\([^()]*\)")
 
 
 def _bare(word: str) -> str:
@@ -133,13 +133,13 @@ def _without_suffixes(words: list[str]) -> list[str]:
 
 def candidates(mention: str) -> list[str]:
     """The people Python shortlists for a mention: everyone whose surname is the mention's
-    surname, in id order. The surname is the last word, after dropping a trailing parenthetical
-    (``(chemist)``), punctuation around the word, a trailing possessive (``'s`` or ``\u2019s``)
-    and a generational suffix (``Jr.``, possessive or not); in the "Surname, Given" form it is the
-    last word before the comma, again without a suffix. An empty or blank mention has no
-    candidates, and ``ask_first`` sends no request for it. Jev never adds a candidate; it only
-    chooses among these or ``no_match``."""
-    text = _TRAILING_PARENTHETICALS.sub("", mention.replace("\u2019", "'"))
+    surname, in id order. The surname is the last word, after dropping every parenthetical
+    (``(chemist)``, wherever it stands), punctuation around the word, a trailing possessive
+    (``'s`` or ``\u2019s``) and a generational suffix (``Jr.``, possessive or not); in the
+    "Surname, Given" form it is the last word before the comma, again without a suffix. An empty
+    or blank mention has no candidates, and ``ask_first`` sends no request for it. Jev never adds
+    a candidate; it only chooses among these or ``no_match``."""
+    text = _PARENTHETICALS.sub(" ", mention.replace("\u2019", "'"))
     words = _without_suffixes(text.split())
     if words and "," in " ".join(words).rstrip(",;: "):
         words = _without_suffixes(" ".join(words).split(",")[0].split())
@@ -289,9 +289,9 @@ def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
     closed, so every proposal goes to review. When no request is answered, or no gate reaches the
     target accuracy (the selector raises ``ValueError``), the gate is infinite, so no answer
     passes it. When no row reaches the conflict check, none of those rows is a gold conflict (F1
-    is undefined at every threshold), or the selector raises ``ValueError``, the conflict
-    threshold is minus infinity, so every probability reaches it and the proposal goes to
-    review."""
+    is 0 at every threshold, so no threshold is chosen by it), or the selector raises
+    ``ValueError``, the conflict threshold is minus infinity, so every probability reaches it
+    and the proposal goes to review."""
     first, gold = _answered(first, gold)
     if not first:
         return Settings(gate=math.inf, conflict=-math.inf)
@@ -320,13 +320,16 @@ def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
 def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str, Any]]) -> Settings:
     """The two business thresholds of request 2, each maximising F1 on validation over the rows
     that reached request 2 with the right person matched. Unanswered requests are left out; with
-    no row left, or a selector raises ``ValueError`` (no threshold satisfies the objective), that
-    threshold is infinite: it is not fitted, and ``decide`` sends every proposal that reaches
-    request 2 to review."""
+    no row left, no row that is gold-true for that proposition (F1 is 0 at every threshold, so no
+    threshold is chosen by it), or a selector that raises ``ValueError`` (no threshold satisfies
+    the objective), that threshold is infinite: it is not fitted, and ``decide`` sends every
+    proposal that reaches request 2 to review."""
     second, gold = _answered(second, gold)
     if not second:
         return Settings(settings.gate, settings.conflict, math.inf, math.inf)
     try:
+        if not any(g["supported"] for g in gold):
+            raise ValueError("no validation row that reached request 2 is gold-supported")
         supported = select_threshold(
             [g["supported"] for g in gold],
             [a["supported"].noul for a in second],
@@ -335,6 +338,8 @@ def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str,
     except ValueError:
         supported = math.inf
     try:
+        if not any(g["ended"] for g in gold):
+            raise ValueError("no validation row that reached request 2 is gold-ended")
         ended = select_threshold(
             [g["ended"] for g in gold], [a["ended"].noul for a in second], "f1"
         )
@@ -344,21 +349,37 @@ def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str,
 
 
 def objective_in(source: str, name: str) -> str | None:
-    """The objective of the ``select_threshold`` call in ``source`` whose gold is ``g["<name>"]``
-    (``None`` when ``source`` has no such call), spelled as the notebook prints it. Each
-    argument is read by position or by keyword, in ``select_threshold``'s own parameter order."""
-    params = list(inspect.signature(select_threshold).parameters)
+    """The objective of the ``select_threshold`` call in ``source`` whose gold is ``g["<name>"]``,
+    spelled as the notebook prints it, or ``None`` when ``source`` has no such call or its
+    objective or target is not a literal. The call may be by name or by attribute
+    (``evaluation.select_threshold``). Each argument is read by position or by keyword, in
+    ``select_threshold``'s own parameter order, and a missing objective is that signature's
+    default."""
+    signature = inspect.signature(select_threshold).parameters
+    params = list(signature)
     for node in ast.walk(ast.parse(textwrap.dedent(source))):
-        if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "select_threshold"):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        called = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+        if called != "select_threshold":
             continue
         args = dict(zip(params, node.args, strict=False))
         args.update({k.arg: k.value for k in node.keywords if k.arg in params})
         if "gold" not in args or f"g['{name}']" not in ast.unparse(args["gold"]):
             continue
-        objective = ast.literal_eval(args["objective"]) if "objective" in args else "f1"
+        try:
+            objective = (
+                ast.literal_eval(args["objective"])
+                if "objective" in args
+                else signature["objective"].default
+            )
+            target = ast.literal_eval(args["target"]) if "target" in args else None
+        except ValueError:
+            return None
         label = "F1" if objective == "f1" else objective
-        if "target" in args:
-            label += f", target {ast.literal_eval(args['target'])}"
+        if target is not None:
+            label += f", target {target}"
         return label
     return None
 
@@ -477,21 +498,27 @@ def _answers_dict(first: Any, second: Any) -> dict[str, Any]:
     return out
 
 
-def decide_first(first: Any, settings: Settings, example: str = "") -> Decision | None:
+def decide_first(
+    first: Any, settings: Settings, example: str = "", target: str | None = None
+) -> Decision | None:
     """The rule's first stage. ``None`` means "ask request 2"; otherwise the final Decision. The
-    answers are serialised for the log only when a Decision is returned."""
+    answers are serialised for the log only when a Decision is returned. A review Decision
+    carries ``target`` (the proposed organisation) and, once request 1 named a person (not
+    ``no_match``), that person, so the review item shows the update it would write."""
     if first is None:
-        return Decision(example, REVIEW, REASON_BUDGET)
+        return Decision(example, REVIEW, REASON_BUDGET, target=target)
     if first == UNMATCHED:
-        return Decision(example, REVIEW, REASON_NO_CANDIDATE, answers={})
+        return Decision(example, REVIEW, REASON_NO_CANDIDATE, target=target, answers={})
     entity = first["entity"]
+    person = None if entity.choice == NO_MATCH else entity.choice
     if entity.confidence < settings.gate:
-        return Decision(example, REVIEW, REASON_LOW_CONFIDENCE, answers=_answers_dict(first, None))
+        answers = _answers_dict(first, None)
+        return Decision(example, REVIEW, REASON_LOW_CONFIDENCE, person, target, answers=answers)
     if entity.choice == NO_MATCH:
         return Decision(example, NOT_MATCHED, REASON_NO_MATCH, answers=_answers_dict(first, None))
     if first["conflict"].noul >= settings.conflict:
         answers = _answers_dict(first, None)
-        return Decision(example, REVIEW, REASON_CONFLICT, entity.choice, answers=answers)
+        return Decision(example, REVIEW, REASON_CONFLICT, person, target, answers=answers)
     return None
 
 
@@ -501,16 +528,16 @@ def decide(example: Any, first: Any, second: Any, settings: Settings) -> Decisio
     fitted (infinite) fails closed: the proposal goes to review, never to a reject or a write."""
     if settings.supported is None or settings.ended is None:
         raise ValueError("decide needs settings with supported and ended; call freeze_stage_two")
-    early = decide_first(first, settings, example.id)
+    target = example.fields["target"]
+    early = decide_first(first, settings, example.id, target)
     if early is not None:
         return early
     person = first["entity"].choice
     answers = _answers_dict(first, second)
     if second is None:
-        return Decision(example.id, REVIEW, REASON_BUDGET, person, answers=answers)
+        return Decision(example.id, REVIEW, REASON_BUDGET, person, target, answers=answers)
     if not (math.isfinite(settings.supported) and math.isfinite(settings.ended)):
-        return Decision(example.id, REVIEW, REASON_NOT_FITTED, person, answers=answers)
-    target = example.fields["target"]
+        return Decision(example.id, REVIEW, REASON_NOT_FITTED, person, target, answers=answers)
     if second["supported"].noul < settings.supported:
         return Decision(example.id, REJECTED, REASON_UNSUPPORTED, person, target, answers=answers)
     replace = second["ended"].noul >= settings.ended

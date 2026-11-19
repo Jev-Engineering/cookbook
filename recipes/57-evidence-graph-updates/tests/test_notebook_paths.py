@@ -175,3 +175,21 @@ def test_the_replay_cell_prints_a_run_with_no_committed_update(notebook, capsys)
     notebook("evaluation-replay", before={"evaluation-replay": nothing_committed})
     out = _lines(capsys)
     assert any("no test update committed" in line for line in out), out
+
+
+def test_no_notebook_function_is_rebound_after_it_is_defined():
+    """A name a code cell defines as a function is not assigned anything else in that cell or a
+    later one, so a later cell that calls it still gets the function."""
+    import ast
+
+    functions, rebound = set(), set()
+    for cell in ORDER:
+        for statement in ast.parse(SOURCE[cell]).body:
+            if isinstance(statement, ast.FunctionDef):
+                functions.add(statement.name)
+                continue
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                    rebound |= {node.id} & functions
+    assert functions, "the notebook defines no function"
+    assert rebound == set()

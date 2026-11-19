@@ -903,3 +903,100 @@ def test_build_fixtures_writes_gold_edge_keys_with_the_helpers_edge_key(monkeypa
     ]
     monkeypatch.setattr(module.helpers, "edge_key", lambda person, org: f"E[{person}->{org}]")
     assert module._replace("P01", "O1", "O2") == [["delete", "E[P01->O1]"], ["put", "E[P01->O2]"]]
+
+
+# --- fit sets with no gold positive, review items, parentheticals, objective labels ---------
+
+
+@pytest.mark.parametrize("name", ["supported", "ended"])
+def test_a_request_two_fit_set_with_no_gold_positive_fails_closed(name):
+    """With no gold-positive row, F1 is 0 at every threshold and the selector does not raise; the
+    threshold must still be infinite (not fitted), so the proposal goes to review, never to a
+    write or a reject decided by a threshold no positive row chose."""
+    second = [_second(0.9, 0.09), _second(0.8, 0.22), _second(0.1, 0.46)]
+    gold = [
+        {"supported": True, "ended": True},
+        {"supported": True, "ended": False},
+        {"supported": False, "ended": True},
+    ]
+    gold = [{**g, name: False} for g in gold]
+    frozen = helpers.freeze_stage_two(helpers.Settings(0.5, 0.5), second, gold)
+    other = "ended" if name == "supported" else "supported"
+    assert getattr(frozen, name) == math.inf
+    assert math.isfinite(getattr(frozen, other))
+    calm = _first({"P12": 0.9, "P11": 0.05, "no_match": 0.05}, 0.0)
+    decision = helpers.decide(_examples()["t01"], calm, _second(0.99, 0.99), frozen)
+    assert (decision.outcome, decision.reason) == ("review", "a request-2 threshold is not fitted")
+
+
+def test_the_stage_one_docstring_says_f1_is_zero_with_no_positive():
+    doc = " ".join(helpers.freeze_stage_one.__doc__.split())
+    assert "undefined" not in doc
+    assert "F1 is 0" in doc
+
+
+def test_every_review_decision_carries_the_known_person_and_target():
+    """A review item shows the person and the organisation the proposal would write, wherever
+    Python knows them: the target always (it is in the example), the person once request 1 named
+    one."""
+    example = _examples()["t01"]  # proposes O2
+    sure = _first({"P12": 0.9, "P11": 0.05, "no_match": 0.05}, 0.1)
+    cases = [
+        (None, None, SETTINGS, "request budget spent", None),
+        (helpers.UNMATCHED, None, SETTINGS, "no candidate in the shortlist", None),
+        (_first({"P12": 0.4, "P11": 0.35, "no_match": 0.25}, 0.1), None, SETTINGS, "confidence below the threshold", "P12"),
+        (_first({"P12": 0.2, "P11": 0.2, "no_match": 0.6}, 0.1), None, SETTINGS, "confidence below the threshold", None),
+        (_first({"P12": 0.9, "P11": 0.05, "no_match": 0.05}, 0.85), None, SETTINGS, "the excerpts conflict", "P12"),
+        (sure, None, SETTINGS, "request budget spent", "P12"),
+        (sure, _second(0.9, 0.9), helpers.Settings(0.5, 0.8, math.inf, 0.4), "a request-2 threshold is not fitted", "P12"),
+    ]  # fmt: skip
+    decisions = []
+    for first, second, settings, reason, person in cases:
+        d = helpers.decide(example, first, second, settings)
+        assert (d.outcome, d.reason, d.person, d.target) == ("review", reason, person, "O2")
+        decisions.append(d)
+    _, queue, _ = helpers.run_updates(decisions, "rule:test")
+    assert [(i["item"]["person"], i["item"]["target"]) for i in queue.to_dicts()] == [
+        (None, "O2"), (None, "O2"), ("P12", "O2"), (None, "O2"), ("P12", "O2"), ("P12", "O2"),
+        ("P12", "O2"),
+    ]  # fmt: skip
+
+
+def test_the_committed_low_confidence_review_names_its_person_and_target():
+    *_, decisions, _ = _run("test")
+    low = next(d for d in decisions if d.example == "t12-low-confidence")
+    assert (low.outcome, low.reason, low.person, low.target) == (
+        "review", "confidence below the threshold", "P17", "O3",
+    )  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "mention",
+    ["Mira Okafor (chemist), Halden", "Okafor (chemist), Mira", "Mira (Mimi) Okafor"],
+)
+def test_a_parenthetical_anywhere_is_not_read_as_the_surname(mention):
+    assert helpers.candidates(mention) == ["P01", "P02"]
+
+
+def test_the_objective_label_reads_the_default_from_select_thresholds_signature(monkeypatch):
+    def select_threshold(gold, noul, objective="precision", target=None):
+        raise AssertionError("not called")
+
+    monkeypatch.setattr(helpers, "select_threshold", select_threshold)
+    source = 'select_threshold([g["ended"] for g in gold], [a["ended"].noul for a in second])'
+    assert helpers.objective_in(source, "ended") == "precision"
+
+
+def test_the_objective_label_reads_an_attribute_call():
+    source = (
+        'evaluation.select_threshold([g["ended"] for g in gold], '
+        '[a["ended"].noul for a in second], "precision_at_recall", target=0.8)'
+    )
+    assert helpers.objective_in(source, "ended") == "precision_at_recall, target 0.8"
+
+
+def test_the_objective_label_is_none_for_an_objective_it_cannot_read():
+    source = (
+        'select_threshold([g["ended"] for g in gold], [a["ended"].noul for a in second], OBJECTIVE)'
+    )
+    assert helpers.objective_in(source, "ended") is None
