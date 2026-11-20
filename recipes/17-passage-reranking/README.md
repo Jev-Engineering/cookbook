@@ -80,16 +80,12 @@ fixture set, not a measurement of a real reranker (the notebook's "Ranking" sect
 the comparison is made, and traces the one place -- an adversarial `test` passage -- where this
 recipe's own design costs it something instead). This recipe has no recorded fixtures.
 
-`jev_cookbook.evaluation` has `mean_ndcg` to average `ndcg` over several ranked lists, but
-nothing for a top-1 (or top-k) *ranking* accuracy (`top_k_accuracy` is for a single Choice-style
-probability distribution over one example's options, and `recall_at_budget` answers a related but
-different question -- the share of *all* relevant items a review budget would find, which differs
-from top-1 accuracy whenever a query has more than one relevant item). `top1_accuracy`, added to
-this recipe's `helpers.py` with its own tests in `tests/test_helpers.py` (including one built to
-expose that difference), computes true top-1 ranking accuracy directly: for each query, the
-probability that a uniformly random tie-break among the top-scored passages lands on a relevant
-one, averaged over queries. This is a gap in the shared evaluation toolkit worth fixing there as
-its own helper, not a convention this recipe invents on its own.
+Top-1 accuracy uses `jev_cookbook.evaluation.top_k_query_accuracy(queries, k=1)` to measure
+how often the top-scored passage has the gold label `direct`. Tied scores receive fractional
+credit equal to the probability that a uniformly random tie-break selects a gold `direct` passage.
+Only queries with a gold `direct` passage count toward the mean. If a split has none of those
+queries, its top-1 accuracy is undefined and prints as `nan`. nDCG uses each passage's
+graded relevance label.
 
 ## Pull request rules
 

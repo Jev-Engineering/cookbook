@@ -59,12 +59,11 @@ candidate. 52 is above the default budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS
   per field and up to two fields per document.
 - **Confidence gate:** on this fixture pool, the frozen confidence gate (`0.7000`) is exactly the
   lowest confidence any verification clearing the business threshold can have, so it can never
-  withhold a field the business threshold would not already withhold. The notebook sweeps every
-  possible verification confidence (1001 values) and finds the gate changes the composed outcome
-  0 times and only the review reason 699 times, then removes the gate from the rule entirely and
-  recomputes `test`'s field-level numbers, which come back identical. A gate drawn from above that
-  bound would still act, but only as the business threshold restated in different units — never as
-  a second, independent safeguard.
+  withhold a field the business threshold would not already withhold. The notebook samples 1001
+  verifier probabilities from 0 through 1. The gate changes 0 field outcomes on either side of the
+  threshold and changes 699 review reasons below it. Removing the gate also leaves the `test`
+  field-level numbers unchanged. On the accept side, a higher confidence gate acts as a higher
+  business threshold expressed in confidence units.
 
 The committed run replays 29 invented purchase documents (27 of them scored) with hand-written
 (synthetic) answers, several wrong on purpose: `v04`, `v06`, `v12` on `validation` and `t12` on
@@ -72,7 +71,7 @@ The committed run replays 29 invented purchase documents (27 of them scored) wit
 correct pick stage 2 wrongly doubts); `t08` has a field sent to review for being unconfident
 rather than inconsistent; and `t04` has a field stage 2 confidently, wrongly verifies — the one
 `test` error the frozen confidence gate and business threshold do not catch. Its field-level and
-task-level accuracy, coverage and risk, and the verification confidence sweep, check that the
+task-level accuracy, coverage and risk, and the verification probability sweep, check that the
 pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs. This
 recipe has no recorded fixtures.
 
