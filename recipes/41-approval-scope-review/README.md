@@ -64,6 +64,11 @@ precision and recall on each proposition, the task-level coverage, accuracy and 
 baseline comparison and the exhaustive safety sweep are all checks that the pipeline works; they
 say nothing about how Jev performs, how fast it is, or what it costs.
 
+On the synthetic `test` split, the whole rule (N=15) has coverage 0.6667, accuracy 0.9000
+and risk 0.1000. Across the rows where the binding holds and the model's answers determine the
+outcome (N=8), coverage is 0.3750, accuracy is 0.6667 and risk is 0.3333. Of the 10 whole-set
+answers, Python denies seven and the composed rule labels three as executed.
+
 ## Pull request rules
 
 This recipe's pull request changes only `recipes/41-approval-scope-review/`. The root `README.md` is generated; per
