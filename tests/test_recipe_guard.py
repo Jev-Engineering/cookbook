@@ -6107,9 +6107,14 @@ def _extraction_checked(name: str, func: ast.FunctionDef, after: int = -1) -> bo
     None``, ``str(a) is not None`` or ``[a] is not None`` is not the idiom (the last three are
     always true, the first holds whichever name matched). Not merely referenced in some assert,
     which an unrelated ``not in`` comparison or a disconnected ``assert len(x) > 0`` would
-    satisfy. An assert nested under ``if``, ``try``, a loop or ``with`` does not count: it may
-    not run."""
+    satisfy. An assert nested under ``if``, ``try``, a loop or ``with`` does not count (it may
+    not run), and neither does one after a statement that can end the test (``return``,
+    ``raise``, ``pytest.skip``/``xfail``/``exit``/``fail``, including under an ``if``): only an
+    assert in ``_unconditional_asserts(func.body)`` is credited."""
+    always_runs = {id(assertion) for assertion in _unconditional_asserts(func.body)}
     for node in func.body[after + 1 :]:
+        if id(node) not in always_runs:
+            continue
         if not (isinstance(node, ast.Assert) and isinstance(node.test, ast.Compare)):
             continue
         test = node.test
@@ -6193,7 +6198,11 @@ def _extraction_spelling(
     ):
         return None
     target = statement.targets[0].id
-    # Rule 1: bound exactly once, by this top-level statement, checked by a later top-level assert.
+    # Rule 1: bound exactly once, by this top-level statement, checked by a later top-level assert
+    # that always runs: nothing before the assignment or between it and the assert may end the
+    # test (a ``return``, ``raise`` or ``pytest.skip``, also under an ``if``).
+    if any(_may_leave_the_test(earlier) for earlier in func.body[:index]):
+        return None
     if _binding_count(target, func) != 1 or not _extraction_checked(target, func, index):
         return None
     # Rule 2: the call's shape.
@@ -6568,6 +6577,29 @@ def test_probe():
             'a = _pull(source, "min_coverage")\n    if True:\n        assert a is not None',
             set(),
         ),
+        # rule 1: nothing before the assert may end the test
+        (
+            'a = _pull(source, "min_coverage")\n    return\n    assert a is not None',
+            set(),
+        ),
+        (
+            'a = _pull(source, "min_coverage")\n    pytest.skip("x")\n    assert a is not None',
+            set(),
+        ),
+        (
+            'return\n    a = _pull(source, "min_coverage")\n    assert a is not None',
+            set(),
+        ),
+        (
+            'a = _pull(source, "min_coverage")\n    if a is None:\n        raise KeyError\n'
+            "    assert a is not None",
+            set(),
+        ),
+        (
+            'a = _pull(source, "min_coverage")\n    if a is None:\n        pytest.skip("x")\n'
+            "    assert a is not None",
+            set(),
+        ),
         # credited: one spelling, either assert order
         (
             'a = _pull(source, "select_confidence_threshold", "min_coverage")\n'
@@ -6629,6 +6661,32 @@ def test_flipping_recipe_42s_objective_turns_its_extraction_pin_red(tmp_path):
     pinned = _pinned_objective_spellings(folder)
     assert not {"min_coverage", "target_accuracy"} & pinned, pinned
     assert _objective_pin_violations(folder), "the pooled extraction passed a flipped notebook"
+
+
+def test_flipping_recipe_42s_objective_stays_red_when_the_extraction_asserts_are_skipped(
+    tmp_path,
+):
+    """Two skip-guarded extractions (one per spelling, each ``if x is None: pytest.skip(...)``
+    before its ``assert x is not None``) must not pool both spellings: the asserts may never run,
+    so the flipped notebook has to stay red."""
+    folder = _copy_recipe(tmp_path, "42-outbound-disclosure-screening")
+    tests_file = folder / "tests" / "test_helpers.py"
+    text = tests_file.read_text("utf-8")
+    start = text.index("def test_notebook_pins_the_confidence_gate_keyword_and_value")
+    end = text.index("def _decide_cache_guard_present")
+    template = (
+        "def test_pins_{keyword}():\n"
+        '    source = _notebook_cell_source("python-rule")\n'
+        '    value = _call_keyword_value(source, "select_confidence_threshold", "{keyword}")\n'
+        "    if value is None:\n"
+        '        pytest.skip("absent")\n'
+        "    assert value is not None\n\n\n"
+    )
+    two = "".join(template.format(keyword=k) for k in ("min_coverage", "target_accuracy"))
+    tests_file.write_text(text[:start] + two + text[end:], "utf-8")
+    assert not {"min_coverage", "target_accuracy"} & _pinned_objective_spellings(folder)
+    _edit_notebook_code(folder, "min_coverage=0.75", "target_accuracy=1.0")
+    assert _objective_pin_violations(folder), "skip-guarded extractions passed a flipped notebook"
 
 
 def test_flipping_recipe_28s_objective_turns_its_production_tie_pin_red(tmp_path):
@@ -7335,7 +7393,9 @@ def _objective_pin_violations(recipe_dir_: Path) -> list[str] | None:
                 'or from inspect.getsource(helpers.<fn>); (2) `name = _your_helper(source, "lit", ...)` '
                 "through a function defined in the test file, where `name` is bound exactly once "
                 "in the test, by an unconditional top-level assignment, and a later top-level "
-                "`assert name is not None` (or `None is not name`) follows; the first argument is "
+                "`assert name is not None` (or `None is not name`) that always runs follows (nothing "
+                "between the assignment and the assert may end the test: no return, raise or "
+                "pytest.skip; an assert inside `with` is not credited here); the first argument is "
                 "the tainted source Name, every other argument a plain positional string "
                 "literal, and no keyword arguments; and the literals together name exactly ONE "
                 'objective spelling by whole-token match (two spellings, such as "f1" with '

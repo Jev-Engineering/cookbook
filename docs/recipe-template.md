@@ -192,7 +192,9 @@ own first use the same way.
   `with open(...)`, and those in a `for` over a non-empty literal tuple/list/set (no `else`, no
   `break`/`continue`/`return`), only up to the first `return`, `raise` or
   `pytest.skip`/`xfail`/`exit`/`fail` call. An assert under `if`, `try`, any other loop, or a
-  context manager such as `pytest.raises` is not credited.
+  context manager such as `pytest.raises` is not credited. For an extraction (`name = _helper(source, ...)` then
+  `assert name is not None`), nothing before the assert may end the test, and an assert inside a
+  `with` block is not credited.
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
   `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:
