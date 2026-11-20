@@ -252,9 +252,10 @@ Two behaviours follow from it:
   always has, unless a bar's value label would sit under it (a confident answer whose highest
   level is the bottom bar); it then moves to the upper-right corner, and outside the axes if
   neither corner is free. The corner is chosen on the finished layout, after the title is set,
-  by drawing the whole top-level figure, so it needs matplotlib 3.6 or later and works for an
-  `ax` inside a subfigure or a grid. Outside the axes it can be clipped in a figure that is
-  not laid out by constrained layout.
+  using `Figure.draw_without_rendering()` (matplotlib 3.6 or later). The axes' canvas points to
+  the top-level figure, including for an `ax` inside a subfigure on matplotlib 3.8. A legend
+  outside the axes can be clipped when constrained layout is off. The dashed score line can
+  cross a bar's value label, as it crosses `0.98` in recipe 49.
 
 Both rules move figures that were already committed: a notebook whose Score answer is
 confident, or whose confusion matrix has colliding labels, draws differently now. Re-execute
