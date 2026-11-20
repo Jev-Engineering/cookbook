@@ -302,44 +302,65 @@ def test_select_frames_pairs_with_sample_frames():
 # ------------------------------------------------------------------------------ round 2
 
 
-def test_tie_rule_holds_when_frames_are_closer_than_the_slack():
-    # frame 1 is exactly on the target, frame 2 is 5e-10 s later: still the earlier frame
-    assert sample_frames([0.0, 1.0, 1.0 + 5e-10, 2.0], every_seconds=1) == [0, 1, 3]
-    # the earlier frame sits just before the target and the later one just after
-    assert sample_frames([0.0, 1.0 - 5e-10, 1.0 + 5e-10, 2.0], every_seconds=1) == [0, 1, 3]
+@pytest.mark.parametrize(
+    "gap",
+    [math.nextafter(frames.TIME_EPSILON, 0.0), frames.TIME_EPSILON],
+    ids=["below-epsilon", "equal-to-epsilon"],
+)
+@pytest.mark.parametrize(
+    "lookup",
+    [
+        pytest.param(lambda times: sample_frames(times, every_seconds=1), id="sample_frames"),
+        pytest.param(lambda times: frame_at(times, times[1], side="nearest"), id="frame_at"),
+        pytest.param(
+            lambda times: frame_windows(times, width_seconds=1, stride_seconds=1),
+            id="frame_windows",
+        ),
+        pytest.param(lambda times: frame_timestamps(rows(*times)), id="frame_timestamps"),
+    ],
+)
+def test_adjacent_frame_gaps_at_or_below_epsilon_raise(gap, lookup):
+    with pytest.raises(ValueError, match=r"gaps greater than TIME_EPSILON .* position 1"):
+        lookup([0.0, gap, 2.0])
+
+
+def test_frame_gap_just_above_epsilon_is_accepted():
+    gap = math.nextafter(frames.TIME_EPSILON, math.inf)
+    times = [0.0, gap]
+    assert frame_timestamps(rows(*times)) == times
+    assert sample_frames(times, every_seconds=gap) == [0, 1]
+    assert frame_at(times, gap, side="nearest") == 1
+    assert frame_windows(times, width_seconds=gap, stride_seconds=gap) == [
+        {"window_start_seconds": 0.0, "window_end_seconds": gap, "indices": [0, 1]}
+    ]
+
+
+def test_minimum_gap_is_compared_by_subtracting_adjacent_timestamps():
+    earlier = 1.0
+    later = earlier + frames.TIME_EPSILON
+    assert later - earlier > frames.TIME_EPSILON  # addition rounded up
+    assert frame_timestamps(rows(earlier, later)) == [earlier, later]
 
 
 @pytest.mark.parametrize(
     ("times", "expected"),
     [
-        # three frames: index 1 is exactly on the target (1.0), indices 2 and 3 are just after it
-        ([0.0, 1.0, 1.0 + 3e-10, 1.0 + 6e-10, 2.0], [0, 1, 4]),
-        # three frames around the target: the earliest of the tied frames wins
-        ([0.0, 1.0 - 4e-10, 1.0, 1.0 + 4e-10, 2.0], [0, 1, 4]),
-        # three frames, all after the target; the first of them is the closest
-        ([0.0, 1.0 + 1e-10, 1.0 + 2e-10, 1.0 + 3e-10, 2.0], [0, 1, 4]),
-        # four frames after the target
-        ([0.0, 1.0, 1.0 + 2e-10, 1.0 + 4e-10, 1.0 + 6e-10, 2.0], [0, 1, 5]),
-        # three frames up to the target: index 3 is exactly on it, indices 1 and 2 are just before
-        # it, so the earliest tied frame is two frames before the closest one
-        ([0.0, 1.0 - 6e-10, 1.0 - 3e-10, 1.0, 2.0], [0, 1, 4]),
-        # the closest frame is index 2 (1e-10 after the target); index 1 is 5e-10 before it, so
-        # its distance is within 1e-9 of the smallest one and the two are tied
-        ([0.0, 1.0 - 5e-10, 1.0 + 1e-10, 1.0 + 2e-10, 2.0], [0, 1, 4]),
-        # index 1 is 3e-9 before the target, outside the slack of the closest frame (index 2,
-        # exactly on the target), so it is not tied
-        ([0.0, 1.0 - 3e-9, 1.0, 1.0 + 3e-10, 2.0], [0, 2, 4]),
+        # The nearer frame is later, but the two distances differ by less than the slack.
+        ([0.0, 1.0 - 1.5e-9, 1.0 + 6e-10, 2.0], [0, 1, 3]),
+        # The two distances differ by more than the slack.
+        ([0.0, 1.0 - 1.6e-9, 1.0 + 5e-10, 2.0], [0, 2, 3]),
+        # An exact match wins with other frames on both sides.
+        ([0.0, 1.0 - 3e-9, 1.0, 1.0 + 1.5e-9, 2.0], [0, 2, 4]),
     ],
 )
 def test_every_seconds_picks_the_earliest_frame_within_the_slack_of_the_closest(times, expected):
     assert sample_frames(times, every_seconds=1) == expected
 
 
-def test_a_cluster_inside_the_window_edge_slack_is_tied_too():
-    # index 1 is 3e-10 before start=1.0, inside the window's own slack, so it is eligible and
-    # tied with index 2 (exactly on the target) and index 3: the earliest of the three wins
-    times = [0.0, 1.0 - 3e-10, 1.0, 1.0 + 3e-10, 2.0]
-    assert sample_frames(times, every_seconds=1, start=1.0) == [1, 4]
+def test_a_frame_inside_the_window_edge_slack_is_eligible_for_ties():
+    # Index 1 is just outside the window but within its slack, and ties with index 2.
+    times = [0.0, 1.0 - 6e-10, 1.0 + 7e-10, 2.0]
+    assert sample_frames(times, every_seconds=1, start=1.0) == [1, 3]
 
 
 def _earliest_tied(times, target):
@@ -371,10 +392,9 @@ def _assert_ascending_and_accepted_by_select_frames(times, got):
     assert [row["frame_index"] for row in select_frames(rows(*times), got)] == got
 
 
-def test_every_seconds_matches_the_rule_written_out_literally_including_clusters():
+def test_every_seconds_matches_the_rule_written_out_literally_at_mixed_cadences():
     rng = random.Random(340)
-    gaps = [1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 0.1, 0.25, 0.5, 1.0]
-    stepped_back = 0
+    gaps = [1.1e-9, 1.2e-9, 1.3e-9, 1.5e-9, 1.9e-9, 0.1, 0.25, 0.5, 1.0]
     for _ in range(2000):
         times, now = [], 0.0
         for _ in range(rng.randint(1, 12)):
@@ -382,98 +402,35 @@ def test_every_seconds_matches_the_rule_written_out_literally_including_clusters
             times.append(now)
         every = rng.choice([0.1, 0.25, 0.3, 0.5, 1.0])
         got = sample_frames(times, every_seconds=every)
-        # checked without the reference: ascending, no repeats, and select_frames accepts it
         _assert_ascending_and_accepted_by_select_frames(times, got)
         assert got == _nearest_by_the_rule(times, every), (times, every)
-        picks = _targets_by_the_rule(times, every)
-        stepped_back += any(b < a for a, b in zip(picks, picks[1:], strict=False))
-    assert stepped_back > 0, "the generator must reach the case the rule's last step is for"
 
 
-def test_every_seconds_is_ascending_for_clusters_midway_between_targets():
+def test_every_seconds_is_ascending_when_rounding_moves_a_tie():
+    # For distant targets, subtraction rounds the distances and their slack differently.
+    times = [0.0, 1.1e-9, 2.2e-9, 1e8]
+    every = 4e6
+    assert _targets_by_the_rule(times, every)[:4] == [0, 2, 1, 0]
+    got = sample_frames(times, every_seconds=every)
+    assert got == _nearest_by_the_rule(times, every) == [0, 2, 3]
+    _assert_ascending_and_accepted_by_select_frames(times, got)
+
+
+def test_every_seconds_matches_the_rule_with_rounding_at_distant_targets():
     rng = random.Random(393)
     stepped_back = 0
     for _ in range(2000):
-        step = rng.choice([0.05, 0.1, 0.2, 0.25, 0.3])
-        points = {0.0}
+        times = [0.0]
         for _ in range(rng.randint(1, 6)):
-            centre = (rng.randint(0, 14) + rng.choice([0.0, 0.25, 0.5])) * step
-            for j in range(rng.randint(1, 5)):
-                points.add(
-                    centre + j * rng.choice([1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 1e-9, 1.1e-9])
-                )
-        times = sorted(points)
-        every = step * rng.choice([0.5, 1, 1, 2])
+            times.append(times[-1] + rng.choice([1.1e-9, 1.2e-9, 1.5e-9, 2.5e-9]))
+        times.append(rng.uniform(0.8e8, 1.2e8))
+        every = rng.uniform(1e6, 8e6)
         got = sample_frames(times, every_seconds=every)
         _assert_ascending_and_accepted_by_select_frames(times, got)
         assert got == _nearest_by_the_rule(times, every), (times, every)
         picks = _targets_by_the_rule(times, every)
         stepped_back += any(b < a for a, b in zip(picks, picks[1:], strict=False))
     assert stepped_back > 0, "the generator must reach the case the rule's last step is for"
-
-
-@pytest.mark.parametrize(
-    ("times", "every", "expected"),
-    [
-        (
-            [0.3, 0.3000000009, 0.300000001, 2.000000001, 2.0000000021, 2.0000000022],
-            0.1,
-            [0, 1, 3],
-        ),
-        (
-            [
-                5e-10,
-                1e-09,
-                0.250000001,
-                0.2500000015,
-                0.25000000170000003,
-                0.25000000200000005,
-                1.2500000020000002,
-                1.2500000025000002,
-                1.2500000026000002,
-            ],
-            0.1,
-            [0, 2, 3, 6],
-        ),
-        (
-            [
-                3e-10,
-                0.2500000003,
-                0.2500000008,
-                0.250000001,
-                0.25000000110000004,
-                0.25000000200000005,
-                1.2500000020000002,
-                1.2500000023000002,
-                1.2500000032000003,
-                1.3500000032000004,
-                1.3500000033000004,
-            ],
-            0.1,
-            [0, 1, 4, 6, 7],
-        ),
-        (
-            [
-                0.1,
-                0.1000000003,
-                0.3500000003,
-                0.35000000130000003,
-                1.3500000013,
-                1.3500000016,
-                1.4500000016,
-                1.4500000027000002,
-            ],
-            0.25,
-            [0, 2, 3, 4],
-        ),
-    ],
-)
-def test_every_seconds_is_ascending_and_repeat_free_when_rounding_moves_a_tie(
-    times, every, expected
-):
-    got = sample_frames(times, every_seconds=every)
-    assert got == expected
-    _assert_ascending_and_accepted_by_select_frames(times, got)
 
 
 def test_a_distance_exactly_epsilon_beyond_the_closest_is_still_tied():
@@ -482,9 +439,11 @@ def test_a_distance_exactly_epsilon_beyond_the_closest_is_still_tied():
     assert got == [0, 1]
 
 
-def test_three_frames_before_the_closest_are_tied_and_the_earliest_wins():
-    times = [0.0, 1.0 - 9e-10, 1.0 - 6e-10, 1.0 - 3e-10, 1.0, 2.0]
-    assert sample_frames(times, every_seconds=1) == [0, 1, 5]
+def test_three_frames_before_the_closest_can_tie_after_distance_rounding():
+    # At this target all four computed distances round to the same float.
+    times = [0.0, 1.1e-9, 2.2e-9, 3.3e-9, 2e8]
+    assert _targets_by_the_rule(times, 8e7) == [0, 0, 4]
+    assert sample_frames(times, every_seconds=8e7) == [0, 4]
 
 
 def test_frame_windows_cover_the_frames_in_start_to_end_when_the_stride_is_at_most_the_width():
@@ -494,30 +453,17 @@ def test_frame_windows_cover_the_frames_in_start_to_end_when_the_stride_is_at_mo
     assert set(range(11)) - _covered(bounded) == {0, 1, 9, 10}
 
 
-def test_frame_at_nearest_uses_the_sample_frames_tie_rule_for_clusters():
-    """Three or more frames within the slack: the earliest tied frame, as in sample_frames."""
-    first = [0.0, 1.0, 1.0 + 3e-10, 2.0]
-    second = [0.0, 1.0 - 4e-10, 1.0, 1.0 + 4e-10, 2.0]
-    assert frame_at(first, 1.0 + 2e-9, side="nearest") == 1 == _earliest_tied(first, 1.0 + 2e-9)
-    assert frame_at(second, 1.0 + 1.5e-9, side="nearest") == 1
-    assert _earliest_tied(second, 1.0 + 1.5e-9) == 1
-    # the same frame sample_frames picks for a target at that time (the window starts at 0)
-    assert sample_frames(first, every_seconds=1.0 + 2e-9)[1] == 1
+def test_frame_at_nearest_uses_the_sample_frames_tie_rule():
+    times = [0.0, 1.0, 1.0 + 2.5e-9, 2.0]
+    when = 1.0 + 1.6e-9
+    assert frame_at(times, when, side="nearest") == 1 == _earliest_tied(times, when)
+    assert sample_frames(times, every_seconds=when) == [0, 1]
 
 
-def test_frame_at_nearest_can_be_earlier_than_before_and_beat_a_frame_at_the_time():
-    """The documented consequences of the tie rule when frames are closer than the slack."""
-    times = [0.0, 1.0, 1.0 + 3e-10, 2.0]
-    assert frame_at(times, 1.0 + 2e-9, side="before") == 2
-    assert frame_at(times, 1.0 + 2e-9, side="nearest") == 1
-    exact = [0.0, 1.0, 1.0 + 5e-10, 2.0]
-    assert frame_at(exact, 1.0 + 5e-10, side="nearest") == 1
-
-
-def test_frame_at_nearest_matches_the_rule_written_out_literally_including_clusters():
+def test_frame_at_nearest_matches_the_rule_at_mixed_cadences():
     rng = random.Random(395)
-    gaps = [1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 1e-9, 1.1e-9, 0.1, 0.25, 0.5, 1.0]
-    clustered = 0
+    gaps = [1.1e-9, 1.2e-9, 1.3e-9, 1.5e-9, 2.5e-9, 0.1, 0.25, 0.5, 1.0]
+    tied = 0
     for _ in range(3000):
         times, now = [], rng.choice([0.0, 0.5, 3.0])
         for _ in range(rng.randint(1, 12)):
@@ -525,11 +471,19 @@ def test_frame_at_nearest_matches_the_rule_written_out_literally_including_clust
             now += rng.choice(gaps)
         when = rng.choice(times) + rng.choice([-2e-9, -1e-9, -5e-10, 0.0, 5e-10, 1.5e-9, 0.05])
         when = max(0.0, when)
-        got = frame_at(times, when, side="nearest")
-        assert got == _earliest_tied(times, when), (times, when)
+        assert frame_at(times, when, side="nearest") == _earliest_tied(times, when), (times, when)
         closest = min(abs(t - when) for t in times)
-        clustered += sum(abs(t - when) <= closest + frames.TIME_EPSILON for t in times) >= 3
-    assert clustered > 0, "the generator must reach ties of three or more frames"
+        tied += sum(abs(t - when) <= closest + frames.TIME_EPSILON for t in times) >= 2
+    assert tied > 0, "the generator must reach ties with valid frame gaps"
+
+
+def test_frame_at_nearest_checks_all_frames_tied_after_distance_rounding():
+    times = [0.0, 1.1e-9, 2.2e-9, 1e8]
+    when = 12e6
+    closest = min(abs(t - when) for t in times)
+    assert all(abs(t - when) <= closest + frames.TIME_EPSILON for t in times[:3])
+    assert frame_at(times, when, side="before") == 2
+    assert frame_at(times, when, side="nearest") == 0 == _earliest_tied(times, when)
 
 
 def _old_frame_at_nearest(times, when):

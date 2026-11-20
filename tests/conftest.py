@@ -17,11 +17,15 @@ from __future__ import annotations
 
 import importlib.util
 from collections.abc import Callable, Mapping
+from types import ModuleType
 from typing import Any
 
 LIVE_SDK_MODULES = ("typesafe_sdk", "httpx2")
 LIVE_SDK_MARKER = "live_sdk"
 INSTALL_HINT = 'pip install -e ".[live]"'
+LIVE_EXTRA_SKIP = (
+    f"optional live extra not installed ({', '.join(LIVE_SDK_MODULES)}): {INSTALL_HINT}"
+)
 
 
 def missing_live_modules(
@@ -37,6 +41,21 @@ def missing_live_modules(
         if spec is None:
             missing.append(name)
     return missing
+
+
+def import_live_modules() -> dict[str, ModuleType | None]:
+    """Import every live-extra module, treating only genuine top-level absence as missing."""
+    modules = {}
+    for name in LIVE_SDK_MODULES:
+        try:
+            modules[name] = importlib.import_module(name)
+        except ModuleNotFoundError as exc:
+            # An import may need the other live-extra module. A discoverable package that
+            # raises even for its own top-level name is still broken.
+            if exc.name not in LIVE_SDK_MODULES or importlib.util.find_spec(exc.name) is not None:
+                raise
+            modules[name] = None
+    return modules
 
 
 def _skip_reason(obj: Any) -> str:

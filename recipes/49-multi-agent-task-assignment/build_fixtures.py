@@ -3,8 +3,9 @@
     python build_fixtures.py          # from anywhere; it writes next to this file
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
-Every row is one (agent, subtask) pair: one suitability ``Score`` request. The stored answers
-are deliberately imperfect -- some wrong, one deliberately adversarial (an agent with none of
+Every row is one (agent, subtask) pair. Validation and test rows each make one suitability
+``Score`` request. The demo rows illustrate the request format. The stored answers are
+deliberately imperfect -- some wrong, one deliberately adversarial (an agent with none of
 the required skill, written up so confidently that its stored score is high anyway) -- so the
 scheduler in ``helpers.py`` has real hard cases to filter, and the evaluation has real wrong
 answers to find. See docs/fixtures.md and recipes/_template/build_fixtures.py.
@@ -174,9 +175,9 @@ ROWS = [
     ("t-astra-u6-launch-checklist", "test", "astra", "u6-launch-checklist", 3, "SHARP", 3),
     ("t-reed-u6-launch-checklist", "test", "reed", "u6-launch-checklist", 2, "SHARP", 2),
     ("t-pike-u6-launch-checklist", "test", "pike", "u6-launch-checklist", 4, "SHARP", 4),
-    # -- demo: a subtask nobody is capable of (2 requests, unscored) ---------------------------
-    ("d-nova-security-review", "demo", "nova", "d1-security-review", None, "SHARP", 3),
-    ("d-zephyr-security-review", "demo", "zephyr", "d1-security-review", None, "MEDIUM", 2),
+    # -- demo: a subtask nobody is capable of (illustrative pairs) ------------------------------
+    ("d-nova-security-review", "demo", "nova", "d1-security-review", None, None, None),
+    ("d-zephyr-security-review", "demo", "zephyr", "d1-security-review", None, None, None),
 ]
 
 
@@ -196,8 +197,8 @@ def build_inputs_and_labels(rows):
     inputs, labels = [], []
     for ident, split, agent_id, subtask_id, label, _shape, _peak in rows:
         fields = _fields(split, agent_id, subtask_id)
-        key = replay_key(helpers.build_state(fields), QUESTIONS)
-        inputs.append({"id": ident, "split": split, "fields": fields, "replay_keys": [key]})
+        keys = [] if split == "demo" else [replay_key(helpers.build_state(fields), QUESTIONS)]
+        inputs.append({"id": ident, "split": split, "fields": fields, "replay_keys": keys})
         if label is not None:
             labels.append({"id": ident, "label": label})
     return inputs, labels
@@ -208,6 +209,8 @@ def build_responses(rows):
     calls Jev, so it can never produce a recorded response."""
     responses = {}
     for _ident, split, agent_id, subtask_id, _label, shape, peak in rows:
+        if split == "demo":
+            continue
         fields = _fields(split, agent_id, subtask_id)
         key = replay_key(helpers.build_state(fields), QUESTIONS)
         answers = answers_for((shape, peak), Provenance.synthetic())

@@ -17,6 +17,7 @@ The assertion functions are module-level and are themselves proved able to fail 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -134,6 +135,8 @@ VOCABULARY: dict[str, tuple[str, ...]] = {
     "probability": ("probability",),
     "gold": ("gold",),
     "predicted": ("predicted",),
+    "content": ("content",),
+    "action": ("action",),
 }
 
 
@@ -243,6 +246,19 @@ HIERARCHICAL = [
 ]
 
 
+# Long labels that share their first eleven characters, so they are kept whole (#265): the
+# figure size, computed from the cell counts, cannot hold them without growing.
+LONG_COLUMN_COLLISION = [
+    "customer_refund_requested_by_email_after_delivery",
+    "customer_refund_requested_by_phone_after_delivery",
+    "other",
+]
+LONG_ROW_COLLISION = [
+    "account_billing.invoice_question_about_a_charge_that_appeared_twice_this_month",
+    "account_billing.invoice_question_about_a_charge_that_never_appeared_at_all",
+]
+
+
 def _matrix(n: int) -> np.ndarray:
     return np.arange(n * n).reshape(n, n) % 7 + np.eye(n, dtype=int) * 5
 
@@ -265,6 +281,18 @@ class Case:
 def _confusion(labels, *, normalize=False, exact=False) -> Case:
     fig = style.plot_confusion_matrix(_matrix(len(labels)), labels, normalize=normalize)
     return Case(fig, labels, labels, "predicted", "gold", exact_ticks=exact)
+
+
+def _two_vocabularies(rows, cols, *, exact=False) -> Case:
+    counts = np.arange(len(rows) * len(cols)).reshape(len(rows), len(cols)) % 5
+    fig = style.plot_confusion_matrix(
+        counts,
+        row_labels=rows,
+        col_labels=cols,
+        row_axis_title="Gold content",
+        col_axis_title="Final action",
+    )
+    return Case(fig, cols, rows, "action", "content", exact_ticks=exact)
 
 
 def _answer(answer, names, *, exact=False) -> Case:
@@ -291,6 +319,23 @@ CASES = {
     "confusion unique after shortening": lambda: _confusion(UNIQUE_AFTER_SHORTENING),
     "confusion prefix collision": lambda: _confusion(PREFIX_COLLISION, exact=True),
     "confusion hierarchical labels": lambda: _confusion(HIERARCHICAL, exact=True),
+    "confusion two vocabularies": lambda: _two_vocabularies(
+        ["clear", "borderline", "violates"], ["allowed", "held"], exact=True
+    ),
+    "confusion two vocabularies, row collision": lambda: _two_vocabularies(
+        HIERARCHICAL, ["allowed", "held"], exact=True
+    ),
+    "confusion two vocabularies, column collision": lambda: _two_vocabularies(
+        ["clear", "violates"], PREFIX_COLLISION, exact=True
+    ),
+    # These two overflow the figure edge unless the figure grows: vertically for few rows
+    # under long whole column labels, horizontally for long whole row labels and one column.
+    "confusion two vocabularies, long column labels": lambda: _two_vocabularies(
+        ["clear", "violates"], LONG_COLUMN_COLLISION, exact=True
+    ),
+    "confusion two vocabularies, long row labels": lambda: _two_vocabularies(
+        LONG_ROW_COLLISION, ["allowed"], exact=True
+    ),
     "answer choice": lambda: _answer(CHOICE, ["calm", "angry", "excited"], exact=True),
     "answer confident choice": lambda: _answer(CONFIDENT_CHOICE, ["refund", "replace"], exact=True),
     "answer noul": lambda: _answer(FakeNoul(0.93), ["no", "yes"], exact=True),
@@ -307,6 +352,7 @@ CASES = {
     "sweep chosen": lambda: _sweep(chosen=0.5),
     "risk coverage": lambda: _risk(),
     "risk coverage label and reference": lambda: _risk(label="model", reference_risk=0.2),
+    "risk coverage points only": lambda: _risk(label="policies", reference_risk=0.2, connect=False),
 }
 
 
@@ -375,13 +421,9 @@ def _separation(a, b) -> float:
     return max(dx, dy)
 
 
-def _root(ax):
-    return ax.get_figure(root=True)
-
-
 def legend_corner(ax) -> str:
     """Where ``ax``'s legend is drawn: a corner of the axes, "outside", or "elsewhere"."""
-    _draw(_root(ax))
+    _draw(ax.figure)
     box = ax.get_legend().get_window_extent()
     frame = ax.get_window_extent()
     if box.x0 >= frame.x1:
@@ -460,29 +502,54 @@ def test_the_score_legend_clears_every_value_label_by_two_pixels_on_the_final_la
 
 
 @pytest.mark.parametrize(
-    "make_axes",
+    ("layout", "make_axes"),
     [
-        pytest.param(lambda: Figure().subplots(), id="plain figure"),
-        pytest.param(lambda: Figure().subplots(2, 2)[0, 1], id="subplot grid"),
-        pytest.param(lambda: Figure().subfigures(1, 2)[1].subplots(), id="subfigure"),
-        pytest.param(lambda: Figure(layout="constrained").subplots(), id="constrained layout"),
+        pytest.param(None, lambda fig: fig.subplots(), id="plain figure"),
+        pytest.param(None, lambda fig: fig.subplots(2, 2)[0, 1], id="subplot grid"),
+        pytest.param(None, lambda fig: fig.subfigures(1, 2)[1].subplots(), id="subfigure"),
+        pytest.param("constrained", lambda fig: fig.subplots(), id="constrained layout"),
         pytest.param(
-            lambda: Figure(layout="constrained").subfigures(1, 2)[0].subplots(),
+            "constrained",
+            lambda fig: fig.subfigures(1, 2)[0].subplots(),
             id="constrained subfigure",
+        ),
+        pytest.param(
+            "constrained",
+            lambda fig: fig.subfigures(1, 1).subfigures(1, 2)[0].subplots(),
+            id="nested subfigure",
         ),
     ],
 )
 @pytest.mark.parametrize("answer", [CONFIDENT_HIGH, CONFIDENT_LOW, BOTH_ENDS_HIGH])
-def test_a_caller_supplied_axes_gets_a_legend_clear_of_its_value_labels(make_axes, answer):
+def test_a_caller_supplied_axes_gets_a_legend_clear_of_its_value_labels(layout, make_axes, answer):
     """``ax=`` is a documented parameter: it may be in a plain figure, a grid or a subfigure."""
-    ax = make_axes()
+    fig = Figure(layout=layout)
+    ax = make_axes(fig)
     out = style.plot_answer_probabilities(answer, ax=ax)
     assert out is ax.figure
     legend = ax.get_legend()
     assert legend is not None
-    _draw(_root(ax))
+    _draw(fig)
     box = legend.get_window_extent()
     assert not any(_intersect(box, t.get_window_extent()) for t in ax.texts)
+
+
+def test_score_legend_supports_the_subfigure_api_before_matplotlib_3_10():
+    fig = Figure(layout="constrained")
+    subfigure = fig.subfigures(1, 2)[0]
+    ax = subfigure.subplots()
+    style.plot_answer_probabilities(CONFIDENT_HIGH, ax=ax)
+    ax.get_legend().remove()
+
+    # Exercise the old get_figure() signature with real SubFigure artists and a real draw.
+    legacy_axes = SimpleNamespace(
+        figure=subfigure, get_figure=lambda: subfigure, texts=ax.texts, legend=ax.legend
+    )
+    style._place_score_legend(legacy_axes)
+
+    _draw(fig)
+    box = ax.get_legend().get_window_extent()
+    assert not any(_intersect(box, text.get_window_extent()) for text in ax.texts)
 
 
 def test_a_label_set_sharing_eleven_characters_renders_distinct_full_ticks():
