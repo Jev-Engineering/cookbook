@@ -726,14 +726,6 @@ _LEGEND_CORNERS = ("lower right", "upper right")
 _LEGEND_CLEARANCE_PX = 2.0
 
 
-def _root_figure(ax: Axes) -> Figure:
-    """The top-level ``Figure`` of ``ax``: ``ax.figure`` is the subfigure for an axes in one."""
-    try:
-        return ax.get_figure(root=True)
-    except TypeError:  # matplotlib before 3.10: ``figure`` of a subfigure is already the root
-        return ax.figure
-
-
 def _place_score_legend(ax: Axes) -> None:
     """Put the score legend in a corner that no bar value label sits under.
 
@@ -751,7 +743,8 @@ def _place_score_legend(ax: Axes) -> None:
     after the title and labels are set: under constrained layout they move the axes, and the
     clearance is only a guarantee for the layout it was measured on.
     """
-    fig = _root_figure(ax)
+    # A SubFigure shares the root Figure's canvas, including on matplotlib before 3.10.
+    fig = ax.figure.canvas.figure
     labels = ax.texts
     for loc in _LEGEND_CORNERS:
         legend = ax.legend(loc=loc)
