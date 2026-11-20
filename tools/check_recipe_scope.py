@@ -78,16 +78,24 @@ REFERENCE = (
 CLOSING = re.compile(rf"(?<![\w-]){KEYWORD}(?![\w-])[ \t]*:?[ \t]+{REFERENCE}", re.IGNORECASE)
 
 
+# Opt in only on a privately loaded module used by dev-installed consumers. The scope CLI
+# stays stdlib-only; its privileged workflow deliberately installs no dependencies.
+COMMONMARK_FENCE_CONTEXT = False
+
+
 FENCE = re.compile(r"[ ]{0,3}(?P<mark>`{3,}|~{3,})(?P<info>.*)")
 
 
 def without_code_fences(body: str) -> str:
     """``body`` with fenced code blocks removed, as GitHub links nothing written inside one.
 
-    A fence is three or more backticks or tildes, indented by at most three spaces; it closes at a
-    line of the same character, at least as long, with only ASCII spaces or tabs after it.
-    A fence that never closes runs to the end of the text (CommonMark).
+    The default is the historical physical-line reader; it does not interpret HTML blocks or
+    containers. Dev-installed consumers may explicitly set COMMONMARK_FENCE_CONTEXT on their
+    private module instance to use CommonMark block-token ranges instead. Both modes normalize
+    CRLF/CR to LF and omit the final line ending. Neither removes other kinds of code or HTML.
     """
+    if COMMONMARK_FENCE_CONTEXT:
+        return _without_commonmark_code_fences(body)
     kept = []
     fence = None  # (character, length) while inside a fenced block
     # CommonMark lines end only at CRLF, LF or CR; Unicode separators remain content.
@@ -105,6 +113,29 @@ def without_code_fences(body: str) -> str:
             if len(match.group("mark")) >= fence[1] and not match.group("info").strip(" \t"):
                 fence = None
     return "\n".join(kept)
+
+
+def _without_commonmark_code_fences(body: str) -> str:
+    """Remove only parser-identified fences, respecting container and HTML block context.
+
+    The pinned dev dependency is imported only in this explicit mode. Missing dependencies or
+    parser errors propagate; there is no silent fallback to the physical-line reader. The
+    CommonMark preset's nesting bound is retained: source outside emitted fence ranges stays
+    visible to callers, including text the parser stops processing at its nesting limit.
+    """
+    from markdown_it import MarkdownIt
+
+    # Only block context and line maps are needed; do not parse or render inline content.
+    parser = MarkdownIt("commonmark").disable(["inline", "text_join"])
+    excluded: set[int] = set()
+    for token in parser.parse(body):
+        if token.type == "fence":
+            assert token.map is not None, "a fence token must have a source line range"
+            excluded.update(range(*token.map))
+    lines = re.split(r"\r\n|\r|\n", body)
+    if lines[-1] == "":
+        lines.pop()
+    return "\n".join(line for index, line in enumerate(lines) if index not in excluded)
 
 
 INLINE_CODE = re.compile(r"(?P<ticks>`+)(?:(?!(?P=ticks)).)*?(?P=ticks)", re.DOTALL)

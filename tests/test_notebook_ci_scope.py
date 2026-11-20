@@ -971,3 +971,53 @@ def test_fence_close_accepts_ascii_spaces_and_tabs(suffix, ending):
     text = ending.join(["~~~", "Closes #1", f"~~~{suffix}", "Closes #2"])
     assert scope.without_code_fences(text) == "Closes #2"
     assert scope.closing_issues(text, "o/r") == {2}
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("<!--\n~~~\n-->\n\nCloses #1", "<!--\n~~~\n-->\n\nCloses #1"),
+        ("- ~~~\n  Closes #2\n  ~~~\n\nCloses #1", "\nCloses #1"),
+        ("> ~~~\n> Closes #2\n> ~~~\n\nCloses #1", "\nCloses #1"),
+        ("- ~~~\n  Closes #2\n\nCloses #1", "Closes #1"),
+        ("> ~~~\n> Closes #2\n\nCloses #1", "\nCloses #1"),
+        ("~~~\nCloses #2", ""),
+        ("Intro\r\n~~~\r\nCloses #2\r\n~~~\r\nCloses #1\r\n", "Intro\nCloses #1"),
+        ("Intro\u2028~~~\nCloses #1\n~~~", "Intro\u2028~~~\nCloses #1"),
+        ("~~~\n~~~\u2028\nCloses #2\n~~~\nCloses #1", "Closes #1"),
+        ("<div>\n~~~\n</div>\n\nCloses #1", "<div>\n~~~\n</div>\n\nCloses #1"),
+    ],
+)
+def test_opt_in_fence_context_uses_parser_ranges(monkeypatch, text, expected):
+    monkeypatch.setattr(scope, "COMMONMARK_FENCE_CONTEXT", True)
+    assert scope.without_code_fences(text) == expected
+
+
+def test_default_scope_fence_mode_does_not_import_the_optional_parser(monkeypatch):
+    import builtins
+
+    original_import = builtins.__import__
+
+    def forbid_parser(name, *args, **kwargs):
+        assert not name.startswith("markdown_it"), "default scope must stay stdlib-only"
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", forbid_parser)
+    assert scope.COMMONMARK_FENCE_CONTEXT is False
+    assert scope.without_code_fences("~~~\nCloses #2\n~~~\nCloses #1") == "Closes #1"
+
+
+def test_opt_in_fence_context_does_not_fallback_if_dependency_is_missing(monkeypatch):
+    import builtins
+
+    original_import = builtins.__import__
+
+    def missing_parser(name, *args, **kwargs):
+        if name == "markdown_it":
+            raise ModuleNotFoundError("synthetic absent optional parser")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(scope, "COMMONMARK_FENCE_CONTEXT", True)
+    monkeypatch.setattr(builtins, "__import__", missing_parser)
+    with pytest.raises(ModuleNotFoundError, match="synthetic absent optional parser"):
+        scope.without_code_fences("~~~\nCloses #2")
