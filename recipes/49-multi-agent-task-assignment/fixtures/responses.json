@@ -131,39 +131,6 @@
       }
     }
   },
-  "0c6510f4e572886462e18e51503750856fe4b2b74b112c10a63cc5050391587d": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "suitability": {
-        "type": "score",
-        "score": 2.06,
-        "probabilities": {
-          "0": 0.06,
-          "1": 0.12,
-          "2": 0.6,
-          "3": 0.14,
-          "4": 0.08
-        },
-        "confidence": 0.5499999999999999,
-        "legend": {
-          "0": "Nothing in the agent's track record resembles this kind of work; attempting the subtask would very likely fail.",
-          "1": "The agent's track record is in a related area but does not cover the specific kind of outcome this subtask needs; completing it would take substantial unsupported effort.",
-          "2": "The agent's track record covers the general skill this subtask needs, without a completed example of this particular kind of outcome; a workable fit that is not yet demonstrated.",
-          "3": "The agent's track record includes a directly comparable completed example of this subtask's kind of outcome; a strong, demonstrated fit.",
-          "4": "The agent's track record shows multiple successful completions of exactly this kind of outcome; the best possible fit."
-        },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
   "0d6a7ac666c8a5065ab54896551575887dfbe31d1a1d7ee663bbe0190409739d": {
     "model": "synthetic",
     "usage": {
@@ -644,39 +611,6 @@
           "4": 0.9
         },
         "confidence": 0.8333333333333333,
-        "legend": {
-          "0": "Nothing in the agent's track record resembles this kind of work; attempting the subtask would very likely fail.",
-          "1": "The agent's track record is in a related area but does not cover the specific kind of outcome this subtask needs; completing it would take substantial unsupported effort.",
-          "2": "The agent's track record covers the general skill this subtask needs, without a completed example of this particular kind of outcome; a workable fit that is not yet demonstrated.",
-          "3": "The agent's track record includes a directly comparable completed example of this subtask's kind of outcome; a strong, demonstrated fit.",
-          "4": "The agent's track record shows multiple successful completions of exactly this kind of outcome; the best possible fit."
-        },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "4ca25e6c704a5dab585923ad789dbfc361932c2c623bee7d48c495a8ddd42877": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "suitability": {
-        "type": "score",
-        "score": 2.9200000000000004,
-        "probabilities": {
-          "0": 0.01,
-          "1": 0.02,
-          "2": 0.04,
-          "3": 0.9,
-          "4": 0.03
-        },
-        "confidence": 0.8833333333333333,
         "legend": {
           "0": "Nothing in the agent's track record resembles this kind of work; attempting the subtask would very likely fail.",
           "1": "The agent's track record is in a related area but does not cover the specific kind of outcome this subtask needs; completing it would take substantial unsupported effort.",

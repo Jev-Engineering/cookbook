@@ -165,9 +165,10 @@ def request_budget_note(requests: int) -> str:
     ``tests/test_new_recipe.py::test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package``);
     kept here rather than imported, so this standard-library-only tool does not need the
     installed package to generate a recipe skeleton."""
+    noun = "request" if requests == 1 else "requests"
     return (
         f"{NOTE_BEGIN}\n"
-        f"In live mode this notebook makes exactly **{requests}** requests, each decided once. "
+        f"In live mode this notebook makes exactly **{requests}** {noun}, each decided once. "
         f"Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS={requests}` or higher before running it live (the "
         f"default cap is {DEFAULT_MAX_REQUESTS}): the cap is inclusive and every attempt counts "
         "against it, retries included, so a lower cap stops the run partway through with "
@@ -785,7 +786,8 @@ def readme_text(catalog: dict, recipe: dict, mode: str = "replay") -> str:
 
 ## Run it offline
 
-From the repository root, in an environment with `pip install -e ".[dev]"`:
+From the repository root, in an environment with `pip install -e ".[dev,ml]"` (the `ml` extra adds
+scikit-learn, which the `Tests` jobs install and a recipe's `helpers.py` may use):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/{slug}
@@ -798,7 +800,7 @@ pytest recipes/{slug}
 Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
 `Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
 3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
-notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
+notebook — the `dev` extra above adds `ruff` and `pytest`, which that job does not run; see
 [docs/recipe-template.md](../../docs/recipe-template.md) step 6).
 
 ## Switch to live
@@ -1678,7 +1680,9 @@ def main() -> None:
     except si.RegenerationMismatch as error:
         raise SystemExit(
             f"refused: {error}\nnothing else was written; to accept the redrawn picture, run "
-            "python build_fixtures.py --overwrite-assets"
+            "python build_fixtures.py --overwrite-assets (if fixtures/responses.json holds a "
+            "recorded response, that is refused too unless you pass --force as well: "
+            "python build_fixtures.py --overwrite-assets --force)"
         ) from None
     manifest = {"schema": 1, "assets": entries}
     (HERE / "assets-manifest.json").write_text(

@@ -64,18 +64,14 @@ sent). The returned string is what goes on `DecisionResult.model` and into every
 ### Experimental images and long context
 
 Pass `images=True` and/or `long_context=True` to `LiveBackend` or `get_backend`.
-These booleans add exactly `TypeSafe-Danger-Zone-Images: true` and
-`TypeSafe-Danger-Zone-Long-Context: true`, respectively. The header belongs to the backend, not to
-the call: a backend built with `images=True` sends the images header on every call it makes,
-including a call with no image or Box question, and a backend built with `long_context=True`
-does the same with the long-context header. Upstream asks for the images header "with each
-request that contains an image or a Box question" ([images](https://docs.typesafe.ai/images)).
-Both defaults are false, and a backend built without a flag sends no header for it. Only
-`images=True` admits image assets and Box questions: a backend built without it refuses them
-(below), whatever `long_context` is. A text-only call that should carry no images header therefore
-goes through a backend built without `images=True`. That is a second instance with its own request
-budget, ledger and records (see [Budget guard](#budget-guard)): each instance enforces its own
-`max_requests`, so the caller budgets and accounts for both.
+Both default to false. With `images=True`, the backend sends `TypeSafe-Danger-Zone-Images: true`
+only on requests with an image asset or a Box question. See the
+[TypeSafe images documentation](https://docs.typesafe.ai/images) for when the header is required.
+Calls with neither omit the images header and can use the same backend and
+[request budget](#budget-guard).
+The backend requires `images=True` for image assets and Box questions, whatever
+`long_context` is. With `long_context=True`, the backend sends
+`TypeSafe-Danger-Zone-Long-Context: true` on every request.
 The existing restriction on arbitrary `request_kwargs["extra_headers"]` still holds.
 
 Pass raw image dictionaries using `decide(state, questions, assets=assets)` as described in

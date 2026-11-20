@@ -137,7 +137,7 @@ what the run is billed.
 The recipe guard (`readme_budget_note_matches_request_audit`) ties the final output to the shared
 wrapper's direct construction and print, recomputes every count, rejects failed calls, and checks
 the execution against the declaration: calls, distinct requests, the exact fixture inventory
-(extra unused and missing fixtures both fail), and any profile. **A request decided twice fails on
+(extra unused and missing fixtures both fail), and any profile. What the ledger's keys are pinned to: with `fixtures` declared, every `replay_key` must be one of that file's keys and every key must be used. With `fixtures: null` (a scripted lane, which has no stored answers to compare against), the guard checks only that each key is 64 lowercase hex characters and that the counts agree with the key list. A well-formed but wrong key passes the guard there, and only the fresh-kernel notebook check, which requires the committed text output to equal a fresh run's, catches it. **A request decided twice fails on
 its own and names its replay key**, unless the declaration says how many repeats are intended.
 The declaration, an audited notebook and the rendered paragraph come together or not at all:
 a README holding the paragraph with neither of the others, a declaration with no audit line, and

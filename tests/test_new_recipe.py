@@ -243,12 +243,15 @@ def test_a_number_outside_1_to_100_is_a_usage_error(bad, catalog, recipes):
     assert not recipes.exists()
 
 
+NO_ISSUE_NOTICE = "No assigned recipe issue"
+
+
 def test_recipe_100_scaffolds_without_inventing_an_issue(catalog, recipes, capsys):
     data, recipe = entry(catalog, 100)
     recipe["issue"] = None  # the real catalog records one; this test is about an unassigned entry
     catalog.write_text(json.dumps(data), encoding="utf-8")
     assert run(100, catalog, recipes) == 0
-    assert "No assigned recipe issue" in capsys.readouterr().out
+    assert NO_ISSUE_NOTICE in capsys.readouterr().out
     folder = recipes / "100-multimodal-agent-handoff-verification"
     nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
     nbformat.validate(nb)
@@ -259,6 +262,13 @@ def test_recipe_100_scaffolds_without_inventing_an_issue(catalog, recipes, capsy
     assert "issues/100" not in readme
     assert "Closes #100" not in readme
     assert all(not c.outputs for c in nb.cells if c.cell_type == "code")
+
+
+def test_an_assigned_rank_scaffolds_without_the_no_assigned_issue_notice(catalog, recipes, capsys):
+    _, recipe = entry(catalog, 100)
+    assert recipe["issue"] == 441  # the real catalog records it
+    assert run(100, catalog, recipes) == 0
+    assert NO_ISSUE_NOTICE not in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("slug", ["../escape", "0100-test", "101-test", "99-wrong-rank"])
@@ -292,6 +302,22 @@ def test_the_command_line_works_and_exit_status_is_visible(catalog, recipes):
     second = subprocess.run([*base, *args], capture_output=True, text=True)
     assert first.returncode == 0 and second.returncode == 1
     assert "refusing to overwrite" in second.stderr
+
+
+@pytest.mark.parametrize("mode", new_recipe.ALL_MODES)
+def test_the_scaffolded_readme_installs_dev_and_ml_in_every_mode(catalog, recipes, mode):
+    """Issue #466: the scaffolder runs before `helpers.py` exists and cannot know whether the recipe
+    will use scikit-learn, and `.[dev,ml]` is what the `Tests` jobs install, so the "Run it offline"
+    install line is `.[dev,ml]` whatever the scaffold mode, never the bare `.[dev]`. The sentence
+    beside it must not claim the recipe has baselines."""
+    assert run(1, catalog, recipes, mode) == 0
+    (folder,) = recipes.iterdir()
+    readme = (folder / "README.md").read_text(encoding="utf-8")
+    section = readme.split("## Run it offline", 1)[1].split("\n## ", 1)[0]
+    assert f'pip install -e "{readme_install.COMBINED}"' in section
+    assert readme_install.TEST_INSTALL not in readme
+    assert "baselines" not in section
+    assert "`helpers.py` may use" in section
 
 
 @pytest.mark.parametrize("mode", new_recipe.MODES)
@@ -1176,7 +1202,9 @@ def test_every_hang_guard_fits_in_the_ci_test_job():
     guards = executor_budget.every_guard(execute_notebook)
     assert HANG_GUARD == guards["tests/test_new_recipe.py"]
     for user, guard in guards.items():
-        assert executor_budget.fits_in_the_ci_test_job(guard), (user, guard, job)
+        assert executor_budget.fits_in_the_ci_test_job(guard), executor_budget.fit_problem(
+            user, guard, job
+        )
         # and it still covers what the tool may legitimately take on a silent kernel
         assert guard > execute_notebook.START_WAIT * execute_notebook.START_ATTEMPTS[SLOW_START]
         if user != "tests/test_new_recipe.py":  # the other users wait with the same derivation
@@ -1578,6 +1606,7 @@ def test_the_scaffold_readme_live_section_states_the_budget_and_env_var(catalog,
     run(1, catalog, recipes)
     readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
     section = readme.split("## Switch to live")[1].split("## What was and was not measured")[0]
+    assert "makes exactly **1** request," in section
     assert "JEV_COOKBOOK_LIVE_MAX_REQUESTS" in section
     # Pinned against the installed package's constant (F1), not a third hand-written "25": see
     # test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package.
@@ -1792,8 +1821,9 @@ def test_the_scaffold_readme_install_rule_accepts_the_tests_install_and_refuses_
     _, recipe = entry(catalog, 1)
     run(1, catalog, recipes)
     readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
-    documented = readme_install.with_documented_test_install(readme)
-    assert readme_install.combined_reproduction_installs(documented) == []
+    # Since #466 the scaffold itself says `.[dev,ml]` for the tests' install (no rewrite needed).
+    assert readme_install.COMBINED in readme
+    assert readme_install.combined_reproduction_installs(readme) == []
     old = readme_install.with_pre_162_reproduction_install(readme)
     assert len(readme_install.combined_reproduction_installs(old)) == 1
 
@@ -2507,6 +2537,86 @@ def test_a_changed_picture_fails_the_generated_replay_key_test(image_scaffold, t
     assert failed.returncode != 0
     assert "test_every_replay_key_in_the_fixtures_matches_the_current_question" in failed.stdout
     assert any("hash-mismatch" in str(problem) for problem in validate_recipe(folder))
+
+
+def _bytes_of_every_file(folder):
+    return {
+        p.relative_to(folder).as_posix(): p.read_bytes()
+        for p in sorted(folder.rglob("*"))
+        if p.is_file() and "__pycache__" not in p.parts
+    }
+
+
+def test_overwrite_assets_with_a_recorded_response_is_refused_before_anything_is_written(
+    image_scaffold, tmp_path
+):
+    """The recorded check must run before ``write_images``: a redrawn picture changes the replay
+    keys of the recorded answers, so a refusal that came after the images were written would
+    leave them orphaned. The refused run leaves every byte of the folder as it was; adding
+    ``--force`` is what accepts the change."""
+    folder = copy_of(image_scaffold, tmp_path)
+    responses = folder / "fixtures" / "responses.json"
+    data = json.loads(responses.read_text("utf-8"))
+    first = sorted(data)[0]
+    data[first]["model"] = "jev-1.14.0"  # what the recorder writes: not "synthetic"
+    responses.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    Image.new("RGB", (640, 400), "white").save(folder / "assets" / "screen-t01.png")
+    before = _bytes_of_every_file(folder)
+    script = folder / "build_fixtures.py"
+
+    refused = subprocess.run(
+        [sys.executable, str(script), "--overwrite-assets"], capture_output=True, text=True
+    )
+    assert refused.returncode != 0
+    assert "refusing --overwrite-assets" in refused.stderr
+    assert "recorded response" in refused.stderr and "nothing was written" in refused.stderr
+    assert _bytes_of_every_file(folder) == before
+
+    forced = subprocess.run(
+        [sys.executable, str(script), "--overwrite-assets", "--force"],
+        capture_output=True,
+        text=True,
+    )
+    assert forced.returncode == 0, forced.stderr
+    assert _bytes_of_every_file(folder) != before
+
+
+def test_the_changed_picture_refusal_names_overwrite_assets_and_force_for_a_recorded_file(
+    image_scaffold, tmp_path
+):
+    folder = copy_of(image_scaffold, tmp_path)
+    Image.new("RGB", (640, 400), "white").save(folder / "assets" / "screen-t01.png")
+    refused = subprocess.run(
+        [sys.executable, str(folder / "build_fixtures.py")], capture_output=True, text=True
+    )
+    assert refused.returncode != 0
+    assert "nothing else was written" in refused.stderr
+    assert "python build_fixtures.py --overwrite-assets " in refused.stderr
+    assert "recorded response" in refused.stderr
+    assert "python build_fixtures.py --overwrite-assets --force" in refused.stderr
+
+
+def test_the_image_scaffold_removes_the_folder_and_propagates_after_an_unexpected_exception(
+    catalog, recipes, monkeypatch
+):
+    """``KeyboardInterrupt`` is not an ``Exception``: the drawing step still removes the
+    half-written folder, and the interrupt reaches the caller."""
+    _, recipe = entry(catalog, 77)
+
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(new_recipe.subprocess, "run", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        new_recipe.scaffold(77, catalog, recipes, mode=IMAGE)
+    assert not (recipes / recipe["slug"]).exists()
+
+    target = recipes / "draw-only"
+    target.mkdir(parents=True)
+    (target / "half.txt").write_text("x", encoding="utf-8")
+    with pytest.raises(KeyboardInterrupt):
+        new_recipe._draw_images(target)
+    assert not target.exists()
 
 
 def test_the_image_build_fixtures_tests_pass_under_a_different_png_encoder_and_the_text_ones_do_not(
