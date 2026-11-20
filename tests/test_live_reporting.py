@@ -3,8 +3,8 @@
 Part 1 calls the pure helpers with fake ``find_spec`` results and fake pytest reports. Part 2 runs
 a few tiny pytest subprocesses with ``typesafe_sdk`` and ``httpx2`` stubbed in or blocked, then
 checks the printed line and its counts. Every expected count is derived from the run it checks:
-the sample files hold two or three tests each, and the real ``test_live_sdk.py`` is counted by
-collecting it, so no whole-suite or SDK-test total is written here.
+the sample files hold a few tests each, and the real SDK-gated cases are counted by collecting
+them. The real netguard test uses stub modules and a stand-in executor that runs no notebook.
 """
 
 from __future__ import annotations
@@ -222,9 +222,22 @@ BOOT = (
     "import pytest\n"
     "raise SystemExit(pytest.main(sys.argv[1:]))\n"
 )
+NETGUARD_FILE = "test_notebook_ci_netguard.py"
+NETGUARD_TARGET = f"tests/{NETGUARD_FILE}::test_live_backend_call_is_blocked_with_the_sdk_installed"
+SDK_FILE = "test_live_sdk.py"
+SDK_TARGET = f"tests/{SDK_FILE}"
 REAL_SDK_FILES = {
-    "test_live_sdk.py": (TESTS_DIR / "test_live_sdk.py").read_text(encoding="utf-8"),
+    name: (TESTS_DIR / name).read_text(encoding="utf-8") for name in (SDK_FILE, NETGUARD_FILE)
 }
+REAL_SDK_TARGETS = (SDK_TARGET, NETGUARD_TARGET)
+EXECUTOR_STUB = """
+START_WAIT = 0
+START_ATTEMPTS = {"Kernel didn't respond": 0, "Kernel died before replying": 0}
+
+if __name__ == "__main__":
+    raise SystemExit("network access is blocked (startup harness executor stand-in)")
+"""
+
 SAMPLE_MARKED = """
 import pytest
 
@@ -272,10 +285,18 @@ def run_pytest(tmp_path, files, *, block=(), stubs=(), args=(), stub_sources=Non
     Returns (returncode, stdout, counts), where counts is (ran, skipped, deselected) from the
     live line, or None when no such line was printed.
     """
-    shutil.copyfile(TESTS_DIR / "conftest.py", tmp_path / "conftest.py")
+    tests = tmp_path / "tests"
+    tests.mkdir(exist_ok=True)
+    shutil.copyfile(TESTS_DIR / "conftest.py", tests / "conftest.py")
     (tmp_path / "pytest.ini").write_text("", encoding="utf-8")
     for name, source in files.items():
-        (tmp_path / name).write_text(textwrap.dedent(source), encoding="utf-8")
+        (tests / name).write_text(textwrap.dedent(source), encoding="utf-8")
+    if NETGUARD_FILE in files:
+        # Netguard loads these at collection to calculate its executor timeout.
+        shutil.copyfile(TESTS_DIR / "executor_budget.py", tests / "executor_budget.py")
+        tools = tmp_path / "tools"
+        tools.mkdir(exist_ok=True)
+        (tools / "execute_notebook.py").write_text(EXECUTOR_STUB, encoding="utf-8")
     stub_dir = tmp_path / "stubs"
     shutil.rmtree(stub_dir, ignore_errors=True)
     stub_dir.mkdir()
@@ -283,12 +304,17 @@ def run_pytest(tmp_path, files, *, block=(), stubs=(), args=(), stub_sources=Non
         (stub_dir / f"{name}.py").write_text("", encoding="utf-8")
     for name, source in (stub_sources or {}).items():
         (stub_dir / f"{name}.py").write_text(source, encoding="utf-8")
-    env = dict(os.environ)
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if not name.startswith(("JEV_COOKBOOK_", "TYPESAFE_"))
+    }
     env.pop("PYTEST_ADDOPTS", None)
+    env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env["PYTHONPATH"] = os.pathsep.join([str(stub_dir), str(SRC_DIR)])
     env["JEV_TEST_BLOCK"] = ",".join(block)
     proc = subprocess.run(
-        [sys.executable, "-c", BOOT, "-p", "no:cacheprovider", *args],
+        [sys.executable, "-c", BOOT, "-p", "no:cacheprovider", "--import-mode=importlib", *args],
         cwd=tmp_path,
         env=env,
         capture_output=True,
@@ -300,10 +326,13 @@ def run_pytest(tmp_path, files, *, block=(), stubs=(), args=(), stub_sources=Non
     return proc.returncode, proc.stdout, counts
 
 
-def collect(tmp_path, files, **kwargs):
-    """A collect-only run: (returncode, number of collected test node ids)."""
-    rc, out, _ = run_pytest(tmp_path, files, args=["--collect-only", "-q"], **kwargs)
-    return rc, sum("::" in line for line in out.splitlines())
+def collect(tmp_path, files, *, args=(), **kwargs):
+    """Return the exit code and output from a collect-only run."""
+    return run_pytest(tmp_path, files, args=["--collect-only", "-q", *args], **kwargs)[:2]
+
+
+def collected_count(out):
+    return sum(line.startswith("tests/") and "::" in line for line in out.splitlines())
 
 
 def live_summary(out):
@@ -315,17 +344,16 @@ def live_summary(out):
 
 @pytest.fixture(scope="module")
 def absent(tmp_path_factory):
-    """The real SDK test module with both modules blocked: collect result and a normal run."""
+    """The real SDK-gated tests with both modules blocked: collect result and a normal run."""
     tmp = tmp_path_factory.mktemp("absent")
-    collect_rc, collected = collect(tmp, REAL_SDK_FILES, block=BOTH)
-    rc, out, counts = run_pytest(tmp, REAL_SDK_FILES, block=BOTH)
-    return SimpleNamespace(
-        collect_rc=collect_rc, collected=collected, rc=rc, out=out, counts=counts
-    )
+    collect_rc, collect_out = collect(tmp, REAL_SDK_FILES, block=BOTH, args=REAL_SDK_TARGETS)
+    assert collect_rc == 0, collect_out
+    assert NETGUARD_TARGET in collect_out
+    rc, out, counts = run_pytest(tmp, REAL_SDK_FILES, block=BOTH, args=REAL_SDK_TARGETS)
+    return SimpleNamespace(collected=collected_count(collect_out), rc=rc, out=out, counts=counts)
 
 
 def test_absent_extra_skips_each_test_one_by_one(absent):
-    assert absent.collect_rc == 0
     assert absent.collected > 1  # one skip per test, not one skip for the whole module
     assert absent.counts is not None, absent.out
     ran, skipped, deselected = absent.counts
@@ -337,22 +365,45 @@ def test_absent_extra_skips_each_test_one_by_one(absent):
 
 
 def test_quiet_run_still_prints_the_summary_line(tmp_path, absent):
-    rc, out, counts = run_pytest(tmp_path, REAL_SDK_FILES, block=BOTH, args=["-q"])
+    rc, out, counts = run_pytest(
+        tmp_path, REAL_SDK_FILES, block=BOTH, args=["-q", *REAL_SDK_TARGETS]
+    )
     assert rc == 0
     assert counts == absent.counts
     assert live_summary(out).startswith("live extra NOT INSTALLED")
 
 
-def test_only_httpx2_missing_names_only_httpx2(tmp_path):
-    stubs, block = ("typesafe_sdk",), ("httpx2",)
-    collect_rc, collected = collect(tmp_path, REAL_SDK_FILES, stubs=stubs, block=block)
-    rc, out, counts = run_pytest(tmp_path, REAL_SDK_FILES, stubs=stubs, block=block)
-    assert collect_rc == 0 and collected > 1
-    assert rc == 0
-    assert counts == (0, collected, 0)
-    line = live_summary(out)
-    assert "(missing: httpx2)" in line
-    assert "typesafe_sdk, httpx2" not in line
+@pytest.mark.parametrize("missing", BOTH)
+def test_one_missing_live_module_skips_every_gated_test(tmp_path, absent, missing):
+    stubs = tuple(name for name in BOTH if name != missing)
+    # An installed SDK can itself import httpx2 at startup.
+    stub_sources = {"typesafe_sdk": "import httpx2"} if missing == "httpx2" else None
+    rc, out, counts = run_pytest(
+        tmp_path,
+        REAL_SDK_FILES,
+        stubs=stubs,
+        block=(missing,),
+        stub_sources=stub_sources,
+        args=REAL_SDK_TARGETS,
+    )
+    assert rc == 0, out
+    assert counts == (0, absent.collected, 0), out
+    assert named_missing(live_summary(out)) == missing
+
+
+def test_real_sdk_cases_are_selected_by_the_live_sdk_marker(tmp_path, absent):
+    rc, out = collect(
+        tmp_path, REAL_SDK_FILES, stubs=BOTH, args=["-m", "live_sdk", *REAL_SDK_TARGETS]
+    )
+    assert rc == 0, out
+    assert NETGUARD_TARGET in out
+    assert collected_count(out) == absent.collected, out
+
+
+def test_the_netguard_test_runs_when_both_modules_import(tmp_path):
+    rc, out, counts = run_pytest(tmp_path, REAL_SDK_FILES, stubs=BOTH, args=[NETGUARD_TARGET])
+    assert rc == 0, out
+    assert counts == (1, 0, 0), out
 
 
 def test_both_installed_says_so_and_runs_the_marked_tests(tmp_path, absent):
@@ -400,52 +451,74 @@ def test_teardown_error_after_a_pass_is_one_test(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("stub_sources", "stubs"),
+    ("broken", "source", "diagnostic", "block"),
     [
-        (
-            {"typesafe_sdk": "raise ImportError(\"cannot import name 'x' from 'pydantic'\")"},
-            ("httpx2",),
+        pytest.param(
+            "typesafe_sdk",
+            'raise ImportError("cannot import name x from pydantic")',
+            "ImportError: cannot import name x from pydantic",
+            (),
+            id="sdk-import-error",
         ),
-        (
-            {
-                "typesafe_sdk": (
-                    'raise ModuleNotFoundError("No module named \'pydantic\'", name="pydantic")'
-                )
-            },
-            ("httpx2",),
+        pytest.param(
+            "typesafe_sdk",
+            'raise ModuleNotFoundError("No module named pydantic", name="pydantic")',
+            "ModuleNotFoundError: No module named pydantic",
+            (),
+            id="sdk-transitive-missing",
         ),
-        ({"httpx2": 'raise ImportError("broken httpx2")'}, ("typesafe_sdk",)),
-        (
-            {
-                "typesafe_sdk": (
-                    "raise ModuleNotFoundError("
-                    '"No module named \'typesafe_sdk._core\'", name="typesafe_sdk._core")'
-                )
-            },
-            ("httpx2",),
+        pytest.param(
+            "httpx2",
+            'raise ImportError("broken httpx2")',
+            "ImportError: broken httpx2",
+            (),
+            id="httpx2-import-error",
         ),
-    ],
-    ids=[
-        "sdk-import-error",
-        "sdk-transitive-missing",
-        "httpx2-import-error",
-        "sdk-own-submodule-missing",
+        pytest.param(
+            "typesafe_sdk",
+            'raise ModuleNotFoundError("No module named typesafe_sdk._core", name="typesafe_sdk._core")',
+            "ModuleNotFoundError: No module named typesafe_sdk._core",
+            (),
+            id="sdk-own-submodule-missing",
+        ),
+        pytest.param(
+            "typesafe_sdk",
+            'raise ModuleNotFoundError("broken installed SDK", name="typesafe_sdk")',
+            "ModuleNotFoundError: broken installed SDK",
+            (),
+            id="sdk-found-but-reports-own-name-missing",
+        ),
+        pytest.param(
+            "typesafe_sdk",
+            'raise ImportError("broken SDK with httpx2 absent")',
+            "ImportError: broken SDK with httpx2 absent",
+            ("httpx2",),
+            id="sdk-broken-httpx2-absent",
+        ),
+        pytest.param(
+            "httpx2",
+            'raise ImportError("broken httpx2 with SDK absent")',
+            "ImportError: broken httpx2 with SDK absent",
+            ("typesafe_sdk",),
+            id="httpx2-broken-sdk-absent",
+        ),
     ],
 )
-def test_a_present_but_broken_sdk_fails_collection_loudly(tmp_path, stub_sources, stubs):
-    rc, out, counts = run_pytest(tmp_path, REAL_SDK_FILES, stubs=stubs, stub_sources=stub_sources)
-    assert rc == 2  # pytest's exit code for collection errors
-    assert "error" in out.lower()
-    assert "ImportError" in out or "ModuleNotFoundError" in out
-    assert counts is not None and counts[1] == 0
-    assert "optional live extra not installed" not in out
-
-
-def test_a_missing_live_module_still_skips_per_test_not_errors(tmp_path):
-    stubs, block = ("typesafe_sdk",), ("httpx2",)
-    collect_rc, collected = collect(tmp_path, REAL_SDK_FILES, stubs=stubs, block=block)
-    rc, out, counts = run_pytest(tmp_path, REAL_SDK_FILES, stubs=stubs, block=block)
-    assert collect_rc == 0
-    assert rc == 0
-    assert counts is not None and counts[1] > 1
-    assert counts == (0, collected, 0)
+def test_a_present_but_broken_module_fails_with_its_import_error(
+    tmp_path, broken, source, diagnostic, block
+):
+    for target, expected_exit, expected_counts in (
+        (SDK_TARGET, 2, (0, 0, 0)),
+        (NETGUARD_TARGET, 1, (1, 0, 0)),
+    ):
+        rc, out, counts = run_pytest(
+            tmp_path,
+            REAL_SDK_FILES,
+            stubs=BOTH,
+            block=block,
+            stub_sources={broken: source},
+            args=[target],
+        )
+        assert rc == expected_exit, out
+        assert diagnostic in out, out
+        assert counts == expected_counts, out

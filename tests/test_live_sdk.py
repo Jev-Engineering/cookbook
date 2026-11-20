@@ -15,20 +15,11 @@ import json
 
 import pytest
 
-LIVE_EXTRA_MODULES = ("typesafe_sdk", "httpx2")
+from tests.conftest import LIVE_EXTRA_SKIP, import_live_modules
 
-try:
-    import httpx2
-    import typesafe_sdk as sdk
-except ModuleNotFoundError as exc:
-    # Skip only when a module of the optional `live` extra itself is missing: the exact
-    # top-level name, never a submodule of it. Any other import failure (an installed SDK that
-    # cannot import, a missing transitive dependency, or an installed SDK that has lost one of
-    # its own submodules, such as ``typesafe_sdk._core``) must stay a loud collection error
-    # rather than become a quiet skip of every test here.
-    if exc.name not in LIVE_EXTRA_MODULES:
-        raise
-    httpx2 = sdk = None
+_modules = import_live_modules()
+sdk = _modules["typesafe_sdk"]
+httpx2 = _modules["httpx2"]
 
 # One SKIPPED line per test (and per parametrized case) rather than one for the module, so the
 # skip count equals the number of tests not run; tests/conftest.py summarises them (#264).
@@ -36,7 +27,7 @@ pytestmark = [
     pytest.mark.live_sdk,
     pytest.mark.skipif(
         sdk is None or httpx2 is None,
-        reason='optional live extra not installed (typesafe_sdk, httpx2): pip install -e ".[live]"',
+        reason=LIVE_EXTRA_SKIP,
     ),
 ]
 
