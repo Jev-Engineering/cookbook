@@ -746,16 +746,17 @@ sent for every row. Coverage, accuracy and risk over the whole set are then domi
 check. Nothing in them is false, but they describe the guard and not the decision, and a reader
 cannot tell from them what the model contributed.
 
-Recipe 41 (`recipes/41-approval-scope-review/`) is the worked example for the second and third
-reports below, and it shows the shape: on its `test` split it sends a request for all 15 actions
-(its `eval-baseline` cell prints `requests 15`), yet `decide` reads no answer on a row whose binding
-the check refuses. It prints `denied: 7  review: 5  executed: 3` and coverage 0.6667, so, derived
-from those printed counts (the notebook does not print this figure), of the 10 actions answered, 7
-are denials that are correct because `check_binding` says so, not because any answer was good
-(`always_review`'s printed coverage of 0.4667 is those same 7 of 15). It does not print the first
-report below. Recipe 43, built on a retry budget and a stop condition, is the other published recipe
-with such a check; #366 tracks bringing recipes 41 and 43 into line and settles whether 43 is in
-scope. This section is the rule new recipes are held to.
+Recipe 41 (`recipes/41-approval-scope-review/`) is the worked example. Its `eval-baseline` cell
+prints `requests 15` for the test split. The `decide` rule reads no answer on a row whose binding
+the check refuses. The `eval-task-test` cell prints `denied: 7  review: 5  executed: 3` and coverage
+0.6667. These counts show that `check_binding` determines seven of the 10 answered outcomes.
+The `always_review` baseline's coverage of 0.4667 counts those same seven of 15. The rule also
+applies to Recipe 21. Its normalization and numeric checks supply 11 of 17 answered test outcomes
+before a model call. Issue #366 tracks follow-up reporting for Recipes 21 and 41.
+
+Recipe 42's thread escalation overrides only 1 of 16 test dispositions. Recipe 43's retry rule
+overrides 2 of 21 test outcomes by routing them to review. Neither counts among its 11 answered
+recoveries. Both checks fall outside the reporting trigger.
 
 A recipe with such a branch reports three things beside the whole-set figures. They add to the
 composed coverage, accuracy and risk and do not replace them.
@@ -1042,6 +1043,9 @@ assert metrics.tolerance_accuracy == 1.0  # over the 3 resolved examples
 assert metrics.tolerance_accuracy_all == 0.75  # over all 4 examples
 assert metrics.outcomes == ("within", "exact", "exact", "review")
 assert metrics.mean_signed_error_seconds == 0.25  # (+0.5 and 0.0) over n_timed = 2
+assert metrics.tolerance_correct == metrics.outcomes.count("exact") + metrics.outcomes.count(
+    "within"
+)  # 3 = 2 + 1
 ```
 
 **Review outcomes.** A predicted label in `uncertain_labels` is a review outcome; pass several
@@ -1054,10 +1058,19 @@ by `n_resolved` (NaN if every example is a review), and `exact_accuracy_all` /
 be a review label.
 
 **Scoring.** A resolved example is *exact* when the label matches and the times are equal
-(both `None`, or within 1e-9 s of float slack); *within tolerance* when the label matches and
-the times are both `None` or differ by at most `tolerance_seconds` (inclusive, same slack).
+(both `None`, or within 1e-9 s of float slack); *within tolerance* (cumulative: exact results
+included, which is what `tolerance_correct` counts) when the label matches and the times are both
+`None` or differ by at most `tolerance_seconds` (inclusive, same slack).
 `outcomes` lists `"exact"`, `"within"`, `"wrong"` or `"review"` for every example in input
 order, so a README can name the sequences that went to review or missed.
+
+**Cumulative count, exclusive outcome.** `tolerance_correct` (and so `tolerance_accuracy`) counts
+every resolved example within tolerance, **including the exact ones**; the per-example outcome
+`"within"` means within tolerance **but not exact**. So `tolerance_correct` equals
+`outcomes.count("exact") + outcomes.count("within")`, not `outcomes.count("within")` (in the
+example above, 3 = 2 + 1). A README that quotes "within tolerance" says which one it means:
+the cumulative count beside `tolerance_accuracy`, or the exclusive `"within"` outcomes when it
+lists the late-but-accepted sequences.
 
 **Timing error.** The headline `mean_absolute_error_seconds` and `mean_signed_error_seconds`
 (predicted minus gold; positive means late) cover only the `n_timed` resolved examples whose
