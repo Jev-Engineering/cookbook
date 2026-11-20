@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from jev_cookbook import dump_responses
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -101,3 +103,35 @@ def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
     assert done.returncode == 0, done.stderr
     for name in ("inputs.jsonl", "labels.jsonl", "responses.json"):
         assert (copy / "fixtures" / name).read_bytes() == (RECIPE / "fixtures" / name).read_bytes()
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [b'{"a": 1,}\n', b"[]"],
+    ids=["trailing-comma", "empty-list"],
+)
+def test_build_fixtures_refuses_a_malformed_responses_json_and_force_recovers_it(
+    tmp_path, malformed
+):
+    """A responses.json that cannot be read as a recorded store may hold a real answer, so a
+    run without --force must refuse and leave it byte for byte unchanged; --force is the
+    recovery path and must rewrite a valid store."""
+    copy = tmp_path / "01-sentiment-classification"
+    copy.mkdir()
+    for name in ("helpers.py", "build_fixtures.py"):
+        (copy / name).write_bytes((RECIPE / name).read_bytes())
+    script = copy / "build_fixtures.py"
+    responses = copy / "fixtures" / "responses.json"
+    responses.parent.mkdir()
+    responses.write_bytes(malformed)
+
+    refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
+    assert refused.returncode != 0
+    assert responses.read_bytes() == malformed
+
+    forced = subprocess.run(
+        [sys.executable, str(script), "--force"], capture_output=True, text=True
+    )
+    assert forced.returncode == 0, forced.stderr
+    module = load_module_at(script, "recipe01_build_fixtures_for_test_malformed")
+    assert responses.read_text("utf-8") == dump_responses(module.build_responses(module.ROWS))
