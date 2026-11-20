@@ -120,9 +120,58 @@ comment; bump them deliberately, and keep the permissions at `contents: read`.
 `test_every_recipe_is_linked_from_some_other_recipes_next_steps`, checks that every published
 recipe is the target of at least one other recipe's Next steps link; a new recipe's own pull
 request can never satisfy it, because no recipe on `main` may link forward to one that is not
-yet published and a recipe pull request may change only its own folder. Run it by hand at each
-wave close-out, after the close-out sweep has added the missing backlinks:
-`pytest -m catalog_audit tests/test_recipe_guard.py`.
+yet published and a recipe pull request may change only its own folder when editing notebook
+links. Run it by hand at each [wave close-out](#wave-close-out). A node ID alone still applies
+the default marker filter. For example,
+`pytest tests/test_recipe_guard.py::test_every_recipe_is_linked_from_some_other_recipes_next_steps`
+runs no tests (`N deselected`, zero selected, exit status 5). Include `-m catalog_audit` even
+when you target the test by node ID.
+
+### Wave close-out
+
+The primary orchestrator owns the close-out and runs the audit manually. The trigger is the
+publication of the wave's last recipe. A timed run or manual Actions dispatch would sample a
+repository state without establishing that the wave's publications and any repairs had landed.
+
+1. After the last recipe in the wave merges, use a clean checkout of `main` at the full commit
+   SHA being audited. From the repository root, run `python tools/render_catalog.py --check`
+   and verify the wave's recipe counts and links in the README against the published catalog.
+2. Run the inbound-link audit in the offline development environment. The command selects one
+   case per published recipe across the catalog, with the other recipe-guard tests deselected.
+   Expect every selected case to pass for close-out. Run the block below in Bash to retain the
+   full output and pytest's exit status together.
+
+   ```bash
+   (
+     closeout_sha=$(git rev-parse --verify HEAD) || exit
+     audit_log=$(mktemp -t cookbook-catalog-audit.XXXXXX) || exit
+     printf 'Commit: %s\nCommand: pytest -m catalog_audit tests/test_recipe_guard.py\n' \
+       "$closeout_sha" > "$audit_log" || exit
+     audit_status=0
+     pytest -m catalog_audit tests/test_recipe_guard.py >> "$audit_log" 2>&1 || audit_status=$?
+     printf '\npytest exit: %s\n' "$audit_status" >> "$audit_log" || exit
+     cat "$audit_log" || exit
+     printf 'Audit log: %s\n' "$audit_log"
+     exit "$audit_status"
+   )
+   ```
+
+3. Each missing-backlink failure identifies a published recipe that needs an inbound link. The
+   primary assigns a reviewed sweep pull request to add `](../NN-slug/)` links in the Next steps
+   sections of other published notebooks, choosing related recipes that give readers a reason
+   to follow each link. Use the actual failed slugs from the audit. New publications can leave
+   a new recipe uncovered and can also give an older recipe its first inbound link. Follow the
+   usual review and offline notebook checks for the sweep. After it merges, repeat the catalog
+   check and audit on the resulting exact `main` commit. Keep the output from failed runs as
+   evidence. Only a full passing selection with exit status 0 satisfies the audit gate.
+4. Have an independent Opus reviewer read the wave's notebooks side by side for terminology,
+   section order, chart style, run-mode headers, evidence quality, and the learner experience.
+   Track real findings through the usual review process.
+5. Run the catalog check and audit again if more changes land before close-out. Paste the passing
+   audit's commit SHA, command, exit status, and pytest summary into the wave's tracking issue
+   (#75–#79), and retain the full log with the close-out evidence. Close the tracking issue once
+   the audit and the other wave criteria are met. Record what merged, blockers, evidence, live
+   spending, and lessons for the next wave in the #80 progress report.
 
 ### Comparing runs with and without the live extra
 

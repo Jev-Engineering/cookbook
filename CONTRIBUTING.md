@@ -116,7 +116,9 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 - The notebook executes cleanly offline in CI, start to finish, from a fresh environment.
 - Fixtures validate against the fixture schema.
 - Setup, the three commands, and CI are described in [docs/development.md](docs/development.md).
-- Lint and tests pass. Nothing is skipped, disabled, or loosened to get there.
+- Lint and tests pass. Nothing is skipped, disabled, or loosened to get there. Checks assigned to
+  a different cadence still run in full at their documented gate, such as the catalog audit at
+  [wave close-out](docs/development.md#wave-close-out).
 
 ## Branches, commits, pull requests
 
