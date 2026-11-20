@@ -1,0 +1,1078 @@
+{
+  "schema": 1,
+  "assets": [
+    {
+      "path": "assets/query-d01.png",
+      "sha256": "324935bdfa211ebe79369bd71b55ceba08580a9be2a82a9ceefd66348698fdd7",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "green",
+        "lid": "ink",
+        "emblem": "triangle",
+        "hidden": null,
+        "condition": "dim",
+        "dx": 7,
+        "dy": -2,
+        "seed": 50,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a green body, ink lid and triangle emblem, drawn under 'dim' conditions (seed 50).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t01.png",
+      "sha256": "ff5bd2a5ff9782fe3b92e44a27f0820f1f447146b5192713bd54bea6c51956ba",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "far",
+        "dx": -15,
+        "dy": 3,
+        "seed": 31,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and ring emblem, drawn under 'far' conditions (seed 31).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t02.png",
+      "sha256": "8295193784df82673dd8393e5667dc566a353f72c51b8307b02e1078dc3c6b97",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "bars",
+        "hidden": null,
+        "condition": "studio",
+        "dx": -19,
+        "dy": -14,
+        "seed": 32,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and bars emblem, drawn under 'studio' conditions (seed 32).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t03.png",
+      "sha256": "2b7f73e7f7e7e1c86217b8f0f29e25ed62acb11a331836664e94d708558af74e",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "teal",
+        "lid": "white",
+        "emblem": "disc",
+        "hidden": null,
+        "condition": "noisy",
+        "dx": -14,
+        "dy": 7,
+        "seed": 33,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a teal body, white lid and disc emblem, drawn under 'noisy' conditions (seed 33).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t04.png",
+      "sha256": "abfdc0b6bd5c58ffbcf61b3500ede4ee72bd84a42d9ad3523af808195f129bae",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "green",
+        "lid": "ink",
+        "emblem": "triangle",
+        "hidden": null,
+        "condition": "dim",
+        "dx": -16,
+        "dy": 8,
+        "seed": 34,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a green body, ink lid and triangle emblem, drawn under 'dim' conditions (seed 34).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t05.png",
+      "sha256": "27c319866dfcec5fc92452aeba826e79593ee5ac3e503e8198ff4939bb8b9134",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "amber",
+        "lid": "white",
+        "emblem": "stack",
+        "hidden": null,
+        "condition": "shelf",
+        "dx": -4,
+        "dy": 15,
+        "seed": 35,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a amber body, white lid and stack emblem, drawn under 'shelf' conditions (seed 35).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t06.png",
+      "sha256": "38246e83bb4e04c32a9ee069d9924d83b50b7562dc8e47bad007cb2cded60b4f",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "purple",
+        "lid": "white",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "far",
+        "dx": 24,
+        "dy": 14,
+        "seed": 36,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a purple body, white lid and ring emblem, drawn under 'far' conditions (seed 36).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t07.png",
+      "sha256": "390f16637c4dc07c683d6191ffe978268a0c95463bbb92749645f56fc66f56d7",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "dim",
+        "dx": 19,
+        "dy": 9,
+        "seed": 37,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and ring emblem, drawn under 'dim' conditions (seed 37).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t08.png",
+      "sha256": "b5a4520e9833dcbc4ff860d5893e06459419f0483ff08a642558aca48f56bc5b",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "bars",
+        "hidden": null,
+        "condition": "noisy",
+        "dx": -15,
+        "dy": -13,
+        "seed": 38,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and bars emblem, drawn under 'noisy' conditions (seed 38).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t09.png",
+      "sha256": "ec2501383c4ea0f4910a706a2a1e70d5eafa7fb707567e0a29b1f3dee74c8398",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "amber",
+        "lid": "white",
+        "emblem": "stack",
+        "hidden": null,
+        "condition": "studio",
+        "dx": -4,
+        "dy": 10,
+        "seed": 39,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a amber body, white lid and stack emblem, drawn under 'studio' conditions (seed 39).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t10.png",
+      "sha256": "ae17285ce83ca0f842ba05790e523730544bb5a0bb2babab5fe605b59e58da79",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "square",
+        "hidden": null,
+        "condition": "studio",
+        "dx": 15,
+        "dy": 7,
+        "seed": 40,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and square emblem, drawn under 'studio' conditions (seed 40).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t11.png",
+      "sha256": "7faa94771e53a84bed0dd9029744b8c96ba469db9dac81f6c43f02b5bb738e72",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "disc",
+        "hidden": null,
+        "condition": "shelf",
+        "dx": 0,
+        "dy": 0,
+        "seed": 41,
+        "tin": false
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented shelf frame under 'shelf' conditions with no tin in it (seed 41).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t12.png",
+      "sha256": "9e525d28b56f5b150708b7099b0c8c1350115d58f5230ba1f426cc64e55aac3c",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "amber",
+        "lid": "ink",
+        "emblem": "stack",
+        "hidden": null,
+        "condition": "dim",
+        "dx": 23,
+        "dy": 0,
+        "seed": 42,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a amber body, ink lid and stack emblem, drawn under 'dim' conditions (seed 42).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t13.png",
+      "sha256": "225c546b4b96d22c1d945bdcbe808947ecc8edb3678f20e9c0f60f1f3ac8e993",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "ring",
+        "hidden": "emblem",
+        "condition": "dim",
+        "dx": -16,
+        "dy": 0,
+        "seed": 43,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and ring emblem, a pink SALE tag covering the emblem, drawn under 'dim' conditions (seed 43).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t14.png",
+      "sha256": "8f9d3ff714789f395d1fc6b230111d7f5a667989f245cc1a38365247d66cbcca",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "bars",
+        "hidden": "emblem",
+        "condition": "far",
+        "dx": -17,
+        "dy": 11,
+        "seed": 44,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and bars emblem, a pink SALE tag covering the emblem, drawn under 'far' conditions (seed 44).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t15.png",
+      "sha256": "f100d707d4bfe5b01f4582720f96b202c648943525cf0401d43cc3f8f334d326",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "green",
+        "lid": "ink",
+        "emblem": "triangle",
+        "hidden": "emblem",
+        "condition": "studio",
+        "dx": 20,
+        "dy": 1,
+        "seed": 45,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a green body, ink lid and triangle emblem, a pink SALE tag covering the emblem, drawn under 'studio' conditions (seed 45).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-t16.png",
+      "sha256": "6b8805c7ae3356204e07c4e6d6f4d9672805ae956256d3c13b2c7c914a898549",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "purple",
+        "lid": "white",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "shelf",
+        "dx": 21,
+        "dy": 15,
+        "seed": 46,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a purple body, white lid and ring emblem, drawn under 'shelf' conditions (seed 46).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v01.png",
+      "sha256": "c15c415c4810f8fdecb998db9f56e888aa704729e05f93ef0ea0caac5c8b3b7e",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "studio",
+        "dx": -16,
+        "dy": 15,
+        "seed": 11,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and ring emblem, drawn under 'studio' conditions (seed 11).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v02.png",
+      "sha256": "9b9411358875ec352ccc3d6f151426ac34a09b1c613483590bb076c02dccb299",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "bars",
+        "hidden": null,
+        "condition": "dim",
+        "dx": 5,
+        "dy": -16,
+        "seed": 12,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and bars emblem, drawn under 'dim' conditions (seed 12).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v03.png",
+      "sha256": "ac3cbe6be5e8f9bc0727d319aee5201a769246be6a99367e3ff215af9149296f",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "teal",
+        "lid": "white",
+        "emblem": "disc",
+        "hidden": null,
+        "condition": "shelf",
+        "dx": 20,
+        "dy": -10,
+        "seed": 13,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a teal body, white lid and disc emblem, drawn under 'shelf' conditions (seed 13).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v04.png",
+      "sha256": "06b7fbfd92d296df2581791f36d1add29da940d1ca6cf38e0814b641e8d5146a",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "green",
+        "lid": "ink",
+        "emblem": "triangle",
+        "hidden": null,
+        "condition": "far",
+        "dx": 2,
+        "dy": -16,
+        "seed": 14,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a green body, ink lid and triangle emblem, drawn under 'far' conditions (seed 14).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v05.png",
+      "sha256": "8f02aa736f3908eb104e7e16754e13299d46ae1452461cbb661b47c358cd62cd",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "amber",
+        "lid": "white",
+        "emblem": "stack",
+        "hidden": null,
+        "condition": "noisy",
+        "dx": -24,
+        "dy": 12,
+        "seed": 15,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a amber body, white lid and stack emblem, drawn under 'noisy' conditions (seed 15).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v06.png",
+      "sha256": "da08d0a171cd113e81f6641bd368c6ea8f0b5ad402dbda40a6a064e9f001854e",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "purple",
+        "lid": "white",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "dim",
+        "dx": -1,
+        "dy": -3,
+        "seed": 16,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a purple body, white lid and ring emblem, drawn under 'dim' conditions (seed 16).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v07.png",
+      "sha256": "ade3f0def0444642da95896855ae1b1a4b42f5e8bc3901d6b818a0837fa65562",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "shelf",
+        "dx": 10,
+        "dy": -15,
+        "seed": 17,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and ring emblem, drawn under 'shelf' conditions (seed 17).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v08.png",
+      "sha256": "bd7187dcef1c5a665f182463f4c77c2af9d0c5218ee375cec562b4caab82780d",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "bars",
+        "hidden": null,
+        "condition": "far",
+        "dx": -23,
+        "dy": 2,
+        "seed": 18,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and bars emblem, drawn under 'far' conditions (seed 18).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v09.png",
+      "sha256": "bd04555c5cdd4efb1f643800f0c469ee0a67872b72ba656f0433a702ef928063",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "green",
+        "lid": "ink",
+        "emblem": "triangle",
+        "hidden": null,
+        "condition": "studio",
+        "dx": -9,
+        "dy": 10,
+        "seed": 19,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a green body, ink lid and triangle emblem, drawn under 'studio' conditions (seed 19).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v10.png",
+      "sha256": "224b50afa262c87596fd373bff42ab45a833df85b7e8d6427f2286a8936fbb70",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "pink",
+        "lid": "ink",
+        "emblem": "disc",
+        "hidden": null,
+        "condition": "studio",
+        "dx": 23,
+        "dy": 1,
+        "seed": 20,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a pink body, ink lid and disc emblem, drawn under 'studio' conditions (seed 20).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v11.png",
+      "sha256": "70d1f3ebcaf4dd0ef9dd37b000965852531eff89f3f2f714e19fe4cb65b5c8eb",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "white",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "shelf",
+        "dx": -8,
+        "dy": -14,
+        "seed": 21,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, white lid and ring emblem, drawn under 'shelf' conditions (seed 21).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v12.png",
+      "sha256": "a9a31bb88bd1d46c0b2918ed8956e7b2bc5d03255c011aee6b157779bd398ff6",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "ring",
+        "hidden": "emblem",
+        "condition": "studio",
+        "dx": -15,
+        "dy": 11,
+        "seed": 22,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and ring emblem, a pink SALE tag covering the emblem, drawn under 'studio' conditions (seed 22).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v13.png",
+      "sha256": "2d15ece129f9cf974d395917b39abb94fa297c18c16191ff2fe28c291b9e3e97",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "bars",
+        "hidden": "emblem",
+        "condition": "shelf",
+        "dx": 18,
+        "dy": 3,
+        "seed": 23,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a blue body, ink lid and bars emblem, a pink SALE tag covering the emblem, drawn under 'shelf' conditions (seed 23).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/query-v14.png",
+      "sha256": "fd33282920c708eff609251320bc323225f65466a0cdf572557404c50692875f",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "teal",
+        "lid": "white",
+        "emblem": "disc",
+        "hidden": "lid",
+        "condition": "dim",
+        "dx": 7,
+        "dy": 3,
+        "seed": 24,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented tea tin with a teal body, white lid and disc emblem, a pink SALE tag covering the lid, drawn under 'dim' conditions (seed 24).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/reference-biven.png",
+      "sha256": "eef342161162969b8e8d1760a24ca3e38c35bd2a3bd163d12f76ded943c98961",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "bars",
+        "hidden": null,
+        "condition": "reference",
+        "dx": 0,
+        "dy": 0,
+        "seed": 0,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "The reference image of the invented product BIVEN: a tea tin with a blue body, ink lid and bars emblem, centred, in even light.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/reference-degum.png",
+      "sha256": "4445fa14221a324513dedb4f88e4d99f51a4344867f84003b8427a07baa044c8",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "blue",
+        "lid": "ink",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "reference",
+        "dx": 0,
+        "dy": 0,
+        "seed": 0,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "The reference image of the invented product DEGUM: a tea tin with a blue body, ink lid and ring emblem, centred, in even light.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/reference-mafex.png",
+      "sha256": "4571dda2202fa1dd0b4160c528793b0483397e688136d5cd0f966f57b6ea478e",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "purple",
+        "lid": "white",
+        "emblem": "ring",
+        "hidden": null,
+        "condition": "reference",
+        "dx": 0,
+        "dy": 0,
+        "seed": 0,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "The reference image of the invented product MAFEX: a tea tin with a purple body, white lid and ring emblem, centred, in even light.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/reference-noker.png",
+      "sha256": "aa9613d567fb6ef8d95d666b6898dfb0b35da44cc64638f6f24f4b62cea0c59c",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "teal",
+        "lid": "white",
+        "emblem": "disc",
+        "hidden": null,
+        "condition": "reference",
+        "dx": 0,
+        "dy": 0,
+        "seed": 0,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "The reference image of the invented product NOKER: a tea tin with a teal body, white lid and disc emblem, centred, in even light.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/reference-pebix.png",
+      "sha256": "73bd646bc77948d39192a3a1b869cfdaa6c7941515e6d204ee94dff946851a86",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "green",
+        "lid": "ink",
+        "emblem": "triangle",
+        "hidden": null,
+        "condition": "reference",
+        "dx": 0,
+        "dy": 0,
+        "seed": 0,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "The reference image of the invented product PEBIX: a tea tin with a green body, ink lid and triangle emblem, centred, in even light.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/reference-vodar.png",
+      "sha256": "5d5c334a4ec79ae34db89d7ea484fff3e270cd360dd1b0368d2da47836892467",
+      "format": "PNG",
+      "width": 320,
+      "height": 360,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_tin",
+      "parameters": {
+        "body": "amber",
+        "lid": "white",
+        "emblem": "stack",
+        "hidden": null,
+        "condition": "reference",
+        "dx": 0,
+        "dy": 0,
+        "seed": 0,
+        "tin": true
+      },
+      "licence": "CC0-1.0",
+      "description": "The reference image of the invented product VODAR: a tea tin with a amber body, white lid and stack emblem, centred, in even light.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    }
+  ]
+}
