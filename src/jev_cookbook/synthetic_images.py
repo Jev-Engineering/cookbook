@@ -29,6 +29,7 @@ import re
 import secrets
 import struct
 import unicodedata
+import zlib
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -80,6 +81,7 @@ __all__ = [
     "text_scripts",
     "text_width",
     "write_asset",
+    "write_assets",
     "write_png",
 ]
 
@@ -1896,16 +1898,87 @@ class RegenerationMismatch(ValueError):
 def _check_png(data: bytes) -> None:
     if not data.startswith(b"\x89PNG\r\n\x1a\n"):
         raise ValueError("not a PNG")
-    position, names = 8, []
-    while position < len(data):
-        (length,) = struct.unpack(">I", data[position : position + 4])
-        names.append(data[position + 4 : position + 8])
-        position += 12 + length
-    stray = [n.decode("ascii", "replace") for n in names if n not in _PNG_CHUNKS]
-    if stray or position != len(data):
-        raise ValueError(f"the PNG holds chunks beyond IHDR, IDAT and IEND: {stray}")
     if len(data) > MAX_ASSET_BYTES:
         raise ValueError(f"the PNG is {len(data)} bytes; a recipe asset may hold {MAX_ASSET_BYTES}")
+    position, chunks = 8, []
+    while position < len(data):
+        if position + 12 > len(data):
+            raise ValueError("truncated PNG chunk")
+        (length,) = struct.unpack(">I", data[position : position + 4])
+        end = position + 12 + length
+        if end > len(data):
+            raise ValueError("PNG chunk runs past the file")
+        name = data[position + 4 : position + 8]
+        body = data[position + 8 : end - 4]
+        (crc,) = struct.unpack(">I", data[end - 4 : end])
+        if zlib.crc32(name + body) != crc:
+            raise ValueError("invalid PNG chunk CRC")
+        chunks.append((name, body))
+        position = end
+    names = [name for name, _body in chunks]
+    stray = [n.decode("ascii", "replace") for n in names if n not in _PNG_CHUNKS]
+    if stray:
+        raise ValueError(f"the PNG holds chunks beyond IHDR, IDAT and IEND: {stray}")
+    if (
+        len(chunks) < 3
+        or names[0] != b"IHDR"
+        or names[-1] != b"IEND"
+        or any(name != b"IDAT" for name in names[1:-1])
+        or len(chunks[0][1]) != 13
+        or chunks[-1][1]
+    ):
+        raise ValueError("PNG must have one IHDR, consecutive IDAT chunks and one empty IEND")
+    width, height, depth, colour, compression, filtering, interlace = struct.unpack(
+        ">IIBBBBB", chunks[0][1]
+    )
+    # Palette PNGs require PLTE, which this kit's stricter chunk contract already excludes.
+    formats = {0: (1, {1, 2, 4, 8, 16}), 2: (3, {8, 16}), 4: (2, {8, 16}), 6: (4, {8, 16})}
+    if (
+        colour not in formats
+        or depth not in formats[colour][1]
+        or not width
+        or not height
+        or compression
+        or filtering
+        or interlace not in (0, 1)
+    ):
+        raise ValueError("invalid PNG IHDR fields")
+    # Match the file contract's exact filtered-row length, including all Adam7 passes.
+    passes = (
+        (
+            (0, 0, 8, 8),
+            (4, 0, 8, 8),
+            (0, 4, 4, 8),
+            (2, 0, 4, 4),
+            (0, 2, 2, 4),
+            (1, 0, 2, 2),
+            (0, 1, 1, 2),
+        )
+        if interlace
+        else ((0, 0, 1, 1),)
+    )
+    expected = 0
+    for x, y, dx, dy in passes:
+        columns, rows = -(-(width - x) // dx), -(-(height - y) // dy)
+        if columns > 0 and rows > 0:
+            expected += rows * (1 + (columns * formats[colour][0] * depth + 7) // 8)
+    # Same bounded asset inflation backstop as tools/check_recipe_assets.py.
+    if expected > 32 * 1024 * 1024:
+        raise ValueError("PNG header exceeds the asset inflation limit")
+    inflater = zlib.decompressobj()
+    try:
+        inflated = inflater.decompress(b"".join(body for _name, body in chunks[1:-1]), expected + 1)
+    except zlib.error as exc:
+        raise ValueError("invalid PNG IDAT zlib stream") from exc
+    if (
+        len(inflated) != expected
+        or not inflater.eof
+        or inflater.unused_data
+        or inflater.unconsumed_tail
+    ):
+        raise ValueError(
+            "PNG IDAT must contain exactly one complete image stream with no trailing data"
+        )
 
 
 def encode_png(image: Image.Image) -> bytes:
@@ -2038,9 +2111,57 @@ def write_asset(
     1 MiB cap. A rejected image raises ``ValueError`` and leaves nothing on disk; a file is
     written to a temporary name and renamed, so a failure part-way leaves none either.
     """
+    return _store(image, _asset_target(recipe_dir, path), overwrite)
+
+
+def _asset_target(recipe_dir: Any, path: str) -> Path:
     if not isinstance(path, str) or not _ASSET_PATH.match(path):
         raise ValueError("path must look like 'assets/name.png' (forward slashes, lowercase .png)")
-    return _store(image, resolve_asset_path(path, root=recipe_dir), overwrite)
+    return resolve_asset_path(path, root=recipe_dir)
+
+
+def write_assets(
+    images: Iterable[tuple[Canvas, str, str]], recipe_dir: Any, *, overwrite: bool = False
+) -> list[tuple[str, dict[str, Any]]]:
+    """Validate a batch of ``(canvas, asset_path, description)`` before saving any PNG.
+
+    Return each status and manifest entry in input order. Paths, images, byte policy and
+    provenance are checked for every item first; duplicate destinations are refused. Manifest
+    hashes describe the selected saved bytes, including existing equal-pixel bytes retained by
+    a noncanonical encoder. Custom generators are checked against the original recipe folder.
+
+    A validation error or :class:`RegenerationMismatch` changes no destination. Installation
+    then replaces each changed PNG atomically, as :func:`write_asset` does. This is not a batch
+    filesystem transaction: an I/O failure, interruption or concurrent filesystem change can
+    still leave an installed prefix. Prepared bytes are retained only for this invocation.
+    """
+    prepared = []
+    destinations = set()
+    for canvas, path, description in images:
+        if not isinstance(canvas, Canvas):
+            raise TypeError("each image must be a Canvas")
+        target = _asset_target(recipe_dir, path)
+        if target in destinations:
+            raise ValueError(f"duplicate image destination: {path}")
+        destinations.add(target)
+        data, status = _prepare_write(canvas, target, overwrite)
+        if canvas.generator is None or canvas.parameters is None:
+            raise ValueError(
+                "call provenance(generator, parameters) first, or use an example scene"
+            )
+        entry = _manifest_entry(
+            recipe_dir,
+            path,
+            canvas.generator,
+            canvas.parameters,
+            description,
+            "CC0-1.0",
+            data=data,
+        )
+        prepared.append((target, data, status, entry))
+    for target, data, status, _entry in prepared:
+        _write_prepared(target, data, status)
+    return [(status, entry) for _target, _data, status, entry in prepared]
 
 
 def write_png(image: Image.Image | Canvas, target: Any, *, overwrite: bool = False) -> str:
@@ -2050,6 +2171,11 @@ def write_png(image: Image.Image | Canvas, target: Any, *, overwrite: bool = Fal
 
 
 def _store(image: Image.Image | Canvas, target: Path, overwrite: bool) -> str:
+    data, status = _prepare_write(image, target, overwrite)
+    return _write_prepared(target, data, status)
+
+
+def _prepare_write(image: Image.Image | Canvas, target: Path, overwrite: bool) -> tuple[bytes, str]:
     if isinstance(image, Canvas):
         image = image.image
     data = encode_png(image)  # raises before anything exists on disk
@@ -2057,10 +2183,32 @@ def _store(image: Image.Image | Canvas, target: Path, overwrite: bool) -> str:
     if target.exists():
         existing = target.read_bytes()
         if existing == data:
-            return "unchanged"
+            return existing, "unchanged"
         if not overwrite:
-            return _compare(existing, data, target.name)
+            # Validate structure and bound inflation before decoding pixels for comparison.
+            try:
+                _check_png(existing)
+                validate_image_asset(
+                    {
+                        "type": "image",
+                        "format": "png",
+                        "data_base64": base64.b64encode(existing).decode("ascii"),
+                    }
+                )
+            except ValueError as exc:
+                raise RegenerationMismatch(
+                    f"{target.name}: the committed file cannot be read as an image under the "
+                    f"recipe PNG contract ({exc}); nothing written. Replace it deliberately "
+                    "with overwrite=True (and then rebuild the manifest hash and replay_keys)"
+                ) from exc
+            return existing, _compare(existing, data, target.name)
         status = "rewritten"
+    return data, status
+
+
+def _write_prepared(target: Path, data: bytes, status: str) -> str:
+    if status in ("unchanged", "kept-committed-bytes"):
+        return status
     target.parent.mkdir(parents=True, exist_ok=True)
     # A unique sibling name, so os.replace is a rename on one filesystem. It is created with
     # O_EXCL and mode 0o666, so the process umask decides the permissions (0644 normally), as for
@@ -2081,7 +2229,7 @@ def _store(image: Image.Image | Canvas, target: Path, overwrite: bool) -> str:
 def _check_generator(recipe_dir: Path, generator: str) -> None:
     module, _, function = generator.partition(":")
     if module.endswith(".py"):
-        script = recipe_dir / module
+        script = resolve_asset_path(module, root=recipe_dir)
         if not script.is_file() or function not in script.read_text("utf-8"):
             raise ValueError(f"{module} is not a script in the recipe that mentions {function!r}")
     elif module.startswith("jev_cookbook."):
@@ -2110,11 +2258,26 @@ def manifest_entry(
     in the recipe that mentions the function, or a function of a ``jev_cookbook`` module. The
     current directory does not matter.
     """
+    return _manifest_entry(recipe_dir, path, generator, parameters, description, licence)
+
+
+def _manifest_entry(
+    recipe_dir: Any,
+    path: str,
+    generator: str,
+    parameters: Mapping[str, Any],
+    description: str,
+    licence: str,
+    *,
+    data: bytes | None = None,
+) -> dict[str, Any]:
+    """Shared metadata validation for an existing file or a prepared batch's selected bytes."""
     root = Path(recipe_dir)
     _check_generator(root, generator)
     if not isinstance(description, str) or not description.strip():
         raise ValueError("description must say what the image shows")
-    data = (root / path).read_bytes()
+    if data is None:
+        data = (root / path).read_bytes()
     with Image.open(io.BytesIO(data)) as image:
         fmt, (width, height) = image.format, image.size
     return {

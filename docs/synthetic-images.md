@@ -341,6 +341,21 @@ image-file contract, with the 280 pixel minimum, is in
 [fixtures.md](fixtures.md#the-image-file-contract) and is enforced by
 `python tools/check_recipe_assets.py`; the tests run that checker over what the kit writes.
 
+`write_assets(images, recipe_dir, *, overwrite=False)` checks an entire batch before saving
+any PNG. Each item is `(canvas, "assets/name.png", description)`; each returned pair is
+`(status, manifest_entry)` in input order. Every path, image, byte-policy comparison and
+Canvas provenance must pass first, and duplicate resolved destinations are refused. A custom
+generator must use a relative script path resolving inside the original recipe folder. Where
+equal pixels allow existing bytes to be retained, those bytes must also pass the PNG chunk,
+structure, size and image limits before supplying the manifest hash. The same checks apply to
+retained bytes in the single-image writers; a PNG must end with its complete image stream.
+
+A validation error or `RegenerationMismatch` leaves every destination unchanged. Each changed
+file is then installed by an atomic replacement, but the batch is **not a filesystem
+transaction**: an I/O failure, interruption or concurrent filesystem change during installation
+can leave an installed prefix. The prepared bytes are kept in memory only for this call. The
+image scaffold will adopt this helper in a follow-up (#506).
+
 `canvas.manifest_entry(recipe_dir, path, description)` returns the entry for
 [`assets-manifest.json`](fixtures.md#image-provenance-manifest): the hash, format and size read
 from the file, `origin: generated`, the five attestations that are true of a drawing, and the
