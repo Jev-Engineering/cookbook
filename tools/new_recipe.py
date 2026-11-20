@@ -729,26 +729,6 @@ def notebook_json(catalog: dict, recipe: dict, mode: str = "replay") -> str:
 def readme_text(catalog: dict, recipe: dict, mode: str = "replay") -> str:
     slug = recipe["slug"]
     scripted = mode == "scripted"
-    run_note = (
-        "The notebook runs from this folder with no network and no API key. A seeded script in "
-        "`helpers.py` answers (there are no stored responses): see "
-        "[docs/simulation.md](../../docs/simulation.md)."
-        if scripted
-        else "The notebook runs from this folder with no network and no API key, replaying "
-        "`fixtures/`."
-    )
-    mode_line = (
-        "scripted (offline, answers computed by a seeded script). Not measured live."
-        if scripted
-        else "synthetic (offline replay of hand-written answers). Not measured live."
-    )
-    closing = (
-        "the offline run computes its answers with a seeded script written for this recipe, so "
-        "its numbers check that the pipeline works."
-        if scripted
-        else "the offline run replays synthetic answers written for this recipe, so its numbers "
-        "check that the pipeline works."
-    )
     if mode == IMAGE_MODE:
         run_note = (
             "The notebook runs from this folder with no network and no API key, replaying "
@@ -772,6 +752,27 @@ def readme_text(catalog: dict, recipe: dict, mode: str = "replay") -> str:
         closing = (
             "the offline run replays synthetic answers written for this recipe, about images "
             "drawn for it, so its numbers check that the pipeline works."
+        )
+    else:
+        run_note = (
+            "The notebook runs from this folder with no network and no API key. A seeded script in "
+            "`helpers.py` answers (there are no stored responses): see "
+            "[docs/simulation.md](../../docs/simulation.md)."
+            if scripted
+            else "The notebook runs from this folder with no network and no API key, replaying "
+            "`fixtures/`."
+        )
+        mode_line = (
+            "scripted (offline, answers computed by a seeded script). Not measured live."
+            if scripted
+            else "synthetic (offline replay of hand-written answers). Not measured live."
+        )
+        closing = (
+            "the offline run computes its answers with a seeded script written for this recipe, so "
+            "its numbers check that the pipeline works."
+            if scripted
+            else "the offline run replays synthetic answers written for this recipe, so its numbers "
+            "check that the pipeline works."
         )
     types = " + ".join(f"`{t}`" for t in recipe["decision_types"])
     return f"""# {recipe["title"]}
@@ -863,7 +864,7 @@ pipeline check (see the {TODO_MARK} markers above). The full contract is
 
 def helpers_text(recipe: dict, mode: str = "replay") -> str:
     if mode == IMAGE_MODE:
-        return image_helpers_text(recipe)
+        return _fill(IMAGE_HELPERS, recipe)
     script_block = ""
     if mode == "scripted":
         script_block = f'''
@@ -917,9 +918,181 @@ def rows_hint(level: int) -> str:
     )
 
 
+# Shared source fragments keep the emitted replay guards and tests in step.
+BUILDER_RESPONSE_GUARDS = r'''def _is_recorded(path: Path) -> bool:
+    """True if ``path`` exists and holds at least one response whose model is not
+    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that fails to parse, or
+    whose top level is not a JSON object, cannot hold a valid synthetic response either, so it
+    is treated as not recorded rather than raising; inside an object, an entry that is itself
+    not an object is treated as if it were recorded, so it blocks an overwrite instead of being
+    silently skipped."""
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    return any(
+        not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
+    )
+
+
+def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
+    """Replay keys the just-rewritten ``inputs`` ask for that ``responses_file`` does not have,
+    used only to warn when a ROWS edit has desynchronised the two."""
+    if not responses_file.exists():
+        return []
+    try:
+        data = json.loads(responses_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    return [key for row in inputs for key in row["replay_keys"] if key not in data]'''
+
+
+BUILDER_FORCE_REFUSAL = r"""    if _is_recorded(responses_file) and not args.force:
+        message = (
+            f"refusing to overwrite {responses_file}: it holds a recorded response "
+            "(pass --force to overwrite it anyway)"
+        )
+        if _unresolved_keys(inputs, responses_file):
+            message += (
+                "\ninputs.jsonl and labels.jsonl above were rewritten from ROWS; "
+                "responses.json was not, and at least one of the keys the rewritten inputs "
+                "ask for is missing from it. The three files are desynchronised until you "
+                "--force a rewrite or record the missing answers."
+            )
+        raise SystemExit(message)"""
+
+
+FIXTURE_TEST_UTILITIES = r'''def load_module_at(path, name):
+    """Import build_fixtures.py by file path so its functions and module-level values (ROWS,
+    build_responses) are plain Python objects, not subprocess output or a re-dump of the file
+    it wrote."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _jsonl(rows):
+    return "".join(json.dumps(row) + "\n" for row in rows)'''
+
+
+FIXTURE_WRITER_TEST = r'''def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
+    """jev_cookbook.dump_responses sorts only the top-level keys; json.dumps(..., sort_keys=True)
+    sorts every nested dict too and so disagrees with it on every response's field order. The
+    committed file must match dump_responses exactly, not just agree with it on top-level order.
+
+    Comparing against dump_responses(json.loads(raw)) (re-dumping the file's own parsed content)
+    cannot catch a sort_keys=True regression: json.loads preserves whatever nested order the file
+    already has, and dump_responses only re-sorts the top level, so that round trip would pass no
+    matter which writer produced the file. Instead, import build_fixtures.py and compare against
+    dump_responses of what build_responses computes directly from ROWS, independent of what
+    main() actually wrote to disk."""
+    raw = (RECIPE / "fixtures" / "responses.json").read_text("utf-8")
+    module = load_module_at(SCRIPT, "recipe@RANK@_build_fixtures_for_test")
+    assert len(module.ROWS) > 1
+    assert raw == dump_responses(module.build_responses(module.ROWS))'''
+
+
+FIXTURE_FORCE_TEST = r'''def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
+    """Mutation check: regenerating must never silently overwrite a recorded responses.json,
+    and --force must restore the exact synthetic bytes. inputs.jsonl and labels.jsonl are
+    rewritten from ROWS on every run, refused or not: only responses.json is guarded, and this
+    also proves it by corrupting both files before the refused run and checking that they come
+    back exactly as build_inputs_and_labels(ROWS) computes them, not merely "changed"."""
+@COPY_SETUP@
+    first = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
+    assert first.returncode == 0, first.stderr
+
+    responses = copy / "fixtures" / "responses.json"
+    data = json.loads(responses.read_text("utf-8"))
+    for value in data.values():
+        value["model"] = "jev-1.13.0"
+    responses.write_text(
+        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+    before = responses.read_bytes()
+
+    inputs_path = copy / "fixtures" / "inputs.jsonl"
+    labels_path = copy / "fixtures" / "labels.jsonl"
+    inputs_path.write_bytes(b"corrupted")
+    labels_path.write_bytes(b"corrupted")
+
+    refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
+    assert refused.returncode != 0
+    assert "recorded" in refused.stderr and "--force" in refused.stderr
+    assert responses.read_bytes() == before
+    module = load_module_at(script, "recipe@RANK@_build_fixtures_for_test_refused")
+    expected_inputs, expected_labels = module.build_inputs_and_labels(module.ROWS)
+    assert inputs_path.read_text("utf-8") == _jsonl(expected_inputs)
+    assert labels_path.read_text("utf-8") == _jsonl(expected_labels)
+
+    forced = subprocess.run(
+        [sys.executable, str(script), "--force"], capture_output=True, text=True
+    )
+    assert forced.returncode == 0, forced.stderr
+    after = json.loads(responses.read_text("utf-8"))
+    assert all(v["model"] == "synthetic" for v in after.values())'''
+
+
+TEXT_FIXTURE_COPY = r'''    copy = tmp_path / "@SLUG@"
+    copy.mkdir()
+    for name in ("helpers.py", "build_fixtures.py"):
+        (copy / name).write_bytes((RECIPE / name).read_bytes())
+    script = copy / "build_fixtures.py"'''
+
+
+IMAGE_FIXTURE_COPY = r"""    script = _copy_of_the_recipe(tmp_path / "@SLUG@")
+    copy = script.parent"""
+
+
+BUILD_FIXTURES_TEST = r'''"""build_fixtures.py follows the recipes/_template/build_fixtures.py pattern: inputs and
+labels generation is separate from responses generation, a recorded responses.json is never
+silently overwritten, and the committed file matches jev_cookbook.live's writer exactly."""
+
+import importlib.util
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+from jev_cookbook import dump_responses
+
+RECIPE = Path(__file__).resolve().parent.parent
+SCRIPT = RECIPE / "build_fixtures.py"
+
+
+@FIXTURE_TEST_UTILITIES@
+
+
+@FIXTURE_WRITER_TEST@
+
+
+@TEXT_FIXTURE_FORCE_TEST@
+
+
+def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
+    copy = tmp_path / "@SLUG@"
+    copy.mkdir()
+    for name in ("helpers.py", "build_fixtures.py"):
+        (copy / name).write_bytes((RECIPE / name).read_bytes())
+    done = subprocess.run(
+        [sys.executable, str(copy / "build_fixtures.py")], capture_output=True, text=True
+    )
+    assert done.returncode == 0, done.stderr
+    for name in ("inputs.jsonl", "labels.jsonl", "responses.json"):
+        assert (copy / "fixtures" / name).read_bytes() == (RECIPE / "fixtures" / name).read_bytes()
+'''
+
+
 def build_fixtures_text(recipe: dict, mode: str = "replay") -> str:
     if mode == IMAGE_MODE:
-        return image_build_fixtures_text(recipe)
+        return _fill(IMAGE_BUILD_FIXTURES, recipe)
     if mode == "scripted":
         return build_scripted_fixtures_text(recipe)
     return f'''"""Write fixtures/inputs.jsonl, labels.jsonl and responses.json for recipe {recipe["rank"]:02d}.
@@ -980,38 +1153,7 @@ def build_responses(rows):
     return responses
 
 
-def _is_recorded(path: Path) -> bool:
-    """True if ``path`` exists and holds at least one response whose model is not
-    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that fails to parse, or
-    whose top level is not a JSON object, cannot hold a valid synthetic response either, so it
-    is treated as not recorded rather than raising; inside an object, an entry that is itself
-    not an object is treated as if it were recorded, so it blocks an overwrite instead of being
-    silently skipped."""
-    if not path.exists():
-        return False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return False
-    if not isinstance(data, dict):
-        return False
-    return any(
-        not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
-    )
-
-
-def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
-    """Replay keys the just-rewritten ``inputs`` ask for that ``responses_file`` does not have,
-    used only to warn when a ROWS edit has desynchronised the two."""
-    if not responses_file.exists():
-        return []
-    try:
-        data = json.loads(responses_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    if not isinstance(data, dict):
-        return []
-    return [key for row in inputs for key in row["replay_keys"] if key not in data]
+{BUILDER_RESPONSE_GUARDS}
 
 
 def main() -> None:
@@ -1031,19 +1173,7 @@ def main() -> None:
         text = "".join(json.dumps(row) + "\\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\\n")
     responses_file = folder / "responses.json"
-    if _is_recorded(responses_file) and not args.force:
-        message = (
-            f"refusing to overwrite {{responses_file}}: it holds a recorded response "
-            "(pass --force to overwrite it anyway)"
-        )
-        if _unresolved_keys(inputs, responses_file):
-            message += (
-                "\\ninputs.jsonl and labels.jsonl above were rewritten from ROWS; "
-                "responses.json was not, and at least one of the keys the rewritten inputs "
-                "ask for is missing from it. The three files are desynchronised until you "
-                "--force a rewrite or record the missing answers."
-            )
-        raise SystemExit(message)
+{BUILDER_FORCE_REFUSAL}
     responses = build_responses(ROWS)
     # dump_responses is the serialization the recorder writes with (top-level keys sorted, each
     # response keeping the field order DecisionResult.to_dict() emits), so a recording's diff
@@ -1236,114 +1366,8 @@ def build_fixtures_test_text(recipe: dict, mode: str = "replay") -> str:
     key of each request that carries them), and it adds the checks that the images and ``assets-manifest.json`` are reproduced and
     that a changed picture is refused. A recipe that has ``assets/`` commits this variant; called
     with one argument, the function returns the text variant."""
-    if mode == IMAGE_MODE:
-        return _fill(IMAGE_BUILD_FIXTURES_TEST, recipe)
-    slug = recipe["slug"]
-    module_name = f"recipe{recipe['rank']:02d}_build_fixtures_for_test"
-    return f'''"""build_fixtures.py follows the recipes/_template/build_fixtures.py pattern: inputs and
-labels generation is separate from responses generation, a recorded responses.json is never
-silently overwritten, and the committed file matches jev_cookbook.live's writer exactly."""
-
-import importlib.util
-import json
-import subprocess
-import sys
-from pathlib import Path
-
-from jev_cookbook import dump_responses
-
-RECIPE = Path(__file__).resolve().parent.parent
-SCRIPT = RECIPE / "build_fixtures.py"
-
-
-def load_module_at(path, name):
-    """Import build_fixtures.py by file path so its functions and module-level values (ROWS,
-    build_responses) are plain Python objects, not subprocess output or a re-dump of the file
-    it wrote."""
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def _jsonl(rows):
-    return "".join(json.dumps(row) + "\\n" for row in rows)
-
-
-def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
-    """jev_cookbook.dump_responses sorts only the top-level keys; json.dumps(..., sort_keys=True)
-    sorts every nested dict too and so disagrees with it on every response's field order. The
-    committed file must match dump_responses exactly, not just agree with it on top-level order.
-
-    Comparing against dump_responses(json.loads(raw)) (re-dumping the file's own parsed content)
-    cannot catch a sort_keys=True regression: json.loads preserves whatever nested order the file
-    already has, and dump_responses only re-sorts the top level, so that round trip would pass no
-    matter which writer produced the file. Instead, import build_fixtures.py and compare against
-    dump_responses of what build_responses computes directly from ROWS, independent of what
-    main() actually wrote to disk."""
-    raw = (RECIPE / "fixtures" / "responses.json").read_text("utf-8")
-    module = load_module_at(SCRIPT, "{module_name}")
-    assert len(module.ROWS) > 1
-    assert raw == dump_responses(module.build_responses(module.ROWS))
-
-
-def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
-    """Mutation check: regenerating must never silently overwrite a recorded responses.json,
-    and --force must restore the exact synthetic bytes. inputs.jsonl and labels.jsonl are
-    rewritten from ROWS on every run, refused or not: only responses.json is guarded, and this
-    also proves it by corrupting both files before the refused run and checking that they come
-    back exactly as build_inputs_and_labels(ROWS) computes them, not merely "changed"."""
-    copy = tmp_path / "{slug}"
-    copy.mkdir()
-    for name in ("helpers.py", "build_fixtures.py"):
-        (copy / name).write_bytes((RECIPE / name).read_bytes())
-    script = copy / "build_fixtures.py"
-    first = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
-    assert first.returncode == 0, first.stderr
-
-    responses = copy / "fixtures" / "responses.json"
-    data = json.loads(responses.read_text("utf-8"))
-    for value in data.values():
-        value["model"] = "jev-1.13.0"
-    responses.write_text(
-        json.dumps(data, indent=2, sort_keys=True) + "\\n", encoding="utf-8", newline="\\n"
-    )
-    before = responses.read_bytes()
-
-    inputs_path = copy / "fixtures" / "inputs.jsonl"
-    labels_path = copy / "fixtures" / "labels.jsonl"
-    inputs_path.write_bytes(b"corrupted")
-    labels_path.write_bytes(b"corrupted")
-
-    refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
-    assert refused.returncode != 0
-    assert "recorded" in refused.stderr and "--force" in refused.stderr
-    assert responses.read_bytes() == before
-    module = load_module_at(script, "{module_name}_refused")
-    expected_inputs, expected_labels = module.build_inputs_and_labels(module.ROWS)
-    assert inputs_path.read_text("utf-8") == _jsonl(expected_inputs)
-    assert labels_path.read_text("utf-8") == _jsonl(expected_labels)
-
-    forced = subprocess.run(
-        [sys.executable, str(script), "--force"], capture_output=True, text=True
-    )
-    assert forced.returncode == 0, forced.stderr
-    after = json.loads(responses.read_text("utf-8"))
-    assert all(v["model"] == "synthetic" for v in after.values())
-
-
-def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
-    copy = tmp_path / "{slug}"
-    copy.mkdir()
-    for name in ("helpers.py", "build_fixtures.py"):
-        (copy / name).write_bytes((RECIPE / name).read_bytes())
-    done = subprocess.run(
-        [sys.executable, str(copy / "build_fixtures.py")], capture_output=True, text=True
-    )
-    assert done.returncode == 0, done.stderr
-    for name in ("inputs.jsonl", "labels.jsonl", "responses.json"):
-        assert (copy / "fixtures" / name).read_bytes() == (RECIPE / "fixtures" / name).read_bytes()
-'''
+    template = IMAGE_BUILD_FIXTURES_TEST if mode == IMAGE_MODE else BUILD_FIXTURES_TEST
+    return _fill(template, recipe)
 
 
 # ------------------------------------------------------------------------ the image variant
@@ -1617,38 +1641,7 @@ def build_responses(rows):
     return responses
 
 
-def _is_recorded(path: Path) -> bool:
-    """True if ``path`` exists and holds at least one response whose model is not
-    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that fails to parse, or
-    whose top level is not a JSON object, cannot hold a valid synthetic response either, so it
-    is treated as not recorded rather than raising; inside an object, an entry that is itself
-    not an object is treated as if it were recorded, so it blocks an overwrite instead of being
-    silently skipped."""
-    if not path.exists():
-        return False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return False
-    if not isinstance(data, dict):
-        return False
-    return any(
-        not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
-    )
-
-
-def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
-    """Replay keys the just-rewritten ``inputs`` ask for that ``responses_file`` does not have,
-    used only to warn when a ROWS edit has desynchronised the two."""
-    if not responses_file.exists():
-        return []
-    try:
-        data = json.loads(responses_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    if not isinstance(data, dict):
-        return []
-    return [key for row in inputs for key in row["replay_keys"] if key not in data]
+@BUILDER_RESPONSE_GUARDS@
 
 
 def main() -> None:
@@ -1695,19 +1688,7 @@ def main() -> None:
         text = "".join(json.dumps(row) + "\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\n")
     responses_file = folder / "responses.json"
-    if _is_recorded(responses_file) and not args.force:
-        message = (
-            f"refusing to overwrite {responses_file}: it holds a recorded response "
-            "(pass --force to overwrite it anyway)"
-        )
-        if _unresolved_keys(inputs, responses_file):
-            message += (
-                "\ninputs.jsonl and labels.jsonl above were rewritten from ROWS; "
-                "responses.json was not, and at least one of the keys the rewritten inputs "
-                "ask for is missing from it. The three files are desynchronised until you "
-                "--force a rewrite or record the missing answers."
-            )
-        raise SystemExit(message)
+@BUILDER_FORCE_REFUSAL@
     responses = build_responses(ROWS)
     # dump_responses is the serialization the recorder writes with (top-level keys sorted, each
     # response keeping the field order DecisionResult.to_dict() emits), so a recording's diff
@@ -1908,18 +1889,7 @@ RECIPE = Path(__file__).resolve().parent.parent
 SCRIPT = RECIPE / "build_fixtures.py"
 
 
-def load_module_at(path, name):
-    """Import build_fixtures.py by file path so its functions and module-level values (ROWS,
-    build_responses) are plain Python objects, not subprocess output or a re-dump of the file
-    it wrote."""
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def _jsonl(rows):
-    return "".join(json.dumps(row) + "\n" for row in rows)
+@FIXTURE_TEST_UTILITIES@
 
 
 def _copy_of_the_recipe(folder):
@@ -1935,63 +1905,10 @@ def _copy_of_the_recipe(folder):
     return folder / "build_fixtures.py"
 
 
-def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
-    """jev_cookbook.dump_responses sorts only the top-level keys; json.dumps(..., sort_keys=True)
-    sorts every nested dict too and so disagrees with it on every response's field order. The
-    committed file must match dump_responses exactly, not just agree with it on top-level order.
-
-    Comparing against dump_responses(json.loads(raw)) (re-dumping the file's own parsed content)
-    cannot catch a sort_keys=True regression: json.loads preserves whatever nested order the file
-    already has, and dump_responses only re-sorts the top level, so that round trip would pass no
-    matter which writer produced the file. Instead, import build_fixtures.py and compare against
-    dump_responses of what build_responses computes directly from ROWS, independent of what
-    main() actually wrote to disk."""
-    raw = (RECIPE / "fixtures" / "responses.json").read_text("utf-8")
-    module = load_module_at(SCRIPT, "recipe@RANK@_build_fixtures_for_test")
-    assert len(module.ROWS) > 1
-    assert raw == dump_responses(module.build_responses(module.ROWS))
+@FIXTURE_WRITER_TEST@
 
 
-def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
-    """Mutation check: regenerating must never silently overwrite a recorded responses.json,
-    and --force must restore the exact synthetic bytes. inputs.jsonl and labels.jsonl are
-    rewritten from ROWS on every run, refused or not: only responses.json is guarded, and this
-    also proves it by corrupting both files before the refused run and checking that they come
-    back exactly as build_inputs_and_labels(ROWS) computes them, not merely "changed"."""
-    script = _copy_of_the_recipe(tmp_path / "@SLUG@")
-    copy = script.parent
-    first = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
-    assert first.returncode == 0, first.stderr
-
-    responses = copy / "fixtures" / "responses.json"
-    data = json.loads(responses.read_text("utf-8"))
-    for value in data.values():
-        value["model"] = "jev-1.13.0"
-    responses.write_text(
-        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
-    )
-    before = responses.read_bytes()
-
-    inputs_path = copy / "fixtures" / "inputs.jsonl"
-    labels_path = copy / "fixtures" / "labels.jsonl"
-    inputs_path.write_bytes(b"corrupted")
-    labels_path.write_bytes(b"corrupted")
-
-    refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
-    assert refused.returncode != 0
-    assert "recorded" in refused.stderr and "--force" in refused.stderr
-    assert responses.read_bytes() == before
-    module = load_module_at(script, "recipe@RANK@_build_fixtures_for_test_refused")
-    expected_inputs, expected_labels = module.build_inputs_and_labels(module.ROWS)
-    assert inputs_path.read_text("utf-8") == _jsonl(expected_inputs)
-    assert labels_path.read_text("utf-8") == _jsonl(expected_labels)
-
-    forced = subprocess.run(
-        [sys.executable, str(script), "--force"], capture_output=True, text=True
-    )
-    assert forced.returncode == 0, forced.stderr
-    after = json.loads(responses.read_text("utf-8"))
-    assert all(v["model"] == "synthetic" for v in after.values())
+@IMAGE_FIXTURE_FORCE_TEST@
 
 
 def test_the_generator_reproduces_the_committed_fixtures_and_images(tmp_path):
@@ -2057,18 +1974,23 @@ def image_rows_text() -> str:
     return "\n".join(f"    {literal(row)}," for row in IMAGE_ROWS)
 
 
+_FIXTURE_FRAGMENTS = {
+    "@BUILDER_RESPONSE_GUARDS@": BUILDER_RESPONSE_GUARDS,
+    "@BUILDER_FORCE_REFUSAL@": BUILDER_FORCE_REFUSAL,
+    "@FIXTURE_TEST_UTILITIES@": FIXTURE_TEST_UTILITIES,
+    "@FIXTURE_WRITER_TEST@": FIXTURE_WRITER_TEST,
+    "@TEXT_FIXTURE_FORCE_TEST@": FIXTURE_FORCE_TEST.replace("@COPY_SETUP@", TEXT_FIXTURE_COPY),
+    "@IMAGE_FIXTURE_FORCE_TEST@": FIXTURE_FORCE_TEST.replace("@COPY_SETUP@", IMAGE_FIXTURE_COPY),
+}
+
+
 def _fill(template: str, recipe: dict) -> str:
-    """``template`` with its ``@TOKEN@`` placeholders replaced."""
+    """Resolve shared fragments first, then the recipe placeholders they may contain."""
+    for token, fragment in _FIXTURE_FRAGMENTS.items():
+        template = template.replace(token, fragment)
     filled = template.replace("@RANK@", f"{recipe['rank']:02d}").replace("@TODO@", TODO_MARK)
-    return filled.replace("@SLUG@", recipe["slug"]).replace("@ROWS@", image_rows_text())
-
-
-def image_helpers_text(recipe: dict) -> str:
-    return _fill(IMAGE_HELPERS, recipe)
-
-
-def image_build_fixtures_text(recipe: dict) -> str:
-    return _fill(IMAGE_BUILD_FIXTURES, recipe)
+    filled = filled.replace("@SLUG@", recipe["slug"])
+    return filled.replace("@ROWS@", image_rows_text()) if "@ROWS@" in filled else filled
 
 
 def files_for(catalog: dict, recipe: dict, mode: str = "replay") -> dict[str, str]:
@@ -2082,12 +2004,10 @@ def files_for(catalog: dict, recipe: dict, mode: str = "replay") -> dict[str, st
         BUDGET_FILE: request_budget_text(mode),
         "tests/test_helpers.py": tests_text(recipe, mode),
     }
-    if mode == "replay":
+    if mode in ("replay", IMAGE_MODE):
         # A scripted recipe's build_fixtures.py has no responses.json and no --force/refusal
         # logic for these tests to guard (build_scripted_fixtures_text), so the file is emitted
         # for replay recipes only.
-        files["tests/test_build_fixtures.py"] = build_fixtures_test_text(recipe)
-    if mode == IMAGE_MODE:
         files["tests/test_build_fixtures.py"] = build_fixtures_test_text(recipe, mode)
     return files
 
