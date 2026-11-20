@@ -5,7 +5,8 @@ Recipe 77 · Level 3 (Intermediate) · `Box` and `Noul`
 Locate a named button, form input, or menu item in a synthetic screenshot. A
 [question](../../docs/glossary.md#question) asks for one typed judgment. A
 [Noul](../../docs/glossary.md#noul) answer reports the probability of presence, uniqueness or
-enabled state. When those checks pass, `Box` proposes the visible rectangle. Python checks
+enabled state. One request asks those three questions and a `Box` for the visible rectangle
+together; Python uses the rectangle only when the Noul checks pass. It checks
 its [confidence](../../docs/glossary.md#confidence), the reported certainty of the location, and
 its bounds. It draws the rectangle and previews a simulated click or focus. The action log
 records the proposal with `executed=False`.
@@ -42,14 +43,14 @@ Open [the notebook](notebook.ipynb) to read the executed recipe.
 
 Install the optional live dependencies and opt in with `JEV_COOKBOOK_LIVE=1` and
 `TYPESAFE_API_KEY`. The notebook uses the same questions as replay and sets the experimental
-images header with the pinned `jev-1.14.0` model. Either request stage places its image in
+images header with the pinned `jev-1.14.0` model. The single request per screenshot places its image in
 [state](../../docs/glossary.md#state), the data Jev is asked about, for one image copy per request.
 The notebook prints the raw and expanded image-byte
 ranges beside those counts. See [offline and live](../../docs/offline-and-live.md) for the
 recording and provenance requirements.
 
 <!-- request-budget:begin -->
-In live mode this notebook makes exactly **37** requests, each decided once when every live answer matches the committed one, and up to **46** when a live answer sends it down a longer path. Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=46` or higher before running it live (the default cap is 25): the cap is inclusive and every attempt counts against it, retries included, so a lower cap stops the run partway through with `BudgetExceeded` and a run that retries needs more.
+In live mode this notebook makes exactly **24** requests, each decided once. Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=24` or higher before running it live (the default cap is 25): the cap is inclusive and every attempt counts against it, retries included, so a lower cap stops the run partway through with `BudgetExceeded` and a run that retries needs more.
 <!-- request-budget:end -->
 
 ## What was and was not measured

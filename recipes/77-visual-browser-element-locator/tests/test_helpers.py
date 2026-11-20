@@ -36,10 +36,7 @@ def validation_data():
     labels = load_labels(RECIPE)
     backend = ReplayBackend.from_json(responses_path(RECIPE))
     validation = select_split(examples, "validation")
-    observations = {
-        e.id: helpers.observe(backend, e.fields, RECIPE, helpers.COLLECTION_THRESHOLD)
-        for e in validation
-    }
+    observations = {e.id: helpers.observe(backend, e.fields, RECIPE) for e in validation}
     return validation, observations, labels
 
 
@@ -85,6 +82,15 @@ def test_missing_confidence_is_not_zero_or_implicit_permission():
         helpers.route(observation(confidence=0), helpers.Policy(0.9, 0), (512, 384)).status
         == "located"
     )
+
+
+@pytest.mark.parametrize("confidence", [True, float("nan"), float("inf"), -0.1, 1.1, "0.9"])
+def test_invalid_box_confidence_requires_review(confidence):
+    corrupt = helpers.Observation(
+        observation().judgments, SimpleNamespace(box=BOX, confidence=confidence)
+    )
+    result = helpers.route(corrupt, POLICY, (512, 384))
+    assert result == helpers.Outcome("review", "box confidence invalid")
 
 
 def test_normalized_box_that_collapses_to_zero_pixel_area_requires_review():
@@ -201,53 +207,59 @@ class TrackingBackend:
         return self.backend.decide(state, questions, assets=assets)
 
 
-def test_replay_keys_follow_gates_and_absent_never_requests_box():
-    policy = validation_policy()
+def test_one_request_per_screenshot_carries_the_noul_questions_and_the_box():
     backend = ReplayBackend.from_json(responses_path(RECIPE))
-    for example in load_inputs(RECIPE):
-        if example.id == "d02":
-            assert not example.replay_keys
-            continue
+    examples = load_inputs(RECIPE)
+    for example in examples:
         tracking = TrackingBackend(backend)
-        threshold = (
-            helpers.COLLECTION_THRESHOLD if example.split == "validation" else policy.presence
-        )
-        seen = helpers.observe(tracking, example.fields, RECIPE, threshold)
+        seen = helpers.observe(tracking, example.fields, RECIPE)
         assert tuple(tracking.keys) == example.replay_keys
-        assert tracking.question_sets[0] == {"present", "unique", "enabled"}
-        if helpers.first_gate(seen.judgments, threshold) is not None:
-            assert seen.location is None
-            assert len(tracking.keys) == 1
-        else:
-            assert tracking.question_sets[1:] == [{"target_box"}]
+        assert len(tracking.keys) == 1
+        assert tracking.question_sets == [{"present", "unique", "enabled", "target_box"}]
+        # Every screenshot gets a Box answer, whether or not the target is there.
+        assert seen.location is not None
+    assert sum(len(e.replay_keys) for e in examples) == len(examples) == 24
 
 
-def test_authored_absence_answers_and_the_held_out_contradiction():
+def test_a_confident_box_on_an_absent_screenshot_is_returned_and_then_suppressed():
     examples = {e.id: e for e in load_inputs(RECIPE)}
+    labels = load_labels(RECIPE)
     replay = ReplayBackend.from_json(responses_path(RECIPE))
-    threshold = validation_policy().presence
-    for ident in ("v06", "t05", "t06", "t12"):
-        tracking = TrackingBackend(replay)
-        seen = helpers.observe(tracking, examples[ident].fields, RECIPE, threshold)
-        assert seen.location is None and tracking.question_sets == [
-            {"present", "unique", "enabled"}
-        ]
+    policy = validation_policy()
+    for ident in ("v06", "t05", "t06", "t12", "d02"):
+        example = examples[ident]
+        seen = helpers.observe(replay, example.fields, RECIPE)
         assert seen.judgments["present"].noul < 0.5
+        assert seen.location.confidence >= policy.box
         assert all(answer.provenance.source == "synthetic" for answer in seen.judgments.values())
+        outcome, actions, _ = helpers.simulate(example, seen, policy, RECIPE)
+        assert outcome.box is None and outcome.point is None and len(actions) == 0
+        assert outcome.status == ("review" if ident == "t12" else "absent")
+        if ident in labels:
+            assert gold_box(labels[ident]["target"]) is None
         affirmations = [seen.judgments[name].noul > 0.5 for name in ("unique", "enabled")]
         assert affirmations == [ident == "t12"] * 2
 
 
-def test_synthetic_absence_witness_has_no_request_or_action():
-    witness = helpers.absence_witness()
+def test_the_demo_absent_screenshot_is_a_real_request_with_a_suppressed_decoy_box():
     [example] = [e for e in load_inputs(RECIPE) if e.id == "d02"]
-    assert example.split == "demo" and not example.replay_keys
-    assert witness.judgments["present"].provenance.source == "synthetic"
-    assert witness.location.provenance.source == "synthetic"
-    assert witness.location.confidence >= POLICY.box
-    outcome, actions, reviews = helpers.simulate(example, witness, POLICY, RECIPE)
+    assert example.split == "demo" and len(example.replay_keys) == 1
+    seen = helpers.observe(ReplayBackend.from_json(responses_path(RECIPE)), example.fields, RECIPE)
+    policy = validation_policy()
+    assert seen.location.confidence >= policy.box
+    outcome, actions, reviews = helpers.simulate(example, seen, policy, RECIPE)
     assert outcome.status == "absent" and outcome.box is None
     assert len(actions) == len(reviews) == 0
+
+
+def test_the_notebook_demo_uses_the_frozen_policy_not_a_typed_gate():
+    import json
+
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text(encoding="utf-8"))
+    sources = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
+    code = "\n".join(sources)
+    assert "Policy(" not in code
+    assert code.index("helpers.select_policy(") < code.index("helpers.observe(backend, demo.fields")
 
 
 def test_validation_selection_is_frozen_and_test_contains_accepted_error():
@@ -258,7 +270,7 @@ def test_validation_selection_is_frozen_and_test_contains_accepted_error():
     test = select_split(load_inputs(RECIPE), "test")
     outcomes = {
         e.id: helpers.route(
-            helpers.observe(backend, e.fields, RECIPE, policy.presence),
+            helpers.observe(backend, e.fields, RECIPE),
             policy,
             helpers.dimensions(e.fields, RECIPE),
         )
@@ -297,15 +309,14 @@ def test_stored_answers_are_not_all_right():
     labels = load_labels(RECIPE)
     backend = ReplayBackend.from_json(responses_path(RECIPE))
     validation = select_split(examples, "validation")
-    observations = {
-        e.id: helpers.observe(backend, e.fields, RECIPE, helpers.COLLECTION_THRESHOLD)
-        for e in validation
-    }
+    observations = {e.id: helpers.observe(backend, e.fields, RECIPE) for e in validation}
     threshold = helpers.select_noul_gate(validation, observations, labels)
     wrong_and_confident = []
     for example in select_split(examples, "test"):
         state, assets = helpers.request_data(example.fields, RECIPE)
-        answer = helpers.image_decide(backend, state, helpers.build_questions(), assets)["present"]
+        answer = helpers.image_decide(backend, state, helpers.build_questions(state), assets)[
+            "present"
+        ]
         present = gold_box(labels[example.id]["target"]) is not None
         confidence = noul_confidence([answer.noul])[0]
         if confidence >= threshold and (answer.noul > 0.5) != present:
@@ -342,13 +353,12 @@ def test_asset_paths_reject_absolute_paths_and_parent_traversal(tmp_path):
             helpers.show_location(fields, root, absent)
 
 
-def test_actual_box_request_puts_the_target_description_in_instructions_only():
+def test_actual_request_puts_the_target_in_state_for_the_nouls_and_in_the_box_instructions():
     demo = select_split(load_inputs(RECIPE), "demo")[0]
     backend = TrackingBackend(ReplayBackend.from_json(responses_path(RECIPE)))
-    helpers.observe(backend, demo.fields, RECIPE, POLICY.presence)
-    [(noul_state, _), (box_state, questions)] = backend.requests
-    assert noul_state["target"] == demo.fields["target"]
-    assert box_state == {"screenshot": noul_state["screenshot"]}
+    helpers.observe(backend, demo.fields, RECIPE)
+    [(state, questions)] = backend.requests
+    assert state["target"] == demo.fields["target"] and state["kind"] == demo.fields["kind"]
     box = questions["target_box"].to_dict()
     assert demo.fields["target"] in box["instructions"]
     assert demo.fields["kind"] in box["instructions"]

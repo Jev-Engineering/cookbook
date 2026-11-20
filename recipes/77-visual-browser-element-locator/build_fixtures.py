@@ -20,7 +20,7 @@ from jev_cookbook import (
 from jev_cookbook import (
     synthetic_images as si,
 )
-from jev_cookbook.fixtures import Example, FixtureFileError, load_responses
+from jev_cookbook.fixtures import FixtureFileError, load_responses
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -54,14 +54,17 @@ WORKSPACES = {
     "d02": "Breeze",
 }
 
-# id, split, kind, layout, situation, presence probability, box confidence, box error
+# id, split, kind, layout, situation, presence probability, box confidence, box error.
+# Every row, absent targets included, carries a Box answer: the single request asks for the
+# rectangle whether or not the target is there, and "exact" on an absent row draws it around
+# the decoy control, a confident rectangle the presence rule must suppress.
 ROWS = [
     ("v01", "validation", "button", "standard", "normal", 0.98, 0.98, "small"),
     ("v02", "validation", "input", "reflow", "normal", 0.90, 0.98, "small"),
     ("v03", "validation", "menu", "reflow", "normal", 0.98, 0.90, "small"),
     ("v04", "validation", "button", "reflow", "normal", 0.98, 0.85, "wrong"),
     ("v05", "validation", "input", "standard", "absent", 0.85, 0.98, "wrong"),
-    ("v06", "validation", "menu", "standard", "absent", 0.02, 0.99, "wrong"),
+    ("v06", "validation", "menu", "standard", "absent", 0.02, 0.99, "exact"),
     ("v07", "validation", "button", "standard", "disabled", 0.98, 0.99, "exact"),
     ("v08", "validation", "input", "reflow", "duplicate", 0.98, 0.98, "exact"),
     ("v09", "validation", "menu", "standard", "normal", 0.98, None, "exact"),
@@ -70,8 +73,8 @@ ROWS = [
     ("t02", "test", "input", "reflow", "normal", 0.97, 0.97, "small"),
     ("t03", "test", "menu", "clipped", "normal", 0.98, 0.96, "small"),
     ("t04", "test", "button", "reflow", "normal", 0.98, 0.98, "wrong"),
-    ("t05", "test", "input", "standard", "absent", 0.02, 0.99, "wrong"),
-    ("t06", "test", "menu", "reflow", "absent", 0.05, 0.99, "wrong"),
+    ("t05", "test", "input", "standard", "absent", 0.02, 0.99, "exact"),
+    ("t06", "test", "menu", "reflow", "absent", 0.05, 0.99, "exact"),
     ("t07", "test", "button", "standard", "normal", 0.04, 0.99, "exact"),
     ("t08", "test", "input", "standard", "duplicate", 0.98, 0.99, "exact"),
     ("t09", "test", "menu", "standard", "disabled", 0.98, 0.99, "exact"),
@@ -79,7 +82,7 @@ ROWS = [
     ("t11", "test", "menu", "standard", "normal", 0.98, 0.78, "small"),
     ("t12", "test", "button", "reflow", "absent", 0.04, 0.99, "wrong"),
     ("d01", "demo", "button", "reflow", "normal", 0.98, 0.97, "small"),
-    ("d02", "demo", "menu", "standard", "absent", None, None, None),
+    ("d02", "demo", "menu", "standard", "absent", 0.04, 0.99, "exact"),
 ]
 
 
@@ -118,7 +121,9 @@ def render(kind, layout, situation, workspace):
     draw.text((18, 57), "Overview     Projects     Settings", font=small, fill="#666666")
     draw.rounded_rectangle((40, 88, 488, 346), radius=14, fill="#F4F4F4")
     draw.text((62, 101), "Workspace preferences", font=bold, fill="#1E1E1E")
-    draw.text((62, 194), "Keep your project details up to date.", font=small, fill="#666666")
+    # A reflowed menu's heading sits near y=200, so its body line moves up out of the way.
+    keep_y = 176 if kind == "menu" and layout != "standard" else 194
+    draw.text((62, keep_y), "Keep your project details up to date.", font=small, fill="#666666")
     draw.text(
         (62, 214 if layout == "standard" else 156),
         "Changes are saved locally.",
@@ -129,7 +134,8 @@ def render(kind, layout, situation, workspace):
     rect = rectangle(kind, layout)
     if kind == "menu":
         left, top, right, bottom = rect
-        draw.text((left, top - 29), "Actions", font=small, fill="#1E1E1E")
+        heading_gap = 29 if layout == "standard" else 35
+        draw.text((left, top - heading_gap), "Actions", font=small, fill="#1E1E1E")
         draw.rounded_rectangle(
             (left - 8, top - 8, right + 8, bottom + 52),
             radius=8,
@@ -153,11 +159,19 @@ def render(kind, layout, situation, workspace):
             text = TARGETS[kind]
             draw.text((left + 12, top + 12), text, font=font, fill=ink)
             if disabled:
-                draw.text((left, bottom + 5), "Disabled while syncing", font=small, fill="#777777")
+                # A menu's own panel sits right below it, so its note goes under the panel.
+                note_y = bottom + (58 if kind == "menu" else 5)
+                draw.text((left, note_y), "Disabled while syncing", font=small, fill="#777777")
     else:
         left, top, right, bottom = rect
+        # An ordinary enabled control with a different label; grey would read as disabled.
+        decoy_fill = "#8EC5D6" if kind == "button" else "#FEFEFE"
         draw.rounded_rectangle(
-            (left, top, right - 1, bottom - 1), radius=6, fill="#DEDEDE", outline="#AAAAAA"
+            (left, top, right - 1, bottom - 1),
+            radius=6,
+            fill=decoy_fill,
+            outline="#1E1E1E",
+            width=2,
         )
         distractor = {"button": "Discard draft", "input": "Filter members", "menu": "Import CSV"}
         draw.text((left + 10, top + 12), distractor[kind], font=font, fill="#1E1E1E")
@@ -182,8 +196,6 @@ def fixture_parts(row, root, *, overwrite=False):
     path = image_path(workspace)
     si.write_asset(image, root, path, overwrite=overwrite)
     fields = {"image": path, "target": TARGETS[kind], "kind": kind}
-    if probability is None:
-        return fields, gold, None
     provenance = Provenance.synthetic()
     # The held-out contradiction claims both uniqueness and enabled state despite a no.
     claims_absence = probability <= 0.5 and ident != "t12"
@@ -212,37 +224,15 @@ def prepare(rows, root, *, overwrite=False):
     return {row[0]: fixture_parts(row, root, overwrite=overwrite) for row in ordered}
 
 
-def frozen_policy(rows, parts):
-    validation = [
-        Example(id=row[0], split=row[1], fields=parts[row[0]][0], replay_keys=())
-        for row in rows
-        if row[1] == "validation"
-    ]
-    return helpers.select_policy(
-        validation,
-        {key: value[2] for key, value in parts.items()},
-        {key: value[1] for key, value in parts.items()},
-    )
-
-
 def requests(rows, parts, root):
-    policy = frozen_policy(rows, parts)
+    """One request per screenshot: the three Noul propositions and the Box share it."""
     for row in rows:
         ident, split = row[:2]
         fields, gold, observation = parts[ident]
-        if observation is None:
-            yield ident, split, fields, gold, []
-            continue
         state, assets = helpers.request_data(fields, root)
-        first = helpers.build_questions()
-        items = [(replay_key(state, first, assets=assets), observation.judgments)]
-        threshold = helpers.COLLECTION_THRESHOLD if split == "validation" else policy.presence
-        if helpers.first_gate(observation.judgments, threshold) is None:
-            box_state, second = helpers.box_request(state)
-            items.append(
-                (replay_key(box_state, second, assets=assets), {"target_box": observation.location})
-            )
-        yield ident, split, fields, gold, items
+        questions = helpers.build_questions(state)
+        answers = {**observation.judgments, "target_box": observation.location}
+        yield ident, split, fields, gold, [(replay_key(state, questions, assets=assets), answers)]
 
 
 def build_inputs_and_labels(rows, root=HERE, *, parts=None):
@@ -275,6 +265,7 @@ def asset_manifest(rows, root):
     entries = []
     for ident, _split, kind, layout, situation, *_answer in rows:
         workspace = WORKSPACES[ident]
+        article = "an" if kind == "input" else "a"
         parameters = {
             "kind": kind,
             "layout": layout,
@@ -287,7 +278,7 @@ def asset_manifest(rows, root):
                 image_path(workspace),
                 "build_fixtures.py:render",
                 parameters,
-                f"A fictional project workspace with a {kind} control, "
+                f"A fictional project workspace with {article} {kind} control, "
                 f"{layout} layout and {situation} target.",
             )
         )

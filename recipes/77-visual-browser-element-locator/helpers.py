@@ -1,11 +1,10 @@
 """Visual judgments propose a region; Python decides whether to simulate an action."""
 
-import math
 from dataclasses import dataclass
 
 from PIL import Image
 
-from jev_cookbook import Box, BoxAnswer, Noul, NoulAnswer, Provenance
+from jev_cookbook import Box, Noul
 from jev_cookbook.evaluation import (
     evaluate_outcomes,
     noul_confidence,
@@ -13,6 +12,7 @@ from jev_cookbook.evaluation import (
 )
 from jev_cookbook.simulation import ActionLog, ReviewQueue
 from jev_cookbook.vision import (
+    box_confidence,
     box_iou,
     crop_box,
     draw_boxes,
@@ -27,7 +27,7 @@ from jev_cookbook.vision import (
     resolve_asset_path,
 )
 
-COLLECTION_THRESHOLD = 0.5
+NOUL_NAMES = ("present", "unique", "enabled")
 IOU_TARGET = 0.50
 REVIEW = "review"
 BASELINE_PIXELS = {
@@ -69,8 +69,13 @@ def request_data(fields, recipe_dir):
     return state, {ref: asset}
 
 
-def build_questions():
-    """Independent propositions share the first image-bearing request."""
+def build_questions(state):
+    """Independent questions about one screenshot share a single request.
+
+    The three propositions and the rectangle do not depend on one another's answers, so they
+    are asked together. The Box describes the concrete target in its instructions (a Box has no
+    criteria); Python decides afterwards whether the rectangle may be used.
+    """
     return {
         "present": Noul(instructions="The screenshot visibly contains the named target control."),
         "unique": Noul(
@@ -85,21 +90,14 @@ def build_questions():
                 "rather than greyed out, disabled, or covered."
             )
         ),
-    }
-
-
-def box_request(state):
-    """Describe the concrete target in the Box instructions and keep only the image in state."""
-    questions = {
         "target_box": Box(
             instructions=(
                 f"Locate the single {state['kind']} labelled {state['target']!r} in the screenshot. "
                 "Return the visible part of its outer rectangle, excluding its surrounding card "
                 "and excluding any separate text label above an input."
             )
-        )
+        ),
     }
-    return {"screenshot": state["screenshot"]}, questions
 
 
 def classify_noul(answer, gate):
@@ -110,7 +108,7 @@ def classify_noul(answer, gate):
 
 
 def presence_disposition(judgments, gate):
-    """Resolve absence or a presence review before requesting localization."""
+    """Resolve absence or a presence review before any rectangle may be used."""
     present = classify_noul(judgments["present"], gate)
     if present is None:
         return Outcome(REVIEW, "confidence below the threshold")
@@ -140,33 +138,17 @@ def first_gate(judgments, threshold, *, ungated=None):
 
 
 def image_decide(backend, state, questions, assets):
-    """Check the aggregate image size before either request stage."""
+    """Check the aggregate image size before the request."""
     preflight_image_request(image_request_profile(state, questions, assets))
     return backend.decide(state, questions, assets=assets)
 
 
-def observe(backend, fields, recipe_dir, presence_threshold):
-    """Request Box only after the first gate has passed."""
+def observe(backend, fields, recipe_dir):
+    """One request per screenshot: the presence questions and the Box together."""
     state, assets = request_data(fields, recipe_dir)
-    judgments = dict(image_decide(backend, state, build_questions(), assets).answers)
-    if first_gate(judgments, presence_threshold) is not None:
-        return Observation(judgments, None)
-    box_state, questions = box_request(state)
-    location = image_decide(backend, box_state, questions, assets)["target_box"]
-    return Observation(judgments, location)
-
-
-def absence_witness():
-    """Construct a synthetic absence with a plausible rectangle and make no request."""
-    provenance = Provenance.synthetic()
-    return Observation(
-        {name: NoulAnswer(0.01, provenance) for name in ("present", "unique", "enabled")},
-        BoxAnswer(
-            {"left": 0.59, "top": 0.27, "right": 0.92, "bottom": 0.38},
-            confidence=0.99,
-            provenance=provenance,
-        ),
-    )
+    answers = image_decide(backend, state, build_questions(state), assets).answers
+    judgments = {name: answers[name] for name in NOUL_NAMES}
+    return Observation(judgments, answers["target_box"])
 
 
 def route(observation, policy, dimensions):
@@ -175,16 +157,15 @@ def route(observation, policy, dimensions):
     if blocked is not None:
         return blocked
     answer = observation.location
-    if answer is None or answer.confidence is None:
+    if answer is None:
         return Outcome(REVIEW, "box confidence unavailable")
-    if (
-        isinstance(answer.confidence, bool)
-        or not isinstance(answer.confidence, (int, float))
-        or not math.isfinite(answer.confidence)
-        or not 0 <= answer.confidence <= 1
-    ):
+    try:
+        confidence = box_confidence(answer)
+    except ValueError:
         return Outcome(REVIEW, "box confidence invalid")
-    if answer.confidence < policy.box:
+    if confidence is None:
+        return Outcome(REVIEW, "box confidence unavailable")
+    if confidence < policy.box:
         return Outcome(REVIEW, "confidence below the threshold")
     try:
         box = normalized_box(answer.box)
@@ -323,12 +304,12 @@ def measure_noul_gates(examples, observations, policy):
         raise ValueError("gate ablation requires only validation examples")
 
     def disposition(outcome):
-        return outcome.status if outcome is not None else "request_box"
+        return outcome.status if outcome is not None else "localize"
 
     rows = [observations[example.id].judgments for example in examples]
     full = [disposition(first_gate(judgments, policy.presence)) for judgments in rows]
     results = {}
-    for name in build_questions():
+    for name in NOUL_NAMES:
         changed, total = [0, 0], [0, 0]
         for judgments, original in zip(rows, full, strict=True):
             side = judgments[name].noul > 0.5
