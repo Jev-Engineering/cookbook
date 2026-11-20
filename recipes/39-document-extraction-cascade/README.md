@@ -35,17 +35,18 @@ of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
-against that budget, including each retry. This notebook decides every document once and reuses
-the answer wherever it is shown again (the demo cells, the flip comparisons, both evaluation
-passes all read from the same cache), so no document is ever decided twice. In live mode it
-therefore makes exactly **52** requests in total across both stages: one stage-1 request per
-document that has a candidate for at least one field (bundling every such field's `Choice`
-question together), and one stage-2 request per document where stage 1 named a real candidate
-for at least one field (bundling every such field's `Noul` question together) — never more than
-two requests for one document, and none at all for a document where neither field has a
-candidate. 52 is above the default budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`), so set it to
-52 or higher before running this notebook live, or it stops partway through with
-`BudgetExceeded`. Never put a key in a notebook or a fixture.
+against that budget, including each retry. The notebook caches each document's cascade and
+reuses it in the demos, comparisons, and evaluation. On the supplied inputs, a live run makes
+at most **52** logical requests. The candidate extractor finds at least one candidate in 26
+documents. Each gets one stage-1 request bundling its `Choice` questions and at most one stage-2
+request bundling its `Noul` questions. Stage 2 is skipped when every stage-1 answer for a
+document is `not_found`. Documents with no candidates skip both stages. The offline replay
+makes exactly **52** requests because every document queried at stage 1 reaches stage 2.
+
+Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=52` or higher to cover the longest path without retries.
+With the live backend's default allowance of two retries per logical request, a run can consume
+up to **156** attempts. A run that reaches the configured cap stops with `BudgetExceeded` if
+it needs another attempt. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 
