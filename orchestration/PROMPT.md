@@ -330,9 +330,9 @@ The manifest is the repository's planning record and is kept; reconcile it with 
 
 Each recipe's README row is already updated by its own pull request (rule 6), so there is no post-wave README sync.
 
-1. **Catalog audit.** Verify the catalog counts, links and generated content against `main` (`python tools/render_catalog.py --check` and the wave's rows). This confirms the README; it is not the first README update, and it never replaces the per-recipe regeneration.
+1. **Catalog audit.** Follow the [wave close-out procedure](../docs/development.md#wave-close-out) after the wave's last recipe merges. On the exact `main` commit, the primary verifies the README counts and links with `python tools/render_catalog.py --check` and a review of the wave's rows, then runs `pytest -m catalog_audit tests/test_recipe_guard.py` offline. Fix any missing inbound links through a reviewed sweep and rerun the checks on the resulting `main` commit.
 2. **Consistency review.** One Opus agent reads every notebook from the wave side by side and reports differences in terminology, section order, chart style, the run-mode header, evidence quality and learner experience, and anything that reads as a claim about Jev. Open an issue for each real finding and run it through the pipeline.
-3. **Close the level's tracking issue** (#75 to #79) only after its actual criteria are met.
+3. **Close the level's tracking issue** (#75 to #79) only after its criteria are met and the primary records a passing audit receipt there for the final `main` commit. Record the full commit SHA, command, exit status 0, and pytest summary, and retain the full log with the close-out evidence.
 4. **Progress comment on #80:** what merged, what is blocked and why, evidence, live spending against the $25 limit, and what you learned that changes the next wave's briefs.
 
 ### Wave 6: release (#73)

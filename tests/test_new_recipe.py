@@ -1186,7 +1186,9 @@ def test_every_hang_guard_fits_in_the_ci_test_job():
     guards = executor_budget.every_guard(execute_notebook)
     assert HANG_GUARD == guards["tests/test_new_recipe.py"]
     for user, guard in guards.items():
-        assert executor_budget.fits_in_the_ci_test_job(guard), (user, guard, job)
+        assert executor_budget.fits_in_the_ci_test_job(guard), executor_budget.fit_problem(
+            user, guard, job
+        )
         # and it still covers what the tool may legitimately take on a silent kernel
         assert guard > execute_notebook.START_WAIT * execute_notebook.START_ATTEMPTS[SLOW_START]
         if user != "tests/test_new_recipe.py":  # the other users wait with the same derivation
@@ -1588,6 +1590,7 @@ def test_the_scaffold_readme_live_section_states_the_budget_and_env_var(catalog,
     run(1, catalog, recipes)
     readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
     section = readme.split("## Switch to live")[1].split("## What was and was not measured")[0]
+    assert "makes exactly **1** request," in section
     assert "JEV_COOKBOOK_LIVE_MAX_REQUESTS" in section
     # Pinned against the installed package's constant (F1), not a third hand-written "25": see
     # test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package.

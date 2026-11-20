@@ -600,13 +600,6 @@ class LiveBackend:
         # see, and the usual place is this variable.
         self._secrets = _secret_variants(os.environ.get(API_KEY_ENV))
         self._call_extra: dict[str, Any] = {}
-        headers = {}
-        if images:
-            headers["TypeSafe-Danger-Zone-Images"] = "true"
-        if long_context:
-            headers["TypeSafe-Danger-Zone-Long-Context"] = "true"
-        if headers:
-            self._call_extra["extra_headers"] = headers
         self._log_variants: tuple[str, ...] = ()
         if client is None:
             client = self._build_client()
@@ -764,7 +757,8 @@ class LiveBackend:
         key = replay_key(plain_state, checked, assets=assets)
         checked_assets = _check_assets(plain_state, checked, assets)
         has_box = any(isinstance(q, Box) for q in checked.values())
-        if (checked_assets or has_box) and not self.images:
+        needs_images = bool(checked_assets) or has_box
+        if needs_images and not self.images:
             raise LiveConfigError("image assets and Box questions require LiveBackend(images=True)")
         if has_box and self.requested_model not in BOX_MODELS:
             raise LiveConfigError(
@@ -790,6 +784,14 @@ class LiveBackend:
                 ref: sdk.Image(base64.b64decode(asset["data_base64"], validate=True))
                 for ref, asset in checked_assets.items()
             }
+        headers = {}
+        if needs_images:
+            headers["TypeSafe-Danger-Zone-Images"] = "true"
+        if self.long_context:
+            headers["TypeSafe-Danger-Zone-Long-Context"] = "true"
+        call_extra = self._call_extra.copy()
+        if headers:
+            call_extra["extra_headers"] = headers
         payload = {name: _question_payload(q) for name, q in checked.items()}
         attempt = 0
         # Errors are raised after their `except` block has ended, so neither `__cause__` nor
@@ -810,7 +812,7 @@ class LiveBackend:
                     model=self.requested_model,
                     **asset_kwargs,
                     **self._request_kwargs,
-                    **self._call_extra,
+                    **call_extra,
                 )
                 started = self._read_clock()
                 response = self._client.system_one(**call_kwargs)

@@ -488,6 +488,8 @@ anything thin by construction (the 3 by 3 window and the 2 by 2 block rule). The
   from 0.5 to 0.6 and a reference risk moved from 0.10 to 0.15 both pass;
 - **moved markers and scatter points**: 30 of 300 points shifted by 1.5 standard deviations passes,
   and a marker moved by 10% of the axis passes;
+- **a moved legend or small box** can pass, including a score legend moved from the lower-right
+  to the upper-right corner. Compare the saved PNGs when reviewing a legend placement change.
 - **a small heat-map cell**: one cell of a 20 by 20 heat map changed from v to 1-v passes;
 - any change smaller than a 2 by 2 block of the grid (about 3% of the figure's width and 4% of its
   height).
@@ -497,9 +499,11 @@ picture. A recipe that draws a curve, a threshold or a reference line should als
 it plots (rounded: a full-precision `repr` of a transcendental result can differ in the last digit
 between operating systems), so a stale chart arrives with stale text. A different library
 version that moves things by more than a cell, or a larger change in font metrics, would show as a
-difference and need a regenerated notebook. `tests/test_notebook_ci_fresh.py` pins the title, the small bar move and a threshold line
-moved from 0.5 to 0.6 (`test_known_limits_small_changes_are_not_seen`,
-`test_known_limits_a_moved_threshold_line_is_not_seen`); if one starts to fail the comparison got
+difference and need a regenerated notebook. `tests/test_notebook_ci_fresh.py` pins the title,
+small bar move, threshold line moved from 0.5 to 0.6, and moved score legend
+(`test_known_limits_small_changes_are_not_seen`,
+`test_known_limits_a_moved_threshold_line_is_not_seen`,
+`test_known_limits_a_moved_score_legend_is_not_seen`). If one starts to fail, the comparison got
 stricter and this list needs updating. The scatter, 20 by 20 heat-map and reference-line cases above
 were measured with probe charts (an independent review, across four environments), not pinned.
 The check is a second line behind the text outputs: a number shown in a table or a printed line is
