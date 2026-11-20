@@ -1580,6 +1580,7 @@ def test_the_scaffold_readme_live_section_states_the_budget_and_env_var(catalog,
     run(1, catalog, recipes)
     readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
     section = readme.split("## Switch to live")[1].split("## What was and was not measured")[0]
+    assert "makes exactly **1** request," in section
     assert "JEV_COOKBOOK_LIVE_MAX_REQUESTS" in section
     # Pinned against the installed package's constant (F1), not a third hand-written "25": see
     # test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package.
