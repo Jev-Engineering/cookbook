@@ -332,7 +332,7 @@ def test_effective_budget_rejects_a_budget_below_one(bad_budget):
 
 
 def test_effective_budget_rejects_zero_eligible_candidates():
-    # task_recall rules this case out itself before ever calling effective_budget; a caller
+    # task_recall passes its eligibility mask directly to the metric; a caller
     # that reaches this directly with nothing eligible gets an error, not a silently wrong cap.
     cands = [candidate("a")]
     classifs = _classifications({"a": helpers.NOT_RELEVANT})
@@ -494,7 +494,7 @@ def test_the_confidence_gate_is_selected_with_min_coverage_not_target_accuracy()
 
 
 def test_every_task_has_at_least_one_eligible_candidate_under_the_frozen_gate():
-    # effective_budget's n_eligible == 0 branch is never exercised on committed data; this is
+    # The no-eligible case is never exercised on committed data; this is
     # what makes that true, on both splits.
     examples, labels, _backend, _questions, answers, gate = _frozen_gate()
     for split in ("validation", "test"):
@@ -544,7 +544,7 @@ def _task_recall(task_examples, labels, answers, gate, budget):
 
 
 def test_recall_at_budget_agrees_with_propose_suite_on_every_task_in_both_splits():
-    """`recall_at_budget` (fed effective_scores/effective_budget) must never disagree with
+    """`recall_at_budget` (fed strict scores and an eligibility mask) must agree with
     `propose_suite`'s own pick about how many gold-relevant candidates were actually proposed --
     the "no reimplementation" proof CONTRIBUTING.md asks for: both are derived from the same
     helpers, so a bug in either shows up as a mismatch here instead of in two silently-drifting
@@ -552,6 +552,7 @@ def test_recall_at_budget_agrees_with_propose_suite_on_every_task_in_both_splits
     examples, labels, _backend, _questions, answers, gate = _frozen_gate()
     for split in ("validation", "test"):
         by_task = _by_task(select_split(examples, split))
+        assert len(by_task) == 19
         for task_id, task_examples in by_task.items():
             recall, suite, gold_relevant = _task_recall(
                 task_examples, labels, answers, gate, helpers.SUITE_BUDGET

@@ -47,13 +47,14 @@ GitHub is the source of truth, not this file and not any ledger. Before dispatch
    1. the p1 foundation issues, then the foundation issues that later recipes depend on (the shared-code
       and CI gates), then the remaining foundation and docs issues by priority;
    2. recipes 51 to 60 (their dependencies are recipes 17, 20, 29, 30, 35 and the foundation above);
-   3. the multimodal recipes 61 to 100, only once their issues exist and the Codex-built branches
-      (`recipe/NN-*`, `foundation/multimodal-integration`) have been re-integrated with current `main`;
+   3. the multimodal recipes 61 to 100 (their issues are recorded in the catalog), once the
+      Codex-built branches (`recipe/NN-*`, `foundation/multimodal-integration`) have been
+      re-integrated with current `main`;
    4. epics #78 and #79 and the release audit #73, which you prepare but never close or tag.
 
-Open work at the time of writing, to be re-measured: about 74 open issues, 11 of them original-track
-recipe issues (51 to 60 and #326), about 53 foundation issues, four epics or tracking issues, and the release audit.
-Catalog ranks 61 to 100 exist on `main` and record their recipe issues #402 to #441, so a recipe pull
+Count the open work from GitHub in step 3 rather than from this file: any count written here goes
+stale. Catalog ranks 61 to 100 exist on `main` and record their recipe issues (the range is stated in
+[docs/multimodal-track.md](../docs/multimodal-track.md#before-a-recipe-is-ready)), so a recipe pull
 request for one of them passes the scope check only by closing that recorded issue.
 
 ## The pipeline for one issue
