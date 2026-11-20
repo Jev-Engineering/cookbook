@@ -417,6 +417,7 @@ from types import ModuleType
 from typing import NamedTuple
 
 import pytest
+from markdown_it import MarkdownIt
 
 from jev_cookbook import Noul, load_helpers
 from jev_cookbook import fixtures as jc_fixtures
@@ -2700,7 +2701,9 @@ def test_every_plot_call_has_a_printed_table(recipe):
 # check 6: every Next-steps link target exists on disk
 # --------------------------------------------------------------------------------------------
 
-NEIGHBOUR_LINK = re.compile(r"\]\(\.\./((?:[0-9]{2}|100)-[a-z0-9-]+)/\)")
+NEIGHBOUR_FOLDER = r"\.\./((?:[0-9]{2}|100)-[a-z0-9-]+)/"
+NEIGHBOUR_LINK = re.compile(rf"\]\({NEIGHBOUR_FOLDER}\)")
+NEIGHBOUR_HREF = re.compile(NEIGHBOUR_FOLDER)
 
 
 def test_recipe_100_next_steps_link_must_resolve_to_a_published_notebook(tmp_path, monkeypatch):
@@ -2749,22 +2752,149 @@ def test_next_steps_links_resolve_to_a_published_recipe(recipe):
     assert not missing, "; ".join(missing)
 
 
+_MARKDOWN = MarkdownIt("commonmark")
+
+
+def _next_steps_targets(markdown: str) -> set[str]:
+    """Find recipe-folder links in a top-level Next steps section of one Markdown cell."""
+    targets = set()
+    in_next_steps = False
+    tokens = iter(_MARKDOWN.parse(markdown))
+    for token in tokens:
+        if token.type == "heading_open" and token.level == 0 and token.tag in {"h1", "h2"}:
+            heading = next(tokens)
+            title = "".join(
+                " " if part.type in {"softbreak", "hardbreak"} else part.content
+                for part in heading.children or ()
+                if part.type != "html_inline"
+            )
+            in_next_steps = token.tag == "h2" and title.split() == ["Next", "steps"]
+        elif in_next_steps and token.type == "inline":
+            for part in token.children or ():
+                if part.type == "link_open":
+                    href = part.attrGet("href")
+                    match = NEIGHBOUR_HREF.fullmatch(href) if isinstance(href, str) else None
+                    if match:
+                        targets.add(match[1])
+    return targets
+
+
 def _inbound_next_steps_links() -> dict[str, set[str]]:
-    """``{slug: {slugs of published recipes whose own notebook links ../slug/}}``, over every
-    published recipe (never ``_template``, which is not a catalog slug and is not a valid link
-    target either)."""
+    """Map each published slug to the recipes that link to it from their Next steps section."""
     inbound: dict[str, set[str]] = {r["slug"]: set() for r in PUBLISHED}
     for recipe in PUBLISHED:
         for cell in notebook_cells(recipe_dir(recipe)):
             if cell["cell_type"] != "markdown":
                 continue
-            for slug in NEIGHBOUR_LINK.findall(cell_source(cell)):
+            for slug in _next_steps_targets(cell_source(cell)):
                 if slug in inbound and slug != recipe["slug"]:
                     inbound[slug].add(recipe["slug"])
     return inbound
 
 
 INBOUND_NEXT_STEPS_LINKS = _inbound_next_steps_links()
+
+
+def test_inbound_next_steps_audit_rejects_a_mid_notebook_only_link(tmp_path, monkeypatch):
+    source = {"slug": "01-source"}
+    target = {"slug": "02-target"}
+    monkeypatch.setitem(globals(), "PUBLISHED", [source, target])
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    for recipe in (source, target):
+        recipe_dir(recipe).mkdir()
+    (recipe_dir(target) / "notebook.ipynb").write_text('{"cells": []}', encoding="utf-8")
+
+    link = "[Try the target recipe](../02-target/)\n"
+    explanation = {"cell_type": "markdown", "id": "next-md", "source": ["## Explanation\n"]}
+    next_steps = {
+        "cell_type": "markdown",
+        "id": "closing-notes",
+        "source": ["## Next steps\n", "\n", link],
+    }
+    notebook = recipe_dir(source) / "notebook.ipynb"
+    cells = {"cells": [explanation, next_steps]}
+    notebook.write_text(json.dumps(cells), encoding="utf-8")
+    monkeypatch.setitem(globals(), "INBOUND_NEXT_STEPS_LINKS", _inbound_next_steps_links())
+    test_every_recipe_is_linked_from_some_other_recipes_next_steps(target)
+
+    explanation["source"].append(next_steps["source"].pop())
+    next_steps["source"].extend(["## Appendix\n", "\n", link])
+    notebook.write_text(json.dumps(cells), encoding="utf-8")
+    monkeypatch.setitem(globals(), "INBOUND_NEXT_STEPS_LINKS", _inbound_next_steps_links())
+    with pytest.raises(AssertionError, match="02-target: no other published recipe's Next steps"):
+        test_every_recipe_is_linked_from_some_other_recipes_next_steps(target)
+
+
+@pytest.mark.parametrize(
+    "before_link, after_link, counts",
+    [
+        pytest.param(" \t\r\n\r\n## Next steps\r\n", "", True, id="blank-prefix"),
+        pytest.param("Closing remarks.\n\n## Next steps\n", "", True, id="prose-prefix"),
+        pytest.param("Closing remarks.\n", "\n## Next steps\n", False, id="before-heading"),
+        pytest.param("```md\n## Next steps\n", "\n```\n", False, id="fenced-heading"),
+        pytest.param("## Next steps\n\n~~~md\n", "\n~~~\n", False, id="fenced-link"),
+        pytest.param("## Next steps\n\n~~~\n", "", False, id="unclosed-fence"),
+        pytest.param(
+            "## Next steps\n\n  ````md\n```\n## Appendix\n  ````\n\n### More reading\n",
+            "",
+            True,
+            id="fenced-appendix",
+        ),
+        pytest.param("## Next steps\n\n## Appendix\n", "", False, id="real-appendix"),
+        pytest.param("<!--\n## Next steps\n-->\n\n", "", False, id="commented-heading"),
+        pytest.param("## Next steps\n\n<!--\n", "\n-->\n", False, id="commented-link"),
+        pytest.param("## Next steps\n\n<!--\n", "", False, id="unclosed-comment"),
+        pytest.param(
+            "## Next steps\n\n<!--\n## Appendix\n```\n-->\n\n",
+            "",
+            True,
+            id="commented-appendix-and-fence",
+        ),
+        pytest.param("## Next steps\n\n```md\n<!--\n```\n\n", "", True, id="fenced-comment-opener"),
+        pytest.param("## Next steps\n\nExample: ``", "``\n", False, id="inline-literal-link"),
+        pytest.param("## Next steps\n\nType `<!--` then ", "", True, id="inline-comment-opener"),
+        pytest.param(
+            "Remarks with a stray `.\n\n## Next steps\n", " `\n", True, id="stray-backtick"
+        ),
+        pytest.param("## Next steps\n\n- First\n  - Second\n    ", "", True, id="nested-list-link"),
+        pytest.param("## Next steps\n\n> ```md\n> ", "\n> ```\n", False, id="quoted-fence"),
+        pytest.param("## Next steps\n\n    ", "", False, id="indented-code"),
+        pytest.param("## Next steps\n\nExample: `\n", "`", False, id="multiline-code-span"),
+        pytest.param("## Next steps\n\nAppendix\n--------\n\n", "", False, id="setext-appendix"),
+        pytest.param("## Next steps <!-- editorial note -->\n\n", "", True, id="heading-comment"),
+        pytest.param(
+            "## Next <!-- editorial note --> steps\n\n", "", True, id="comment-between-words"
+        ),
+        pytest.param("Next\nsteps\n----------\n\n", "", True, id="wrapped-setext-title"),
+        pytest.param("## Next steps\n\n!", "", False, id="image-is-not-a-link"),
+    ],
+)
+def test_inbound_next_steps_audit_respects_markdown_boundaries(
+    tmp_path, monkeypatch, before_link, after_link, counts
+):
+    source = {"slug": "01-source"}
+    target = {"slug": "02-target"}
+    monkeypatch.setitem(globals(), "PUBLISHED", [source, target])
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    link = "[Try the target recipe](../02-target/)"
+    for recipe, cells in (
+        (source, [{"cell_type": "markdown", "source": before_link + link + after_link}]),
+        (target, []),
+    ):
+        folder = recipe_dir(recipe)
+        folder.mkdir()
+        (folder / "notebook.ipynb").write_text(json.dumps({"cells": cells}), encoding="utf-8")
+    assert _inbound_next_steps_links()[target["slug"]] == ({source["slug"]} if counts else set())
+
+
+def test_inbound_next_steps_audit_resolves_markdown_reference_links():
+    markdown = """[recipe]: ../02-target/
+
+## Next steps
+
+See [the neighbouring recipe][recipe].
+"""
+    assert _next_steps_targets(markdown) == {"02-target"}
 
 
 # Inbound targets must be published in the catalog.
@@ -2774,8 +2904,10 @@ def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
     """G1(f) clause 2 (issue #76 comment 6079429778): "every published recipe is the target of
     at least one other recipe's Next steps" (R21) -- a per-recipe, per-check case exactly like
     ``next_steps_links_exist`` (see the module docstring's scope decisions), computed once over
-    the whole published set (``_inbound_next_steps_links``, built from the same
-    ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here.
+    the whole published set (``_inbound_next_steps_links``) and looked up per recipe here.
+    A top-level H2 titled Next steps identifies the section within a Markdown cell. CommonMark
+    link tokens with a recipe-folder destination count until the next top-level H1 or H2 or
+    the end of the cell. Code, comments and raw HTML do not produce Markdown link tokens.
 
     Marked ``catalog_audit`` (#203) and deselected by default (see ``pyproject.toml``'s
     ``addopts``): a new recipe's own pull request can never satisfy this check. The recipe
