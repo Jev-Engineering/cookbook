@@ -19,9 +19,9 @@ CONTRIBUTING.md section 4 keeps in Python's hands; every such response goes into
 `ReviewQueue` for a human adjudicator instead. The notebook shows both the settled and the
 model-assisted path on one pair of examples, then the rule, then an evaluation that reports how
 many responses never needed a call, agreement with the gold label, a confusion matrix and
-per-class metrics, the `review` outcome broken down by which of its two causes fired, and,
-among only the responses actually sent to Jev, selective coverage, accuracy and risk for the
-confidence gate.
+per-class metrics, and the causes of `review` outcomes. It shows selective coverage, accuracy
+and risk side by side for the whole test split and the responses that reached Jev. On those
+same responses it compares the rule's decisions with each baseline.
 
 ## Run it offline
 
@@ -76,9 +76,8 @@ The committed run replays 40 invented quiz responses with hand-written (syntheti
 the 17 that are ever sent to a model, some wrong on purpose, including one that is wrong with
 confidence above the frozen threshold (`t04-capital-wrong-confident`, stored as a confident
 `match` where the gold label is `no_match`). Its agreement with the gold labels, the confusion
-matrix, per-class metrics and the coverage of the frozen confidence gate check that the pipeline
-works; they say nothing about how Jev performs, how fast it is, or what it costs. This recipe has
-no recorded fixtures.
+matrix, per-class metrics, selective metrics and baseline comparisons check how the pipeline
+handles the synthetic fixtures.
 
 ## Pull request rules
 

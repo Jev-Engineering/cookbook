@@ -61,10 +61,7 @@ RELEVANT = "relevant"
 NOT_RELEVANT = "not_relevant"
 REVIEW = "review"
 
-# A fixed, finite stand-in ranking score for a candidate :func:`propose_suite` would never
-# propose: lower than any score a 4-level rubric (levels 0 to 3) can ever produce, so it never
-# wins a budget slot in :func:`effective_scores`. Negative infinity would say the same thing
-# more plainly, but jev_cookbook.evaluation.recall_at_budget requires every score to be finite.
+# The shared metric validates a finite score for every candidate, including excluded ones.
 EXCLUDED_SCORE = -1.0
 
 
@@ -269,10 +266,9 @@ def effective_scores(
     itself a strict order with no ties of its own) -- and then assigned strictly decreasing
     synthetic scores (the most preferred gets ``len(eligible)``, the next
     ``len(eligible) - 1``, and so on down to ``1``). Every other candidate (confidently
-    ``not_relevant``, or sent to ``review``) gets ``EXCLUDED_SCORE`` (always below every eligible
-    synthetic score, so it can never occupy a budget slot), while still being counted in
-    ``recall_at_budget``'s own "all relevant items" denominator (it is not removed from the
-    task, only ranked last).
+    ``not_relevant``, or sent to ``review``) gets the finite placeholder ``EXCLUDED_SCORE``.
+    :func:`task_recall` passes those candidates as ineligible so they can never occupy budget slots
+    and every gold-relevant candidate remains in the denominator.
 
     The synthetic scores, not the raw expected ``scores``, are what close a gap a real expected
     score could otherwise open: two eligible candidates that tied on expected score would tie in
@@ -282,14 +278,6 @@ def effective_scores(
     tie-break removes the possibility of a tie at the source, so the two can never diverge
     (`tests/test_helpers.py` exercises this directly on a constructed tie, and also pins the
     true reproduction on every real, committed fixture).
-
-    ``recall_at_budget`` requires every score to be finite, so negative infinity is not an
-    option for ``EXCLUDED_SCORE``; a fixed, finite out-of-range constant serves the same
-    purpose. This is not the sentinel docs/recipe-template.md warns against: that page's
-    sentinel is a stand-in fed to a function that validates its input to ``[0, 1]`` (a
-    confidence), so an out-of-range value can itself be mistaken for a chosen threshold;
-    ``recall_at_budget`` places no such range on ``scores``, and nothing here derives a
-    threshold from this value.
     """
     eligible = [c for c in candidates if classifications[c.test_id].outcome == RELEVANT]
     ordered = sorted(eligible, key=lambda c: (-scores[c.test_id], ranks[c.test_id]))
@@ -303,25 +291,9 @@ def effective_scores(
 def effective_budget(
     candidates: list[Candidate], classifications: dict[str, Classification], budget: int
 ) -> int:
-    """The budget to pass to :func:`jev_cookbook.evaluation.recall_at_budget` together with
-    :func:`effective_scores`, so that function's own top-budget selection reproduces
-    :func:`propose_suite` exactly even when fewer than ``budget`` candidates are eligible.
+    """Cap a positive budget at the eligible count, requiring at least one eligible candidate.
 
-    ``recall_at_budget`` always fills its budget from the whole list it is given, ranked by
-    score; it has no notion of "eligible" and cannot return fewer than ``min(budget, len(list))``
-    selections. ``propose_suite`` can: it returns only its eligible candidates, truncated at
-    ``budget``, and returns fewer than ``budget`` ids outright when fewer are eligible. Calling
-    ``recall_at_budget`` with the raw ``budget`` on :func:`effective_scores`' output would paper
-    over that gap by reaching into the tied ``EXCLUDED_SCORE`` candidates for the remaining
-    slot(s), crediting whichever of them happens to be gold-relevant with a fraction of a slot
-    :func:`propose_suite` never gives it. Passing ``min(budget, n_eligible)`` instead closes it:
-    every eligible candidate's synthetic score (``effective_scores``) is higher than
-    ``EXCLUDED_SCORE``, so the top ``effective_budget`` selection can never reach an excluded one.
-
-    Requires at least one eligible candidate: with none, every candidate ties at
-    ``EXCLUDED_SCORE`` and there is no well-defined non-empty budget to cap at, so a caller
-    reaches this only after ruling that case out itself (:func:`task_recall` does, by returning
-    the correct recall directly instead of calling this at all).
+    :func:`task_recall` passes its eligibility mask to the shared metric with the full budget.
     """
     if budget < 1:
         raise ValueError(f"budget must be at least 1, got {budget!r}")
@@ -344,22 +316,15 @@ def task_recall(
     call, so the per-patch table and the mean it is averaged into can never silently drift apart
     (CONTRIBUTING.md section 7 asks for exactly one place this composition is computed).
 
-    When at least one candidate is eligible, this is
-    ``jev_cookbook.evaluation.recall_at_budget`` on :func:`effective_scores` and
-    :func:`effective_budget`. When none is, :func:`propose_suite` would propose nothing, so the
-    recall is ``0.0`` whenever any candidate is gold-relevant, or ``NaN`` when none is (the same
-    undefined-is-NaN convention ``jev_cookbook.evaluation`` uses throughout) -- computed
-    directly, never by handing ``recall_at_budget`` a list where every candidate ties at
-    ``EXCLUDED_SCORE``, which would instead credit a tie-break share of whichever excluded
-    candidate happens to be gold-relevant (`tests/test_helpers.py` exercises this directly: it
-    is the zero-eligible counterpart of the tie :func:`effective_scores` closes).
+    Use :func:`effective_scores` to preserve the deterministic tie-break and pass the rule's
+    eligibility mask alongside the original budget. Every gold-relevant candidate still counts
+    toward the denominator, even when the rule excludes it.
     """
-    n_eligible = sum(1 for c in candidates if classifications[c.test_id].outcome == RELEVANT)
-    if n_eligible < 1:
-        return 0.0 if any(gold_relevant) else float("nan")
+    eligible = [classifications[c.test_id].outcome == RELEVANT for c in candidates]
     eff_scores = effective_scores(candidates, classifications, scores, ranks)
-    eff_budget = effective_budget(candidates, classifications, budget)
-    return recall_at_budget(gold_relevant, [eff_scores[c.test_id] for c in candidates], eff_budget)
+    return recall_at_budget(
+        gold_relevant, [eff_scores[c.test_id] for c in candidates], budget, eligible=eligible
+    )
 
 
 def baseline_recall(
