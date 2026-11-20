@@ -1,0 +1,19 @@
+{
+  "parent_tree": "bb07ffa2769175244206927d308dabfe9b26a696",
+  "parent_commit": "47904535641f30b447877830e32450dfa6946321",
+  "text": {
+    "replay": {
+      "files": 800,
+      "sha256": "47e69d6691c77cd2b65b6dee910efad80b732568261d86835315b88b87c8c7ab"
+    },
+    "scripted": {
+      "files": 700,
+      "sha256": "2e72f97cb14db4ddc9c81dd9c8c63e475ccc438c82240eddf2536dca20a29428"
+    }
+  },
+  "images": {
+    "canonical_files": 18,
+    "canonical_sha256": "08a9c7fe4ea5ac3f2aaf4a5843888a5cde3b7982518b4eba296660eabce63eec",
+    "semantic_sha256": "2dcf53dc7f04fa528fa9ec2a5edf3b666af7cd5a0a23ad077c225c23d267d0c5"
+  }
+}

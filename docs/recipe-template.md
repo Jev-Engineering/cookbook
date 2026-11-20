@@ -589,6 +589,13 @@ command exits with status 1.
 | `tests/test_helpers.py` | Tests of `locate` (each outcome and each reason, and a grid of probabilities and thresholds), the replay-key test with `assets=`, a test that redraws every shared-scene image from its manifest entry (`check_reproducible`), `test_stored_answers_are_not_all_right`, which re-derives the presence threshold and requires a wrong `test` answer at or above it, and a test that pins both thresholds' objective (`target_accuracy=1.0`) in the committed `python-rule` cell source. |
 | `tests/test_build_fixtures.py` | The text scaffold's three guards, run in a temporary folder that also holds a copy of `assets/` (the third also checks that the images and `assets-manifest.json` come back unchanged), and a fourth: a picture that differs from the committed file is refused, not rewritten. |
 
+The image builder's public functions accept optional keyword-only `canvases`, `keys`, or
+`canvas` arguments. `main()` passes these within one build so each image is drawn once and
+each request is encoded and keyed once. Calls without these arguments compute fresh values,
+including the fixture test's `build_responses(ROWS)` call. Put synthetic answer customizations
+in `answers_for` and preserve its optional `canvas` argument: both fixture writing and
+independent response generation call that function.
+
 **Why `tests/test_build_fixtures.py` differs.** A PNG's bytes depend on the Pillow and zlib that
 wrote them, and the bytes are part of the replay key of each request that carries a picture. The
 text scaffold's test copies only
