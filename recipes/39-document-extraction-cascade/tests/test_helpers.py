@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jev_cookbook import get_backend, load_helpers, replay_key
+from jev_cookbook import Choice, ScriptedBackend, get_backend, load_helpers, replay_key
 from jev_cookbook.evaluation import (
     evaluate_outcomes,
     noul_confidence,
@@ -15,6 +15,7 @@ from jev_cookbook.evaluation import (
     select_threshold,
 )
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
+from jev_cookbook.live import DEFAULT_MAX_RETRIES
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -171,7 +172,7 @@ def test_deciding_every_document_once_each_makes_one_backend_decide_call_per_sto
     is exactly the bug this guards against. Deciding every document in ``fixtures/`` once each,
     through the shared ``helpers.decide_document_cached`` the notebook also uses, must call
     ``backend.decide`` exactly once per request ``fixtures/responses.json`` stores an answer
-    for -- the same count the README's live-mode budget note promises."""
+    for, matching the README's offline replay count."""
     examples = load_inputs(RECIPE)
     backend = get_backend(fixtures=responses_path(RECIPE))
     calls = 0
@@ -189,6 +190,36 @@ def test_deciding_every_document_once_each_makes_one_backend_decide_call_per_sto
 
     responses = json.loads((RECIPE / "fixtures" / "responses.json").read_text("utf-8"))
     assert calls == len(responses) == 52
+
+
+@pytest.mark.parametrize("select_candidate", [False, True])
+def test_live_request_bounds_for_both_stage_one_answer_paths(select_candidate):
+    """Exercise both ends of the request range with synthetic answers."""
+    examples = load_inputs(RECIPE)
+    stages = []
+
+    def script(state, questions, _rng):
+        if isinstance(next(iter(questions.values())), Choice):
+            stages.append(1)
+            return {
+                field: next(iter(state[field])) if select_candidate else helpers.NOT_FOUND
+                for field in questions
+            }
+        stages.append(2)
+        return {field: 1.0 for field in questions}
+
+    backend = ScriptedBackend(script)
+    cache: dict = {}
+    for example in examples:
+        helpers.decide_document_cached(backend, cache, example.id, example.fields)
+
+    eligible = sum(bool(helpers.stage1_fields(example.fields)) for example in examples)
+    assert stages == ([1, 2] if select_candidate else [1]) * eligible
+    upper_bound = 2 * eligible
+    readme = (RECIPE / "README.md").read_text("utf-8")
+    assert f"at most **{upper_bound}** logical requests" in readme
+    assert f"JEV_COOKBOOK_LIVE_MAX_REQUESTS={upper_bound}" in readme
+    assert f"up to **{upper_bound * (1 + DEFAULT_MAX_RETRIES)}** attempts" in readme
 
 
 def test_decide_document_cached_decides_each_document_at_most_once():
