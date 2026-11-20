@@ -1163,7 +1163,10 @@ class LocalizationReport:
     present targets with IoU >= ``iou_threshold``) over ``n_present``. A mean or rate with an
     empty denominator is NaN. ``ious`` has one entry per example: the IoU of a located present
     target, otherwise ``None``. Absent gold never contributes an IoU, and a review is never
-    counted as an absent prediction. ``str(report)`` names every denominator.
+    counted as an absent prediction. ``n_review`` is every example sent to review, present and
+    absent gold together, and ``review_rate`` is ``n_review / n_total`` (NaN only for a hand-built report with
+    ``n_total == 0``: ``localization_report`` never returns zero examples). ``str(report)`` names
+    every denominator.
     """
 
     n_total: int
@@ -1211,6 +1214,20 @@ class LocalizationReport:
         return _rate(self.correct_absents, self.n_absent)
 
     @property
+    def n_review(self) -> int:
+        """Examples sent to review, present and absent gold together: ``present_review +
+        absent_review``."""
+        return self.present_review + self.absent_review
+
+    @property
+    def review_rate(self) -> float:
+        """``n_review / n_total``: the share of all examples sent to review, one number for the
+        cost of the review branch. ``localization_report`` never returns a report with zero examples
+        (it raises ``ValueError`` on empty input), so NaN applies only to a report built by hand
+        with ``n_total == 0``."""
+        return _rate(self.n_review, self.n_total)
+
+    @property
     def denominators(self) -> dict[str, int]:
         """The denominator of every mean and rate in the report, by name."""
         return {
@@ -1219,6 +1236,7 @@ class LocalizationReport:
             "hit_rate": self.n_present,
             "false_positive_rate": self.n_absent,
             "correct_absent_rate": self.n_absent,
+            "review_rate": self.n_total,
         }
 
     def __str__(self) -> str:
@@ -1241,6 +1259,8 @@ class LocalizationReport:
                 + _share(self.false_positives, self.n_absent, "all absent targets"),
                 "  correct absent rate: "
                 + _share(self.correct_absents, self.n_absent, "all absent targets"),
+                "Sent to review, present and absent together: "
+                + _share(self.n_review, self.n_total, "all examples"),
             ]
         )
 
