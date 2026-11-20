@@ -10925,9 +10925,7 @@ def _printed_token_counts(recipe_dir_: Path) -> list[str]:
     ]
 
 
-@pytest.mark.parametrize(
-    "recipe", guarded_with_template("synthetic_output_prints_no_token_count")()
-)
+@pytest.mark.parametrize("recipe", guarded("synthetic_output_prints_no_token_count"))
 def test_a_synthetic_run_prints_no_token_count(recipe):
     """#312 (CONTRIBUTING.md section 2, docs/multimodal-track.md): a character count or an offline
     run does not demonstrate a token count, so a synthetic or scripted notebook that prints "262k
@@ -11866,6 +11864,7 @@ _LINES_THAT_ARE_NOT_TOKEN_COUNTS = {
     "a-field-not-measured": "input_tokens: None (not measured)",
     "a-field-label-only": "Access tokens issued by the login service expire after 3600 seconds.",
     "a-tokenizer-word": "tokenizer 3 is not used offline",
+    "a-digit-glued-to-a-word": "sha256 tokens are hashed with a salt before they are stored",
 }
 
 
