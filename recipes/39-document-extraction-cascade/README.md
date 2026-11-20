@@ -35,17 +35,18 @@ of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
-against that budget, including each retry. This notebook decides every document once and reuses
-the answer wherever it is shown again (the demo cells, the flip comparisons, both evaluation
-passes all read from the same cache), so no document is ever decided twice. In live mode it
-therefore makes exactly **52** requests in total across both stages: one stage-1 request per
-document that has a candidate for at least one field (bundling every such field's `Choice`
-question together), and one stage-2 request per document where stage 1 named a real candidate
-for at least one field (bundling every such field's `Noul` question together) — never more than
-two requests for one document, and none at all for a document where neither field has a
-candidate. 52 is above the default budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`), so set it to
-52 or higher before running this notebook live, or it stops partway through with
-`BudgetExceeded`. Never put a key in a notebook or a fixture.
+against that budget, including each retry. The notebook caches each document's cascade and
+reuses it in the demos, comparisons, and evaluation. On the supplied inputs, a live run makes
+at most **52** logical requests. The candidate extractor finds at least one candidate in 26
+documents. Each gets one stage-1 request bundling its `Choice` questions and at most one stage-2
+request bundling its `Noul` questions. Stage 2 is skipped when every stage-1 answer for a
+document is `not_found`. Documents with no candidates skip both stages. The offline replay
+makes exactly **52** requests because every document queried at stage 1 reaches stage 2.
+
+Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=52` or higher to cover the longest path without retries.
+With the live backend's default allowance of two retries per logical request, a run can consume
+up to **156** attempts. A run that reaches the configured cap stops with `BudgetExceeded` if
+it needs another attempt. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 
@@ -59,12 +60,11 @@ candidate. 52 is above the default budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS
   per field and up to two fields per document.
 - **Confidence gate:** on this fixture pool, the frozen confidence gate (`0.7000`) is exactly the
   lowest confidence any verification clearing the business threshold can have, so it can never
-  withhold a field the business threshold would not already withhold. The notebook sweeps every
-  possible verification confidence (1001 values) and finds the gate changes the composed outcome
-  0 times and only the review reason 699 times, then removes the gate from the rule entirely and
-  recomputes `test`'s field-level numbers, which come back identical. A gate drawn from above that
-  bound would still act, but only as the business threshold restated in different units — never as
-  a second, independent safeguard.
+  withhold a field the business threshold would not already withhold. The notebook samples 1001
+  verifier probabilities from 0 through 1. The gate changes 0 field outcomes on either side of the
+  threshold and changes 699 review reasons below it. Removing the gate also leaves the `test`
+  field-level numbers unchanged. On the accept side, a higher confidence gate acts as a higher
+  business threshold expressed in confidence units.
 
 The committed run replays 29 invented purchase documents (27 of them scored) with hand-written
 (synthetic) answers, several wrong on purpose: `v04`, `v06`, `v12` on `validation` and `t12` on
@@ -72,7 +72,7 @@ The committed run replays 29 invented purchase documents (27 of them scored) wit
 correct pick stage 2 wrongly doubts); `t08` has a field sent to review for being unconfident
 rather than inconsistent; and `t04` has a field stage 2 confidently, wrongly verifies — the one
 `test` error the frozen confidence gate and business threshold do not catch. Its field-level and
-task-level accuracy, coverage and risk, and the verification confidence sweep, check that the
+task-level accuracy, coverage and risk, and the verification probability sweep, check that the
 pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs. This
 recipe has no recorded fixtures.
 
