@@ -232,6 +232,11 @@ check id                              rule -> detection
                                        or is accurate/fast/cheap ..., or outperforms something,
                                        unless the same sentence, heading, list item or
                                        table row negates, hedges or attributes it.
+``synthetic_output_prints_no_token_count``
+                                       #312: in a synthetic or scripted run (read from the
+                                       fixtures), no committed output line prints a number
+                                       as a token count, in any cell: nothing offline measures
+                                       tokens, and characters or bytes are not tokens.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -5013,6 +5018,10 @@ THRESHOLD_OBJECTIVE_SPELLINGS = {
     "select_confidence_threshold": ("target_accuracy", "min_coverage"),
     "select_threshold": ("f1", "recall_at_precision", "precision_at_recall"),
 }
+# Every spelling of either function, for the extraction route's one-spelling rule.
+ALL_OBJECTIVE_SPELLINGS = frozenset(
+    spelling for spellings in THRESHOLD_OBJECTIVE_SPELLINGS.values() for spelling in spellings
+)
 
 
 def _import_aliases(tree: ast.AST) -> dict[str, str]:
@@ -6170,26 +6179,123 @@ def _locally_defined_function_names(tree: ast.AST) -> set[str]:
     return {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
 
 
-def _extraction_checked(name: str, func: ast.FunctionDef) -> bool:
-    """True if ``name`` is checked, anywhere in ``func``, by the ONE narrow idiom the
-    extraction route (below) trusts: ``assert <name> is not None`` (either operand order) --
-    not merely referenced in some assert, which a reviewer showed is satisfied by an unrelated
-    ``not in`` comparison or a wholly disconnected ``assert len(x) > 0``. ``is not None``
-    specifically claims "the extraction for this keyword actually matched something in the
-    real call"; that is the one fact this idiom can honestly stand for, so it is the only one
-    this route accepts. Only an assert that always runs counts (``_unconditional_asserts``)."""
-    for node in _unconditional_asserts(func.body):
-        if not isinstance(node.test, ast.Compare):
+def _extraction_checked(name: str, func: ast.FunctionDef, after: int = -1) -> bool:
+    """True if ``func.body`` has, as a top-level statement later than ``func.body[after]``, the
+    bare statement ``assert <name> is not None`` (either operand order: ``name is not None`` or
+    ``None is not name``). One side must be exactly the Name ``name`` and the other exactly the
+    constant ``None``; a wrapped operand such as ``(a or b) is not None``, ``(a, b) is not
+    None``, ``str(a) is not None`` or ``[a] is not None`` is not the idiom (the last three are
+    always true, the first holds whichever name matched). Not merely referenced in some assert,
+    which an unrelated ``not in`` comparison or a disconnected ``assert len(x) > 0`` would
+    satisfy. An assert nested under ``if``, ``try``, a loop or ``with`` does not count (it may
+    not run), and neither does one after a statement that can end the test (``return``,
+    ``raise``, ``pytest.skip``/``xfail``/``exit``/``fail``, including under an ``if``): only an
+    assert in ``_unconditional_asserts(func.body)`` is credited."""
+    always_runs = {id(assertion) for assertion in _unconditional_asserts(func.body)}
+    for node in func.body[after + 1 :]:
+        if id(node) not in always_runs:
+            continue
+        if not (isinstance(node, ast.Assert) and isinstance(node.test, ast.Compare)):
             continue
         test = node.test
         if len(test.ops) != 1 or not isinstance(test.ops[0], ast.IsNot):
             continue
-        sides = (test.left, test.comparators[0])
-        if name not in {n for side in sides for n in _ast_names(side)}:
-            continue
-        if any(isinstance(side, ast.Constant) and side.value is None for side in sides):
-            return True
+        left, right = test.left, test.comparators[0]
+        for value, none in ((left, right), (right, left)):
+            if (
+                isinstance(value, ast.Name)
+                and value.id == name
+                and isinstance(none, ast.Constant)
+                and none.value is None
+            ):
+                return True
     return False
+
+
+def _binding_count(name: str, func: ast.FunctionDef) -> int:
+    """How many times ``name`` is bound anywhere in ``func`` (nested scopes included, which
+    only makes the count higher and the check stricter): every Name in a Store/Del context
+    (assignment, augmented and annotated assignment, tuple unpacking, ``:=``, ``for`` targets,
+    ``with ... as``, comprehension targets), ``except ... as``, nested ``def``/``class`` names,
+    import aliases, ``match`` captures and parameters."""
+    count = 0
+    for node in ast.walk(func):
+        if isinstance(node, ast.Name) and node.id == name:
+            count += isinstance(node.ctx, ast.Store | ast.Del)
+        elif isinstance(node, ast.ExceptHandler):
+            count += node.name == name
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            count += node is not func and node.name == name
+        elif isinstance(node, ast.alias):
+            count += (node.asname or node.name.split(".")[0]) == name
+        elif isinstance(node, ast.MatchAs | ast.MatchStar):
+            count += node.name == name
+        elif isinstance(node, ast.MatchMapping):
+            count += node.rest == name
+        elif isinstance(node, ast.arg):
+            count += node.arg == name
+    return count
+
+
+def _extraction_literals(call: ast.Call, tainted: set[str]) -> list[str] | None:
+    """The string literals an extracting call names, or ``None`` when the call is not the
+    credited shape: the first positional argument must be a tainted Name (the source), every
+    other argument a plain positional string ``Constant``, and there must be no keyword
+    argument at all (not even ``**kwargs``). Anything else, such as a literal first argument, a
+    Name, a concatenation, an f-string, a nested call or a keyword, could carry a second
+    objective spelling this check cannot see."""
+    if call.keywords or not call.args:
+        return None
+    first = call.args[0]
+    if not (isinstance(first, ast.Name) and first.id in tainted):
+        return None
+    literals: list[str] = []
+    for extra in call.args[1:]:
+        if not (isinstance(extra, ast.Constant) and isinstance(extra.value, str)):
+            return None
+        literals.append(extra.value)
+    return literals
+
+
+def _extraction_spelling(
+    statement: ast.stmt,
+    index: int,
+    func: ast.FunctionDef,
+    tainted: set[str],
+    locally_defined: set[str],
+) -> str | None:
+    """The one objective spelling ``func.body[index]`` extracts and ties to an
+    ``assert <name> is not None``, or ``None`` when the statement is not credited. See
+    ``_spellings_pinned_by_assertions`` for the three rules."""
+    if not (
+        isinstance(statement, ast.Assign)
+        and len(statement.targets) == 1
+        and isinstance(statement.targets[0], ast.Name)
+        and statement.targets[0].id in tainted
+        and isinstance(statement.value, ast.Call)
+        and isinstance(statement.value.func, ast.Name)
+        and statement.value.func.id in locally_defined
+    ):
+        return None
+    target = statement.targets[0].id
+    # Rule 1: bound exactly once, by this top-level statement, checked by a later top-level assert
+    # that always runs: nothing before the assignment or between it and the assert may end the
+    # test (a ``return``, ``raise`` or ``pytest.skip``, also under an ``if``).
+    if any(_may_leave_the_test(earlier) for earlier in func.body[:index]):
+        return None
+    if _binding_count(target, func) != 1 or not _extraction_checked(target, func, index):
+        return None
+    # Rule 2: the call's shape.
+    literals = _extraction_literals(statement.value, tainted)
+    if literals is None:
+        return None
+    # Rule 3: the literals name exactly one objective spelling, by the matcher the pin check uses.
+    named = {
+        spelling
+        for spelling in ALL_OBJECTIVE_SPELLINGS
+        if any(_objective_token_present(spelling, literal) for literal in literals)
+    }
+    return next(iter(named)) if len(named) == 1 else None
 
 
 def _spellings_pinned_by_assertions(
@@ -6208,16 +6314,30 @@ def _spellings_pinned_by_assertions(
       44), ``objective == "f1"`` (42), and ``f"min_coverage={MIN_COVERAGE}"`` f-string (46) all
       need, and what the mutation findings in #244 and #276 exist to close: crediting the wrong
       side of a negative claim, and crediting a spelling that merely co-occurs with taint.
-    * **Extraction.** An assignment ``name = <tainted call>`` to a LOCALLY DEFINED function
-      (``locally_defined`` -- never a built-in string/list method such as ``.replace(...)`` or
-      ``.count(...)``, which would otherwise let an unrelated tainted expression, such as a
-      mutation-proof's own ``source.replace(pinned, "target_accuracy=1.0")``, donate its
-      literal argument as if it were a real pin) whose call's own arguments already name the
-      spelling being extracted (recipe 42's ``min_coverage = _call_keyword_value(source,
-      "select_confidence_threshold", "min_coverage")``) -- the keyword being pinned is a Python
-      identifier, never re-stated as a literal in the later assert (``assert min_coverage is
-      not None``), so the direct route alone misses it. Credited only when the extracted name
-      is checked by the one idiom ``_extraction_checked`` trusts."""
+    * **Extraction.** ``name = _helper(source, "lit", ...)`` through a LOCALLY DEFINED function
+      (``locally_defined`` -- never a built-in string/list method such as ``.replace(...)``,
+      which would let a mutation-proof's own ``source.replace(pinned, "target_accuracy=1.0")``
+      donate its literal as if it were a real pin), followed by ``assert name is not None``
+      (either operand order; recipe 42's ``min_coverage = _call_keyword_value(source,
+      "select_confidence_threshold", "min_coverage")``). The keyword being pinned is never
+      re-stated as a literal in the later assert, so the direct route alone misses it. The
+      route fails closed: an extraction is credited only when ALL of these hold.
+
+      1. ``name`` is bound exactly once in the test function (every kind of binding counts),
+         by an unconditional top-level statement of its body, and the ``assert name is not
+         None`` is a later top-level statement. An ``if``/``try`` fallback into the same name,
+         an assignment under ``if False:``, a loop rebinding, or an assert placed before the
+         assignment is therefore not credited.
+      2. The first positional argument is a tainted Name (the source), every other argument is
+         a plain positional string literal, and the call has no keyword argument at all.
+      3. By ``_objective_token_present`` (the matcher ``_objective_pin_violations`` uses), the
+         literals together name exactly ONE distinct objective spelling across every spelling
+         of both threshold functions. Zero or several name nothing, so ``"f1"`` with
+         ``"min_coverage"``, or ``"f1-gate"`` (which contains the token f1) with another
+         spelling, is refused. Only that one spelling is credited, never the raw literals.
+
+      The helper's own body is not read, so a helper that falls back to another spelling
+      inside its body is not detected (#540)."""
     pinned: set[str] = set()
     frozen_taint = _Taint(tainted, _embedded_texts(func, tainted))
     nonempty = _asserted_nonempty_names(func)
@@ -6225,23 +6345,10 @@ def _spellings_pinned_by_assertions(
     for node in _unconditional_asserts(func.body):
         pinned |= _entailed_spellings(node.test, True, frozen_taint, nonempty)
 
-    for node in ast.walk(func):
-        if not (
-            isinstance(node, ast.Assign)
-            and len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
-            and node.targets[0].id in tainted
-            and isinstance(node.value, ast.Call)
-            and isinstance(node.value.func, ast.Name)
-            and node.value.func.id in locally_defined
-        ):
-            continue
-        target = node.targets[0].id
-        if not _extraction_checked(target, func):
-            continue
-        for const in ast.walk(node.value):
-            if isinstance(const, ast.Constant) and isinstance(const.value, str):
-                pinned.add(const.value)
+    for index, statement in enumerate(func.body):
+        spelling = _extraction_spelling(statement, index, func, tainted, locally_defined)
+        if spelling is not None:
+            pinned.add(spelling)
 
     return pinned
 
@@ -6480,6 +6587,194 @@ def test_probe():
     )
     pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined={"_call_keyword_value"})
     assert "min_coverage" in pinned, "the genuine extraction idiom was not credited"
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        # shapes the rule refuses
+        (
+            'a = _pull(source, "min_coverage")\n    b = _pull(source, "target_accuracy")\n'
+            "    assert (a or b) is not None",
+            set(),
+        ),
+        (
+            'a = _pull(source, "min_coverage")\n    b = _pull(source, "target_accuracy")\n'
+            "    assert (a, b) is not None",
+            set(),
+        ),
+        ('a = _pull(source, "min_coverage")\n    assert str(a) is not None', set()),
+        ('a = _pull(source, "min_coverage")\n    assert [a] is not None', set()),
+        ('a = _pull(source, "min_coverage", OTHER)\n    assert a is not None', set()),
+        ('a = _pull(source, "min_coverage", *OTHERS)\n    assert a is not None', set()),
+        (
+            'a = _pull(source, "min_coverage", "target" + "_accuracy")\n    assert a is not None',
+            set(),
+        ),
+        ('a = _pull(source, "min_coverage", fallback=FALLBACK)\n    assert a is not None', set()),
+        ('a = _pull(source, "min_coverage", **OTHERS)\n    assert a is not None', set()),
+        (
+            'a = _pull(source, "min_coverage", cell("precision_at_recall-notes"))\n'
+            "    assert a is not None",
+            set(),
+        ),
+        # rule 3: two spellings, whole-token matches
+        (
+            'a = _pull(source, "min_coverage", "target_accuracy")\n    assert a is not None',
+            set(),
+        ),
+        ('a = _pull(source, "f1-gate", "min_coverage")\n    assert a is not None', set()),
+        ('a = _pull(source, "f1", "min_coverage")\n    assert a is not None', set()),
+        ('a = _pull(source, "min_coverage", "target_accuracy=")\n    assert a is not None', set()),
+        (
+            'a = _pull(source, "min_coverage", "select_confidence_threshold(target_accuracy")\n'
+            "    assert a is not None",
+            set(),
+        ),
+        ('a = _pull(source, "select_confidence_threshold")\n    assert a is not None', set()),
+        # rule 2: keyword names and a literal first argument
+        ('a = _pull(source, "min_coverage", target_accuracy="")\n    assert a is not None', set()),
+        ('a = _pull("target_accuracy", "min_coverage")\n    assert a is not None', set()),
+        # rule 1: one unconditional top-level binding, then a top-level assert
+        (
+            'a = _pull(source, "min_coverage")\n    if a is None:\n'
+            '        a = _pull(source, "target_accuracy")\n    assert a is not None',
+            set(),
+        ),
+        (
+            'try:\n        a = _pull(source, "min_coverage")\n    except KeyError:\n'
+            '        a = _pull(source, "target_accuracy")\n    assert a is not None',
+            set(),
+        ),
+        ('if False:\n        a = _pull(source, "min_coverage")\n    assert a is not None', set()),
+        (
+            'a = _pull(source, "min_coverage")\n    for a in OTHERS:\n        pass\n'
+            "    assert a is not None",
+            set(),
+        ),
+        ('assert a is not None\n    a = _pull(source, "min_coverage")', set()),
+        (
+            'a = _pull(source, "min_coverage")\n    if True:\n        assert a is not None',
+            set(),
+        ),
+        # rule 1: nothing before the assert may end the test
+        (
+            'a = _pull(source, "min_coverage")\n    return\n    assert a is not None',
+            set(),
+        ),
+        (
+            'a = _pull(source, "min_coverage")\n    pytest.skip("x")\n    assert a is not None',
+            set(),
+        ),
+        (
+            'return\n    a = _pull(source, "min_coverage")\n    assert a is not None',
+            set(),
+        ),
+        (
+            'a = _pull(source, "min_coverage")\n    if a is None:\n        raise KeyError\n'
+            "    assert a is not None",
+            set(),
+        ),
+        (
+            'a = _pull(source, "min_coverage")\n    if a is None:\n        pytest.skip("x")\n'
+            "    assert a is not None",
+            set(),
+        ),
+        # credited: one spelling, either assert order
+        (
+            'a = _pull(source, "select_confidence_threshold", "min_coverage")\n'
+            "    assert a is not None",
+            {"min_coverage"},
+        ),
+        (
+            'a = _pull(source, "select_confidence_threshold", "min_coverage")\n'
+            "    assert None is not a",
+            {"min_coverage"},
+        ),
+        ('a = _pull(source, "min_coverage")\n    assert a is not None', {"min_coverage"}),
+        ('a = _pull(source, "f1-gate")\n    assert a is not None', {"f1"}),
+    ],
+)
+def test_extraction_route_credits_only_one_literal_spelling(body, expected):
+    """#338: the extraction route credits ``a = _pull(source, "lit", ...)`` only when ``a`` is
+    bound exactly once by a top-level statement before a top-level bare ``assert a is not None``
+    (either operand order), the first argument is the tainted source and every other argument a
+    plain positional string literal (no keywords), and the literals name exactly one objective
+    spelling by whole-token match; only that spelling is credited."""
+    func = _single_test_function(
+        f"def test_probe():\n    source = read_the_real_notebook()\n    {body}\n"
+    )
+    pinned = _spellings_pinned_by_assertions(func, {"source", "a", "b"}, locally_defined={"_pull"})
+    assert pinned == expected, pinned
+
+
+def test_flipping_recipe_42s_objective_turns_its_extraction_pin_red(tmp_path):
+    """#338's flip-mutation test for the extraction route, on the recipe that uses it (42): the
+    copy passes; with the notebook's confidence gate flipped from ``min_coverage`` to
+    ``target_accuracy`` its genuine extraction pin goes red; and with that pin rewritten into the
+    pooled two-spelling shape (the one that used to pass a flipped notebook) it stays red."""
+    folder = _copy_recipe(tmp_path, "42-outbound-disclosure-screening")
+    assert _objective_pin_violations(folder) == []
+    _edit_notebook_code(folder, "min_coverage=0.75", "target_accuracy=1.0")
+    assert _objective_pin_violations(folder), "the flipped objective still passed"
+
+    tests_file = folder / "tests" / "test_helpers.py"
+    text = tests_file.read_text("utf-8")
+    genuine = (
+        'min_coverage = _call_keyword_value(source, "select_confidence_threshold", "min_coverage")'
+    )
+    assert text.count(genuine) == 1
+    pooled = 'min_coverage = _pull(source, "min_coverage", "target_accuracy")'
+    helper = (
+        "\n\ndef _pull(source, *keywords):\n"
+        "    for keyword in keywords:\n"
+        '        value = _call_keyword_value(source, "select_confidence_threshold", keyword)\n'
+        "        if value is not None:\n"
+        "            return value\n"
+        "    return None\n"
+    )
+    # Precondition: the helper is seen as locally defined, so the same pin with ONE spelling
+    # (the helper appended, the genuine call kept) is still credited.
+    tests_file.write_text(text + helper, "utf-8")
+    assert "min_coverage" in _pinned_objective_spellings(folder)
+    tests_file.write_text(text.replace(genuine, pooled) + helper, "utf-8")
+    pinned = _pinned_objective_spellings(folder)
+    assert not {"min_coverage", "target_accuracy"} & pinned, pinned
+    assert _objective_pin_violations(folder), "the pooled extraction passed a flipped notebook"
+
+
+def test_flipping_recipe_42s_objective_stays_red_when_the_extraction_asserts_are_skipped(
+    tmp_path,
+):
+    """Two skip-guarded extractions (one per spelling, each ``if x is None: pytest.skip(...)``
+    before its ``assert x is not None``) must not pool both spellings: the asserts may never run,
+    so the flipped notebook has to stay red."""
+    folder = _copy_recipe(tmp_path, "42-outbound-disclosure-screening")
+    tests_file = folder / "tests" / "test_helpers.py"
+    text = tests_file.read_text("utf-8")
+    start = text.index("def test_notebook_pins_the_confidence_gate_keyword_and_value")
+    end = text.index("def _decide_cache_guard_present")
+    template = (
+        "def test_pins_{keyword}():\n"
+        '    source = _notebook_cell_source("python-rule")\n'
+        '    value = _call_keyword_value(source, "select_confidence_threshold", "{keyword}")\n'
+        "    if value is None:\n"
+        '        pytest.skip("absent")\n'
+        "    assert value is not None\n\n\n"
+    )
+    two = "".join(template.format(keyword=k) for k in ("min_coverage", "target_accuracy"))
+    tests_file.write_text(text[:start] + two + text[end:], "utf-8")
+    assert not {"min_coverage", "target_accuracy"} & _pinned_objective_spellings(folder)
+    _edit_notebook_code(folder, "min_coverage=0.75", "target_accuracy=1.0")
+    assert _objective_pin_violations(folder), "skip-guarded extractions passed a flipped notebook"
+
+
+def test_flipping_recipe_28s_objective_turns_its_production_tie_pin_red(tmp_path):
+    """#338's flip-mutation test for the production-tie route, on the recipe that uses it (28)."""
+    folder = _copy_recipe(tmp_path, "28-skill-selection")
+    assert _objective_pin_violations(folder) == []
+    _edit_notebook_code(folder, "min_coverage=helpers.MARGIN_MIN_COVERAGE", "target_accuracy=1.0")
+    assert _objective_pin_violations(folder), "the flipped objective still passed"
 
 
 def test_import_alias_is_resolved_across_notebook_cells_not_per_cell(tmp_path):
@@ -7175,9 +7470,17 @@ def _objective_pin_violations(recipe_dir_: Path) -> list[str] | None:
                 "assertion in tests/ that this check can tie to the real committed call. Credited "
                 "routes: (1) an assert that CLAIMS the spelling is present in a value derived "
                 "from a read of the committed notebook.ipynb / helpers.py (not a tmp_path copy) "
-                "or from inspect.getsource(helpers.<fn>); (2) `name = _your_helper(source, ...)` "
-                "through a function defined in the test file, then `assert name is not None` "
-                "(the only truthiness check credited there); (3) a production call tied by `==` "
+                'or from inspect.getsource(helpers.<fn>); (2) `name = _your_helper(source, "lit", ...)` '
+                "through a function defined in the test file, where `name` is bound exactly once "
+                "in the test, by an unconditional top-level assignment, and a later top-level "
+                "`assert name is not None` (or `None is not name`) that always runs follows (nothing "
+                "between the assignment and the assert may end the test: no return, raise or "
+                "pytest.skip; an assert inside `with` is not credited here); the first argument is "
+                "the tainted source Name, every other argument a plain positional string "
+                "literal, and no keyword arguments; and the literals together name exactly ONE "
+                'objective spelling by whole-token match (two spellings, such as "f1" with '
+                '"min_coverage", or "f1-gate" with another spelling, are refused); '
+                "(3) a production call tied by `==` "
                 "to a local re-derivation, with a `!=` assert against a sibling objective. "
                 "`is False`, `.count(...) == 0` and a hand-typed copy of the needle in the "
                 "compared value do not count. Only asserts that run count: directly in a "
@@ -10159,6 +10462,9 @@ def test_the_inventory_matches_what_the_published_recipes_do_today():
 # * ``no_unhedged_quality_claim_about_jev``: in a recipe whose answers are all synthetic, no
 #   sentence says Jev or the model does something correctly, reliably, well ... or is accurate,
 #   fast, cheap ... without a negation, a hypothetical or an attribution in the same sentence.
+# * ``synthetic_output_prints_no_token_count``: in a synthetic or scripted run, no committed
+#   output line prints a token count ("262k tokens", "1,200 input tokens", "input_tokens: 1200"):
+#   nothing offline measures tokens, and a character or byte count is not one (#312).
 
 PIPELINE_CHECK_LABEL = "(a pipeline check, not a Jev result)"
 SYNTHETIC_RUN_MODES = ("synthetic", "scripted")
@@ -10170,6 +10476,7 @@ HONESTY_CHECKS = (
     "metric_output_lines_carry_pipeline_check",
     "prose_quantities_are_printed",
     "no_unhedged_quality_claim_about_jev",
+    "synthetic_output_prints_no_token_count",
 )
 
 _MODE_LINE = re.compile(
@@ -10962,6 +11269,47 @@ def test_no_sentence_says_jev_does_well_in_a_synthetic_recipe(recipe):
     all ("Jev judges from the evidence as a whole"); the reviewer reads for those."""
     violations = _unhedged_quality_claims(recipe_dir(recipe))
     assert not violations, _honesty_failure("claim about Jev", violations)
+
+
+# A number printed as a count of tokens: "262k tokens", "1,200 input tokens", "a 64k-token
+# request", or a token field printed with its value ("input_tokens: 1200", "'tokens': 37").
+# Prose about authentication tokens ("a refresh token stays valid for 30 days") puts no number
+# directly in front of the word, and a field printed as ``None`` or ``not measured`` has no digit.
+_TOKEN_COUNT = re.compile(
+    r"\b\d[\d,]*(?:\.\d+)?(?:\s?[km]\b)?[\s-]?"
+    r"(?:(?:input|output|prompt|completion|context|total)[\s-])?tokens?\b"
+    r"|(?<![a-z])tokens?\b['\"]?\s*[:=]\s*\d",
+    re.IGNORECASE,
+)
+
+
+def _printed_token_counts(recipe_dir_: Path) -> list[str]:
+    """In a run whose stored answers are synthetic or scripted, every committed output line that
+    prints a token count. Every cell is read, the measured cell included: offline, that cell
+    prints the not-measured disclosure, and nothing an offline run computes is a token count (a
+    locally computed context size is characters or bytes). A recorded run is out of scope here;
+    the reviewer holds its numbers to its model, date and N."""
+    if _fixture_provenance(recipe_dir_)[0] not in SYNTHETIC_RUN_MODES:
+        return []
+    return [
+        f"cell {cell_id}: {line.strip()!r}"
+        for cell_id, line in _committed_output_lines(recipe_dir_)
+        if _TOKEN_COUNT.search(line)
+    ]
+
+
+@pytest.mark.parametrize("recipe", guarded("synthetic_output_prints_no_token_count"))
+def test_a_synthetic_run_prints_no_token_count(recipe):
+    """#312 (CONTRIBUTING.md section 2, docs/multimodal-track.md): a character count or an offline
+    run does not demonstrate a token count, so a synthetic or scripted notebook that prints "262k
+    tokens", "1,200 input tokens" or "input_tokens: 1200" states a measurement nobody made. Keyed
+    on the committed output and on the provenance the fixtures carry. Limits: it reads output, not
+    prose (``prose_quantities_are_printed`` and the reviewer cover a quoted figure); a count
+    spelled without a digit ("two hundred tokens") passes; and an in-fiction count of
+    authentication tokens printed with a number in front ("3 tokens revoked") fails, so such a
+    recipe says "3 credentials revoked" instead."""
+    violations = _printed_token_counts(recipe_dir(recipe))
+    assert not violations, _honesty_failure("a token count printed by an offline run", violations)
 
 
 # --- the tests for checks 12-16 ----------------------------------------------------------------
@@ -11873,6 +12221,65 @@ def test_the_honesty_doc_anchor_resolves_and_the_doc_names_every_check_and_its_l
     assert "the reviewer's alone" in section
     for check in ("metric_lines_carry_check", "validation_lines_carry_selection_and_check"):
         assert f"`{check}`" in section and "Their existence is not evidence" in section
+
+
+_TOKEN_COUNTS_THAT_FAIL = {
+    "k-suffix": "context: 262k tokens",
+    "thousands-separator": "the request used 1,200 input tokens",
+    "hyphenated-adjective": "a 64k-token request fits the limit",
+    "field-and-value": "input_tokens: 1200",
+    "dict-repr": "{'tokens': 37, 'characters': 180}",
+    "singular": "1 token per word",
+}
+_LINES_THAT_ARE_NOT_TOKEN_COUNTS = {
+    "an-auth-token": "A refresh token stays valid for 30 days unless the password changes.",
+    "a-character-count": "context: 262,144 characters (11,904 UTF-8 bytes)",
+    "a-field-not-measured": "input_tokens: None (not measured)",
+    "a-field-label-only": "Access tokens issued by the login service expire after 3600 seconds.",
+    "a-tokenizer-word": "tokenizer 3 is not used offline",
+    "a-digit-glued-to-a-word": "sha256 tokens are hashed with a salt before they are stored",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_TOKEN_COUNTS_THAT_FAIL))
+def test_a_token_count_printed_by_a_synthetic_run_fails(tmp_path, case):
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _printed_token_counts(folder) == []
+    _append_cell(folder, "code", _TOKEN_COUNTS_THAT_FAIL[case])
+    violations = _printed_token_counts(folder)
+    assert len(violations) == 1 and "honesty-probe" in violations[0], violations
+
+
+@pytest.mark.parametrize("case", sorted(_LINES_THAT_ARE_NOT_TOKEN_COUNTS))
+def test_a_line_that_counts_no_tokens_passes(tmp_path, case):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "code", _LINES_THAT_ARE_NOT_TOKEN_COUNTS[case])
+    assert _printed_token_counts(folder) == [], case
+
+
+def test_a_token_count_in_the_measured_cell_of_a_synthetic_run_fails_too(tmp_path):
+    """The measured cell is not exempt offline: its offline branch prints the not-measured
+    disclosure, so a token count there is the same unmeasured claim as anywhere else."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _edit_streams(
+        folder,
+        "Provenance: synthetic. Not measured live: a pipeline check, not a Jev result.",
+        "Provenance: synthetic. Not measured live: a pipeline check, not a Jev result.\n"
+        "input tokens: 4,096",
+    )
+    violations = _printed_token_counts(folder)
+    assert len(violations) == 1 and "cell measured" in violations[0], violations
+
+
+def test_a_recorded_run_may_print_its_token_count(tmp_path):
+    """The other direction: the check keys on the provenance the fixtures carry, so the same line
+    in a recorded run is not this check's business (the recorded ledger records tokens)."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder)
+    _append_cell(folder, "code", _TOKEN_COUNTS_THAT_FAIL["thousands-separator"])
+    assert _printed_token_counts(folder) == []
+    _append_cell(folder, "code", "input_tokens: 1200", cell_id="second-probe")
+    assert _printed_token_counts(folder) == []
 
 
 def _strip_labels_from_outputs(folder: Path) -> None:
