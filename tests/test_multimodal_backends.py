@@ -298,6 +298,42 @@ def test_live_headers_sdk_conversion_and_budget(fake_sdk):
     assert len(client.calls) == 1
 
 
+def test_images_header_follows_each_request_through_the_same_backend(fake_sdk):
+    text_question = {"target": Noul(instructions="Is the target visible?")}
+    client = Client(
+        {
+            "model": "jev-1.14.0",
+            "answers": {"target": {"type": "noul", "noul": 0.9}},
+        }
+    )
+    backend = LiveBackend("jev-1.14.0", client=client, images=True)
+
+    backend.decide("Check the target.", text_question)
+    backend.decide(STATE, text_question, assets=image_assets())
+    backend.decide("Check the target again.", text_question, assets={})
+
+    first_text, multimodal_call, last_text = client.calls
+    assert "extra_headers" not in first_text
+    assert multimodal_call["extra_headers"] == {"TypeSafe-Danger-Zone-Images": "true"}
+    assert "extra_headers" not in last_text
+    assert backend.requests_made == 3
+
+
+def test_long_context_alone_still_refuses_image_assets_and_box_questions():
+    client = Client()
+    backend = LiveBackend("jev-1.14.0", client=client, long_context=True, images=False)
+    assets = image_assets()
+
+    with pytest.raises(LiveConfigError, match="images=True"):
+        backend.decide(
+            STATE, {"target": Noul(instructions="Is the target visible?")}, assets=assets
+        )
+    with pytest.raises(LiveConfigError, match="images=True"):
+        backend.decide(STATE, QUESTIONS, assets=assets)
+
+    assert backend.requests_made == 0 and client.calls == []
+
+
 @pytest.mark.parametrize(
     "model,images", [("jev-1.13.0", True), ("jev-latest", True), ("jev-1.14.0", False)]
 )

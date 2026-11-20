@@ -18,6 +18,7 @@ recipes/NN-slug/
 ├── assets/            multimodal only: the images sent to Jev (PNG or baseline JPEG, at most 1 MiB each, no metadata); see docs/fixtures.md
 ├── helpers.py         optional: logic too long to read comfortably in a cell (level 3 and up)
 ├── side_effects.json  the recipe's side-effect declaration, scaffolded as a placeholder (section 4)
+├── request_budget.json  the declared live request count, rendered into the README
 └── tests/             optional: tests for helpers.py, required wherever helpers.py enforces a rule
 ```
 
