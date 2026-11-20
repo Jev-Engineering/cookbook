@@ -394,7 +394,8 @@ def render_budget_note(budget: RequestBudget) -> str:
     backends = budget.backends
     if len(backends) == 1:
         (only,) = backends
-        first = f"In live mode this notebook makes exactly **{budget.total}** requests"
+        noun = "request" if only.requests == 1 else "requests"
+        first = f"In live mode this notebook makes exactly **{only.requests}** {noun}"
         first += _repeats(only, whole=True)
         if only.at_most > only.requests:
             first += (
