@@ -168,13 +168,14 @@ def live_text() -> str:
     return (DOCS / "live.md").read_text("utf-8")
 
 
-def test_live_md_says_the_flag_belongs_to_the_backend_not_to_the_call():
+def test_live_md_documents_request_conditions_for_experimental_headers():
     body = squash(section(live_text(), "### Experimental images and long context"))
     for needle in (
-        "a backend built with `images=True` sends the images header on every call it makes",
-        "including a call with no image or Box question",
-        "a backend built with `long_context=True` does the same with the long-context header",
-        "a backend built without a flag sends no header for it",
+        "Both default to false.",
+        "`TypeSafe-Danger-Zone-Images: true` only on requests with an image asset or a Box question",
+        "Calls with neither omit the images header",
+        "requires `images=True` for image assets and Box questions, whatever `long_context` is",
+        "`TypeSafe-Danger-Zone-Long-Context: true` on every request",
     ):
         assert needle in body, needle
 
@@ -244,7 +245,6 @@ class _Client:
         return _Resp(body)
 
 
-IMAGES = {"TypeSafe-Danger-Zone-Images": "true"}
 LONG_CONTEXT = {"TypeSafe-Danger-Zone-Long-Context": "true"}
 
 
@@ -252,14 +252,12 @@ LONG_CONTEXT = {"TypeSafe-Danger-Zone-Long-Context": "true"}
     "flags,expected",
     [
         ({}, None),
-        ({"images": True}, IMAGES),
+        ({"images": True}, None),
         ({"long_context": True}, LONG_CONTEXT),
-        ({"images": True, "long_context": True}, {**IMAGES, **LONG_CONTEXT}),
+        ({"images": True, "long_context": True}, LONG_CONTEXT),
     ],
 )
-def test_a_text_only_call_carries_the_headers_of_the_flags_the_backend_was_built_with(
-    flags, expected
-):
+def test_a_text_only_call_omits_the_images_header_and_respects_long_context(flags, expected):
     client = _Client()
     backend = LiveBackend(
         "jev-1.13.0", client=client, today=lambda: "2026-10-31", sleep=lambda s: None, **flags
