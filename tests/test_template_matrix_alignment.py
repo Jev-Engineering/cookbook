@@ -14,6 +14,9 @@ label width, the same harness reports the misalignment on the case that exercise
 
 This harness exercises the template cell with synthetic counts. The per-recipe stdout guard
 in ``test_recipe_matrix_alignment.py`` checks the tables published in committed notebooks.
+
+Recipe 23 still carries an older formulation (the ``ljust(len(...`` form) until #585 merges;
+converging the published recipes on one formula is the rest of #217 and is not done here.
 """
 
 from __future__ import annotations

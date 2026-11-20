@@ -101,9 +101,3 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "35-semantic-feature-extraction",
     )
 }
-
-# The new matrix guard detects pre-existing drift in this published notebook.
-KNOWN_FAILURES[("46-semantic-context-paging", "matrix_column_alignment")] = (
-    "matrix_column_alignment: rubric-eval's one-character columns shift the gold 0 row "
-    "one character right when its first count is 12; see #217"
-)
