@@ -69,13 +69,8 @@ def request_data(fields, recipe_dir):
     return state, {ref: asset}
 
 
-def build_questions(state):
-    """Independent questions about one screenshot share a single request.
-
-    The three propositions and the rectangle do not depend on one another's answers, so they
-    are asked together. The Box describes the concrete target in its instructions (a Box has no
-    criteria); Python decides afterwards whether the rectangle may be used.
-    """
+def noul_questions():
+    """The three independent propositions about one screenshot."""
     return {
         "present": Noul(instructions="The screenshot visibly contains the named target control."),
         "unique": Noul(
@@ -90,6 +85,18 @@ def build_questions(state):
                 "rather than greyed out, disabled, or covered."
             )
         ),
+    }
+
+
+def build_questions(state):
+    """Independent questions about one screenshot share a single request.
+
+    The three propositions and the rectangle do not depend on one another's answers, so they
+    are asked together. The Box describes the concrete target in its instructions (a Box has no
+    criteria); Python decides afterwards whether the rectangle may be used.
+    """
+    return {
+        **noul_questions(),
         "target_box": Box(
             instructions=(
                 f"Locate the single {state['kind']} labelled {state['target']!r} in the screenshot. "

@@ -259,7 +259,11 @@ def test_the_notebook_demo_uses_the_frozen_policy_not_a_typed_gate():
     sources = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
     code = "\n".join(sources)
     assert "Policy(" not in code
-    assert code.index("helpers.select_policy(") < code.index("helpers.observe(backend, demo.fields")
+    freeze = code.index("helpers.select_policy(")
+    demo_observe = code.index("helpers.observe(backend, demo.fields")
+    # The typed answers come first, then the freeze, then the demo is routed and simulated.
+    assert demo_observe < freeze
+    assert freeze < code.index("helpers.route(") < code.index("helpers.simulate(")
 
 
 def test_validation_selection_is_frozen_and_test_contains_accepted_error():

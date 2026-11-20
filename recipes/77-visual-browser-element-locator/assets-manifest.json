@@ -27,7 +27,7 @@
     },
     {
       "path": "assets/aspen.png",
-      "sha256": "16e954adaa51ae2adccfe7f4abf3424102b936e362dbffd818fed78e8de85a6b",
+      "sha256": "8db60671356150570c257705aa82d165e53e4eae39c19b80aca51bdce8d1242f",
       "format": "PNG",
       "width": 512,
       "height": 384,
@@ -75,7 +75,7 @@
     },
     {
       "path": "assets/breeze.png",
-      "sha256": "d146f5448e13486d172c970dc4b109e4446d6de00420c5e64f1479a5b4106f1e",
+      "sha256": "1caf2fc112d73502c11cb2621abf72d39432e50943b374f9fd3c4648a0519f50",
       "format": "PNG",
       "width": 512,
       "height": 384,
@@ -171,7 +171,7 @@
     },
     {
       "path": "assets/finch.png",
-      "sha256": "2edd14dc78903e785c9912cfa2d25e208ec15e5a8c32725b07f99d9eef184577",
+      "sha256": "06d870f0d8f1245fb4c7a0538b369ad931e4b12b3031d26874e0ae47314cbf58",
       "format": "PNG",
       "width": 512,
       "height": 384,
@@ -195,7 +195,7 @@
     },
     {
       "path": "assets/harbor.png",
-      "sha256": "f44e41ba192d92b1b6a96d1d5434271c2109ccda7883d657bbd1c095fda95c47",
+      "sha256": "cc85ccc09f6b0ae736e992657d3101d4d17edcc4ec77d879556676a0d0224a89",
       "format": "PNG",
       "width": 512,
       "height": 384,
@@ -219,7 +219,7 @@
     },
     {
       "path": "assets/hazel.png",
-      "sha256": "9633d11f15cfdcaead8740e7485c5d1b98e7395625db79183dbc249883797eb1",
+      "sha256": "300433b071022e65c155c707f8d3b1ef34482305ebe539ced10fac8a6136a058",
       "format": "PNG",
       "width": 512,
       "height": 384,
@@ -267,7 +267,7 @@
     },
     {
       "path": "assets/linden.png",
-      "sha256": "5b6451d22e0ca0f6e6138155df1067bacf91dfda4186dee139df6fee6351743f",
+      "sha256": "cf4f181ccad97bd9bb07a797d1bbf040d65e2544aa87a680a9b1729142c8b99b",
       "format": "PNG",
       "width": 512,
       "height": 384,
@@ -387,7 +387,7 @@
     },
     {
       "path": "assets/nimbus.png",
-      "sha256": "daea7a8ad10be846a71a02f8f9135559b147ba551437788ccab2d11b6902bc8d",
+      "sha256": "7d8b910cc4f44942fb755a86cc8abe53ca8655102f6643b13e5bf5c189630a60",
       "format": "PNG",
       "width": 512,
       "height": 384,
@@ -483,7 +483,7 @@
     },
     {
       "path": "assets/river.png",
-      "sha256": "4cf62678bed1777943adc18ce30ab6f4750978d096b28aa55ee99b116920f256",
+      "sha256": "7e0b223ab25a9dc0ca2e67455460c9a6f057b7612796bfe833a57f403e582dda",
       "format": "PNG",
       "width": 512,
       "height": 384,
@@ -531,7 +531,7 @@
     },
     {
       "path": "assets/solstice.png",
-      "sha256": "48208e80fa7f9469345ce70c422568fadcf35c34574057ad2a5dffeff0189306",
+      "sha256": "734d4b74ddb425e17159976e568aefbedd744078ccef4b2c8530f610c5581583",
       "format": "PNG",
       "width": 512,
       "height": 384,
