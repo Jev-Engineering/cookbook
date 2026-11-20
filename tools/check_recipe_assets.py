@@ -206,6 +206,8 @@ def png_raw_length(width: int, height: int, colour: int, depth: int, interlace: 
 
 def _png_chunk_length_ok(name: str, body: bytes, colour: int, depth: int, palette: int) -> bool:
     """Is ``body`` exactly as long as the PNG specification fixes it for this image?"""
+    if name == "IEND":
+        return not body
     channels = _PNG_COLOUR[colour][0]
     if name == "gAMA":
         return len(body) == 4
