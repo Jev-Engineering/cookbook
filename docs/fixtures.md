@@ -745,6 +745,9 @@ A generator that writes `responses.json` should not be able to silently replace 
 answer with a synthetic one: once a response's provenance is `recorded`, regenerating fixtures
 should refuse to overwrite it without an explicit override. The scaffold's `build_fixtures.py`
 (and the template's) does this by checking the existing file before writing and requiring
-`--force` to overwrite a recorded one; generating `inputs.jsonl`/`labels.jsonl` stays separate
-from generating `responses.json` so the first two can always be regenerated safely. See
+`--force` to overwrite a recorded one. An existing response file that cannot be read as a JSON
+object is also preserved because its provenance cannot be checked. Inspect or restore that
+file, or explicitly pass `--force` to replace it with synthetic answers. Generating
+`inputs.jsonl`/`labels.jsonl` stays separate from generating `responses.json`, so the first two
+are regenerated even when the response file is refused. See
 [docs/recipe-template.md](recipe-template.md).

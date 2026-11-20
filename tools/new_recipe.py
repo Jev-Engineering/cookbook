@@ -924,19 +924,23 @@ def rows_hint(level: int) -> str:
 # Shared source fragments keep the emitted replay guards and tests in step.
 BUILDER_RESPONSE_GUARDS = r'''def _is_recorded(path: Path) -> bool:
     """True if ``path`` exists and holds at least one response whose model is not
-    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that fails to parse, or
-    whose top level is not a JSON object, cannot hold a valid synthetic response either, so it
-    is treated as not recorded rather than raising; inside an object, an entry that is itself
-    not an object is treated as if it were recorded, so it blocks an overwrite instead of being
-    silently skipped."""
+    ``"synthetic"`` (a recorded, or otherwise real, answer). Refuse an overwrite if an
+    existing file cannot be read as a JSON object: its provenance cannot be checked. Inside
+    an object, an entry that is itself not an object blocks an overwrite too."""
     if not path.exists():
         return False
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return False
+    except (json.JSONDecodeError, OSError, UnicodeError):
+        raise SystemExit(
+            f"refusing to overwrite {path}: cannot read responses.json to check for recorded "
+            "responses (pass --force to overwrite it anyway)"
+        ) from None
     if not isinstance(data, dict):
-        return False
+        raise SystemExit(
+            f"refusing to overwrite {path}: responses.json is not a JSON object, so its "
+            "provenance cannot be checked (pass --force to overwrite it anyway)"
+        )
     return any(
         not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
     )
@@ -956,7 +960,7 @@ def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
     return [key for row in inputs for key in row["replay_keys"] if key not in data]'''
 
 
-BUILDER_FORCE_REFUSAL = r"""    if _is_recorded(responses_file) and not args.force:
+BUILDER_FORCE_REFUSAL = r"""    if not args.force and _is_recorded(responses_file):
         message = (
             f"refusing to overwrite {responses_file}: it holds a recorded response "
             "(pass --force to overwrite it anyway)"
@@ -1164,7 +1168,7 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="overwrite responses.json even if it holds a recorded (non-synthetic) answer",
+        help="overwrite responses.json even if recorded or its provenance cannot be checked",
     )
     args = parser.parse_args()
     if not ROWS:
@@ -1665,7 +1669,7 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="overwrite responses.json even if it holds a recorded (non-synthetic) answer",
+        help="overwrite responses.json even if recorded or its provenance cannot be checked",
     )
     parser.add_argument(
         "--overwrite-assets",
@@ -1676,7 +1680,7 @@ def main() -> None:
     if not ROWS:
         raise SystemExit("@TODO@: add examples to ROWS in build_fixtures.py")
     responses_file = HERE / "fixtures" / "responses.json"
-    if args.overwrite_assets and _is_recorded(responses_file) and not args.force:
+    if args.overwrite_assets and not args.force and _is_recorded(responses_file):
         # A redrawn picture changes the replay key of every request that carries it, which would
         # orphan the recorded answers kept in responses.json; refuse before any file is touched.
         raise SystemExit(
