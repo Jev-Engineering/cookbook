@@ -786,8 +786,8 @@ def readme_text(catalog: dict, recipe: dict, mode: str = "replay") -> str:
 
 ## Run it offline
 
-From the repository root, in an environment with `pip install -e ".[dev,ml]"` (the scikit-learn baselines need the `ml`
-extra, which the `Tests` jobs install):
+From the repository root, in an environment with `pip install -e ".[dev,ml]"` (the `ml` extra adds
+scikit-learn, which the `Tests` jobs install and a recipe's `helpers.py` may use):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/{slug}

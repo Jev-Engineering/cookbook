@@ -306,13 +306,18 @@ def test_the_command_line_works_and_exit_status_is_visible(catalog, recipes):
 
 @pytest.mark.parametrize("mode", new_recipe.ALL_MODES)
 def test_the_scaffolded_readme_installs_dev_and_ml_in_every_mode(catalog, recipes, mode):
-    """Issue #466: the baselines need the `ml` extra, so the README's offline install line is
-    `.[dev,ml]` whatever the scaffold mode, never the bare `.[dev]`."""
+    """Issue #466: the scaffolder runs before `helpers.py` exists and cannot know whether the recipe
+    will use scikit-learn, and `.[dev,ml]` is what the `Tests` jobs install, so the "Run it offline"
+    install line is `.[dev,ml]` whatever the scaffold mode, never the bare `.[dev]`. The sentence
+    beside it must not claim the recipe has baselines."""
     assert run(1, catalog, recipes, mode) == 0
     (folder,) = recipes.iterdir()
     readme = (folder / "README.md").read_text(encoding="utf-8")
-    assert 'pip install -e ".[dev,ml]"' in readme
-    assert 'pip install -e ".[dev]"' not in readme
+    section = readme.split("## Run it offline", 1)[1].split("\n## ", 1)[0]
+    assert f'pip install -e "{readme_install.COMBINED}"' in section
+    assert readme_install.TEST_INSTALL not in readme
+    assert "baselines" not in section
+    assert "`helpers.py` may use" in section
 
 
 @pytest.mark.parametrize("mode", new_recipe.MODES)
