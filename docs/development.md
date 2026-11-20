@@ -524,7 +524,8 @@ with at most three of its update pull requests open at once for each.
   - `live`: `typesafe-sdk`, for opt-in live inference (`JEV_COOKBOOK_LIVE=1`).
   - `ml`: `scikit-learn` (bounded `scikit-learn>=1.7.2,<2`, see [Continuous integration](#continuous-integration)), for recipes that train baselines.
   - `dev`: `ruff` (pinned exactly, so new rules or formatter changes cannot break `main`
-    without a code change; bump it deliberately in its own pull request) and `pytest`.
+    without a code change; bump it deliberately in its own pull request), `pytest`, and
+    `markdown-it-py` (pinned for the CommonMark docs-link checks).
 - **No import-time side effects.** Importing `jev_cookbook` never touches the network,
   never reads an API key, and never imports `typesafe-sdk`. Code that needs the SDK
   imports it lazily, inside the live backend, and fails with a clear message when the

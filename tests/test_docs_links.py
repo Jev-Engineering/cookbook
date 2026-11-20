@@ -8,66 +8,79 @@ network, no SDK.
 from __future__ import annotations
 
 import functools
-import importlib.util
 import json
-import re
 import sys
 import types
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 import pytest
+from markdown_it import MarkdownIt
 
 from jev_cookbook import LiveBackend, Noul, NoulAnswer, Provenance
 
 REPO = Path(__file__).resolve().parents[1]
 DOCS = REPO / "docs"
 
-# Fenced code is removed with the scope check's CommonMark fence reader (a closing fence carries no
-# info string, an unclosed fence runs to the end), so the two tools agree on what is fenced code.
-_spec = importlib.util.spec_from_file_location(
-    "check_recipe_scope_docs", REPO / "tools" / "check_recipe_scope.py"
-)
-_scope = importlib.util.module_from_spec(_spec)
-sys.modules[_spec.name] = _scope  # its dataclasses resolve their module through sys.modules
-_spec.loader.exec_module(_scope)
-without_code_fences = _scope.without_code_fences
-
-_COMMENT = re.compile(r"<!--.*?-->", re.S)
-_CODE_SPAN = re.compile(r"(`+)(?:(?!\n[ \t]*\n).)+?\1", re.S)
-_LINK = re.compile(r"\]\((<[^>#]+>|[^)\s#]+)(?:#[^)\s]*)?(?:\s+(?:\"[^\"]*\"|'[^']*'))?\)")
-_REFERENCE = re.compile(r"^[ ]{0,3}\[[^\]]+\]:\s*<?([^>\s#]+)", re.M)
-
-
-def prose(text: str) -> str:
-    """``text`` without fenced code blocks, inline code spans and HTML comments, none of which
-    GitHub renders as a link. Code spans go before comments, so a ``<!--`` written inside a code
-    span opens no comment; a code span never runs past a blank line."""
-    return _COMMENT.sub("", _CODE_SPAN.sub("", without_code_fences(text)))
+_MARKDOWN = MarkdownIt("commonmark")
 
 
 @functools.cache
 def linked_pages(page: Path) -> frozenset[Path]:
-    """The markdown files ``page`` links to (inline and reference-style links), resolved,
-    ignoring fenced code, HTML comments, inline code and URLs."""
-    text = prose(page.read_text("utf-8"))
+    """Resolve local Markdown targets from rendered link tokens."""
     found: set[Path] = set()
-    for target in _LINK.findall(text) + _REFERENCE.findall(text):
-        target = target.strip("<>")
-        if "://" in target or target.startswith("mailto:") or not target.endswith(".md"):
-            continue
-        base = REPO if target.startswith("/") else page.parent
-        found.add((base / target.lstrip("/")).resolve())
+    for block in _MARKDOWN.parse(page.read_text("utf-8")):
+        for inline in block.children or ():
+            if inline.type != "link_open":
+                continue
+            href = inline.attrGet("href")
+            if not isinstance(href, str):
+                continue
+            try:
+                url = urlsplit(href)
+            except ValueError:
+                continue
+            if url.scheme or url.netloc:
+                continue
+            target = unquote(url.path)
+            if not target.endswith(".md") or "\0" in target:
+                continue
+            base = REPO if target.startswith("/") else page.parent
+            found.add((base / target.lstrip("/")).resolve())
     return frozenset(found)
 
 
 def section(text: str, heading: str) -> str:
-    """The body under ``heading`` (a full heading line such as ``## Name``), up to the next
-    heading of level 1 to 3. Fenced code is removed first, so a ``# comment`` inside a code block
-    is not taken for a heading."""
-    text = without_code_fences(text)
-    match = re.search(rf"^{re.escape(heading)}\n(.*?)(?=^#{{1,3}} |\Z)", text, re.S | re.M)
-    assert match, f"no section {heading!r}"
-    return match.group(1)
+    """Extract source below a top-level heading, up to the next heading of equal or higher level.
+
+    The caller identifies a heading with its level and Markdown text (for example, ``## Name``).
+    Code blocks and standalone comments are omitted so examples cannot satisfy prose assertions.
+    """
+    marker, _, title = heading.partition(" ")
+    level = len(marker)
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    tokens = _MARKDOWN.parse(text)
+    start = None
+    stop = len(lines)
+    ignored_lines: set[int] = set()
+    for index, token in enumerate(tokens):
+        if token.map is None:
+            continue
+        first_line, after_line = token.map
+        if token.type == "heading_open" and token.level == 0:
+            depth = int(token.tag[1:])
+            if start is None and depth == level and tokens[index + 1].content == title:
+                start = after_line
+            elif start is not None and depth <= level:
+                stop = first_line
+                break
+        elif start is not None and (
+            token.type in {"code_block", "fence"}
+            or (token.type == "html_block" and token.content.lstrip().startswith("<!--"))
+        ):
+            ignored_lines.update(range(first_line, after_line))
+    assert start is not None, f"no section {heading!r}"
+    return "\n".join(lines[index] for index in range(start, stop) if index not in ignored_lines)
 
 
 def squash(text: str) -> str:
@@ -90,15 +103,13 @@ def test_linked_pages_reads_fragments_and_skips_code_and_urls(tmp_path):
     assert linked_pages(tmp_path / "page.md") == expected
 
 
-def test_prose_keeps_links_after_a_comment_opener_in_code_and_a_stray_backtick():
+def test_links_survive_a_comment_opener_in_code_and_a_stray_backtick(tmp_path):
     text = (
         "Use `<!--` to hide notes. See [a](a.md).\n\n"
         "Press ` to open the console.\n\nSee [b](b.md).\n\n"
         "````\n```\n[c](c.md)\n```\n````\n\n~~~\n[d](d.md)\n~~~\n\nSee [e](e.md) and `x`.\n"
     )
-    kept = prose(text)
-    assert "[a](a.md)" in kept and "[b](b.md)" in kept and "[e](e.md)" in kept
-    assert "c.md" not in kept and "d.md" not in kept
+    assert _links(tmp_path, text) == {"a.md", "b.md", "e.md"}
 
 
 def test_linked_pages_reads_root_relative_and_angle_targets_and_commonmark_fences(tmp_path):
@@ -116,6 +127,129 @@ def test_section_ignores_a_comment_line_inside_fenced_code():
     text = "## A\n\nfirst\n\n```python\n# a comment\n```\n\nsecond\n\n## B\n\nthird\n"
     body = section(text, "## A")
     assert "first" in body and "second" in body and "third" not in body
+
+
+def _links(tmp_path, markdown):
+    """The names of the pages a one-page markdown sample links to."""
+    page = tmp_path / "page.md"
+    page.write_text(markdown, encoding="utf-8")
+    linked_pages.cache_clear()  # the cache is keyed by path, and every sample reuses page.md
+    return {path.name for path in linked_pages(page)}
+
+
+def test_a_code_span_closes_only_on_a_backtick_run_of_its_own_length(tmp_path):
+    # GitHub: the double-backtick span holds a lone backtick, so [a](a.md) is code and [b](b.md)
+    # is a link; the lone backtick in the second paragraph opens nothing (no closer of length 1).
+    sample = "``x ` [a](a.md) ``  and [b](b.md)\n\nA ` stray, then ``y`` and [c](c.md).\n"
+    assert _links(tmp_path, sample) == {"b.md", "c.md"}
+    # a run of two is not the closer of a span opened by one: nothing closes it, so both are text
+    assert _links(tmp_path, "`[d](d.md)`` and [e](e.md)\n") == {"d.md", "e.md"}
+    # and a span of one skips the runs of two inside it and closes at its own length
+    assert _links(tmp_path, "`a `` b` [f](f.md)\n") == {"f.md"}
+
+
+def test_a_backtick_run_without_a_matching_closer_is_literal_text(tmp_path):
+    sample = "Open with ``` here and [a](a.md), close with `` and [b](b.md).\n"
+    assert _links(tmp_path, sample) == {"a.md", "b.md"}
+
+
+def test_fences_nested_deep_in_list_items_hide_their_links(tmp_path):
+    sample = (
+        "- item\n\n    - nested\n\n      ~~~\n      [a](a.md)\n\n      [x](x.md)\n      ~~~\n\n"
+        "1. step\n\n   ~~~~\n   ~~~\n   [b](b.md)\n\n   [y](y.md)\n   ~~~~\n\n[c](c.md)\n"
+    )
+    assert _links(tmp_path, sample) == {"c.md"}
+
+
+def test_an_indented_code_block_hides_its_links_but_a_lazy_continuation_does_not(tmp_path):
+    sample = (
+        "Paragraph.\n\n    [a](a.md)\n    still code [b](b.md)\n\n\t[c](c.md)\n\n"
+        "Text\n    [d](d.md) is a lazy continuation.\n\n"
+        "- item\n\n  continued [e](e.md)\n\n      code [f](f.md)\n"
+    )
+    assert _links(tmp_path, sample) == {"d.md", "e.md"}
+
+
+def test_a_section_runs_through_its_subheadings_and_ends_at_the_same_or_a_higher_level():
+    text = "# T\n\n## A\n\nfirst\n\n### Sub\n\nsub text\n\n#### Deeper\n\ndeep\n\n## B\n\nthird\n"
+    body = section(text, "## A")
+    assert "sub text" in body and "deep" in body and "third" not in body
+    assert "deep" in section(text, "### Sub") and "third" not in section(text, "### Sub")
+    assert "third" not in section("## A\n\nx\n\n# Top\n\nthird\n", "## A")
+
+
+def test_a_section_heading_may_carry_trailing_spaces_and_a_crlf():
+    text = "## A  \r\n\r\nfirst\r\n\r\n## B \r\n\r\nsecond\r\n"
+    body = section(text, "## A")
+    assert "first" in body and "second" not in body
+    assert "second" in section(text, "## B")
+
+
+@pytest.mark.parametrize("boundary", ["  ## B", "##", "B\n---"])
+def test_a_section_ends_at_any_top_level_heading_of_the_same_depth(boundary):
+    text = f"## A\n\ninside\n\n{boundary}\n\noutside\n"
+    body = section(text, "## A")
+    assert "inside" in body and "outside" not in body
+
+
+def test_subheadings_inside_containers_and_code_do_not_end_a_section():
+    text = "  ## A ##\n\n> ## Quote\n\n```\n## Example\n```\n\ninside\n\n## B\n\noutside\n"
+    body = section(text, "## A")
+    assert "inside" in body and "outside" not in body and "Example" not in body
+
+
+def test_a_reference_definition_counts_only_when_the_page_uses_its_label(tmp_path):
+    sample = (
+        "See [shown][Used Label], [again][] and [short], plus [inline](d.md).\n\n"
+        "[used   label]: a.md\n[again]: b.md\n[SHORT]: c.md\n[orphan]: e.md\n"
+    )
+    assert _links(tmp_path, sample) == {"a.md", "b.md", "c.md", "d.md"}
+    assert _links(tmp_path, "No link here.\n\n[orphan]: e.md\n") == set()
+
+
+def test_an_escaped_backtick_opens_no_code_span(tmp_path):
+    # GitHub: the escaped backtick is text, so [a](a.md) is a link and the real span is `[b](b.md)`.
+    sample = "Cost is \\` 5 [a](a.md) and then `[b](b.md)` ends.\n"
+    assert _links(tmp_path, sample) == {"a.md"}
+    # a link inside a real span after the escape stays code, and an escaped backtick pair is text
+    assert _links(tmp_path, "\\`x\\` [c](c.md) `[d](d.md)`\n") == {"c.md"}
+
+
+def test_an_escaped_bracket_starts_no_link(tmp_path):
+    assert _links(tmp_path, "Literal \\[a](a.md) and [b](b.md).\n") == {"b.md"}
+
+
+@pytest.mark.parametrize(
+    "sample",
+    [
+        "```\n    ```\n[sample](sample.md)\n```\n\n[real](real.md)",
+        "- ```\n  [sample](sample.md)\n  ```\n\n[real](real.md)",
+        "- ```\n  [sample](sample.md)\n[real](real.md)",
+        "```\nexample\n```\n    [sample](sample.md)\n\n[real](real.md)",
+        "Text\n    ```\nmore\n\n[real](real.md)",
+        "<!--\n```\n-->\n[real](real.md)",
+        "Paragraph\n* * *\n    [sample](sample.md)\n\n[real](real.md)",
+        "- <!--\n  ~~~\n  -->\n  [real](real.md)",
+        "- <!--\n  --> [sample](sample.md)\n  [real](real.md)",
+    ],
+)
+def test_only_fences_valid_in_their_block_hide_links(tmp_path, sample):
+    assert _links(tmp_path, sample) == {"real.md"}
+
+
+@pytest.mark.parametrize(
+    "sample",
+    [
+        "[ref]\n\n[REF]: real.md\n[ref]: sample.md",
+        "[ref]\n\n[ref]:\n  real.md",
+        "![ref] ![alt][ref] ![ref][] ![alt](sample.md) [real](real.md)\n\n[ref]: sample.md",
+        "Paragraph\n[ref]: sample.md\n\n[ref] [real](real.md)",
+        r"\[escaped](sample.md) \\[real](real.md) \\\[escaped](sample.md)",
+        r"[visible][edge\]]" "\n\n" r"[edge\[]: sample.md" "\n" r"[edge\]]: real.md",
+    ],
+)
+def test_only_rendered_links_count_as_reachable(tmp_path, sample):
+    assert _links(tmp_path, sample) == {"real.md"}
 
 
 # -- reachability -------------------------------------------------------------------------------
