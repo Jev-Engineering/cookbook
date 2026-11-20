@@ -241,23 +241,13 @@ check id                              rule -> detection
 
 Scope decisions (see the pull request body for the full reasoning):
 
-* The parametrised list is every ``recipes/NN-slug/`` with a committed ``notebook.ipynb``
-  (``PUBLISHED``, the same set ``tests/test_recipe_sources.py`` already uses). Every check uses
-  ``guarded_with_template()`` and also runs against ``recipes/_template``, never xfailed there,
-  except the four below, which use ``guarded()`` and run over ``PUBLISHED`` alone, each for a
-  stated reason (#381 audited the split; anything not listed here that skips the template is a
-  defect, not a choice): ``build_fixtures_scaffold`` renders the expected text from the recipe's
-  catalog row, which the template does not have (``tests/test_template.py`` pins the template's
-  own copy the other way round); ``readme_sources_match_catalog`` compares against that same
-  catalog row; ``next_steps_inbound_links`` asks whether another recipe links to this one, and no
-  recipe links to the template; ``simulated_side_effect_invoked`` keys its obligation on a
-  published slug (``SIDE_EFFECT_INVENTORY``, ``SIMULATOR_REQUIRED``), and the template declares
-  no side effect, has none detected and needs no simulator, so there it would only skip today.
-  The template already has its own dedicated pins in ``tests/test_template.py``, and including
-  it here gives this module's own detection logic a sanity check -- the template is the thing
-  every one of these rules is written to match. ``readme_budget_note_matches_request_audit``
-  runs on the template (#381): the template is on the audited route, so its declaration, ledger
-  and README paragraph are held against each other here as well as by ``tests/test_template.py``.
+* ``guarded()`` parametrises every catalog recipe with a committed notebook, plus
+  ``recipes/_template``. Each published case retains its registered strict expected failure
+  where applicable. The template case always runs without an expected failure. A check whose
+  scope is published recipes only declares its reason with ``skip_template`` at registration.
+  The template's declaration, ledger and README paragraph are compared on the audited route
+  (#381). The side-effect check reads the template's notebook and any declaration before deciding
+  whether there is a simulated write to report (#512).
 * ``next_steps_inbound_links`` is still a per-recipe, per-check case (the fix round that added it
   found the distinction drawn in an earlier revision of this docstring -- that inbound coverage is
   "a property of the whole set, not of one recipe" -- did not actually hold: the check below reads
@@ -432,6 +422,7 @@ from types import ModuleType
 from typing import NamedTuple
 
 import pytest
+from markdown_it import MarkdownIt
 
 from jev_cookbook import Noul, load_helpers
 from jev_cookbook import fixtures as jc_fixtures
@@ -464,50 +455,35 @@ def _is_published(recipe: dict) -> bool:
     return (RECIPES_DIR / recipe["slug"] / "notebook.ipynb").is_file()
 
 
-# Every catalog recipe with a committed notebook -- the same set tests/test_recipe_sources.py
-# already selects. _template is not a catalog slug (tests/test_template_render.py) and is added
-# separately, only to the checks it makes sense for (see the module docstring).
+# _template is a reference recipe outside the catalog.
 PUBLISHED: list[dict] = [r for r in CATALOG["recipes"] if _is_published(r)]
+RECIPES_WITH_TEMPLATE = [*PUBLISHED, {"slug": "_template"}]
 
 
 def test_at_least_one_recipe_is_published():
-    # Otherwise every parametrized check below would silently check nothing.
-    assert PUBLISHED
+    # Otherwise every published-recipe case below would silently check nothing.
+    assert _published_recipe_slugs()
 
 
 def _slug(recipe_or_path) -> str:
     return recipe_or_path["slug"] if isinstance(recipe_or_path, dict) else recipe_or_path.name
 
 
-def guarded(check_id):
-    """``[pytest.param(recipe, id=slug, marks=...)]`` for every recipe in PUBLISHED, xfail(strict)
-    marked for exactly the (slug, check_id) pairs tests/recipe_guard_known_failures.py lists."""
+def guarded(check_id: str, *, skip_template: str | None = None):
+    """Register published recipe cases and include the template unless given a skip reason."""
+    if skip_template is not None and (
+        not isinstance(skip_template, str) or not skip_template.strip()
+    ):
+        raise ValueError(f"{check_id}: skip_template needs a non-empty reason")
 
-    def params(recipes=PUBLISHED):
-        out = []
-        for recipe in recipes:
-            slug = _slug(recipe)
-            reason = KNOWN_FAILURES.get((slug, check_id))
-            # The reason string itself carries its own citation (see that file's docstring):
-            # historically always "... see #163", but #244's own guard adds entries for drift
-            # that check newly reveals, which is #244's own work list, not #163's -- so this no
-            # longer hardcodes a "#163:" prefix onto every entry regardless of which issue it
-            # actually tracks (see the pull request body for #244's reasoning).
-            marks = [pytest.mark.xfail(reason=reason, strict=True)] if reason else []
-            out.append(pytest.param(recipe, id=slug, marks=marks))
-        return out
-
-    return params
-
-
-def guarded_with_template(check_id):
-    """Like ``guarded``, but also runs the check against ``recipes/_template`` (never xfailed:
-    the template is the reference every one of these checks is written to match)."""
-
-    def params():
-        return guarded(check_id)() + [pytest.param({"slug": "_template"}, id="_template")]
-
-    return params
+    cases = []
+    recipes = PUBLISHED if skip_template is not None else RECIPES_WITH_TEMPLATE
+    for recipe in recipes:
+        slug = _slug(recipe)
+        reason = KNOWN_FAILURES.get((slug, check_id)) if slug != "_template" else None
+        marks = [pytest.mark.xfail(reason=reason, strict=True)] if reason else []
+        cases.append(pytest.param(recipe, id=slug, marks=marks))
+    return cases
 
 
 def recipe_dir(recipe: dict) -> Path:
@@ -567,7 +543,13 @@ def extract_calls(source: str, name: str) -> list[str]:
 # --------------------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("recipe", guarded("build_fixtures_scaffold")())
+@pytest.mark.parametrize(
+    "recipe",
+    guarded(
+        "build_fixtures_scaffold",
+        skip_template="The renderer needs a catalog row. The template tests pin the scaffold.",
+    ),
+)
 def test_build_fixtures_guard_matches_the_current_scaffold(recipe):
     """G1(a): byte-identical to ``tools/new_recipe.py::build_fixtures_test_text(recipe, mode)``
     for the recipe's scaffold mode (below), the exact text ``python tools/new_recipe.py`` would
@@ -796,7 +778,7 @@ def _recipe_citation_hits(recipe_dir_: Path) -> list[str]:
     return hits
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("no_issue_citations")())
+@pytest.mark.parametrize("recipe", guarded("no_issue_citations"))
 def test_no_issue_numbers_or_the_issue_in_recipe_files(recipe):
     """G1(b), CONTRIBUTING.md section 6: "A recipe file never cites a private issue number or
     'the issue' -- a reader cannot see either." Scans the prose of helpers.py, build_fixtures.py,
@@ -853,7 +835,7 @@ def _recipe_cell_id_citations(recipe_dir_: Path) -> list[str]:
     return hits
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("no_cell_id_citations")())
+@pytest.mark.parametrize("recipe", guarded("no_cell_id_citations"))
 def test_no_cell_id_is_cited_in_reader_facing_prose(recipe):
     """#250, CONTRIBUTING.md section 6: a cell id exists only in the ``.ipynb`` JSON, so a reader
     of the rendered notebook (Jupyter, nbviewer, GitHub) never sees it, and "the ``python-rule``
@@ -1146,7 +1128,7 @@ def test_the_citations_recipe_17_carried_are_found_where_they_were_written(tmp_p
     assert _recipe_cell_id_citations(folder) == []
     _edit_markdown(
         folder,
-        "The paragraph above about `t06-adversarial-wrong` already said",
+        'The paragraph beginning "At this gate" in "Evaluation" already said',
         "`selective-discuss` already said",
     )
     _edit_markdown(
@@ -1385,7 +1367,7 @@ def _an_assert_depends_on(tree: ast.AST, names: set[str]) -> bool:
     )
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("stored_answers_strong_form")())
+@pytest.mark.parametrize("recipe", guarded("stored_answers_strong_form"))
 def test_stored_answers_are_not_all_right_is_the_strong_form(recipe):
     """G1(c): the strong form re-derives the frozen confidence threshold from ``validation``
     (an assignment from ``select_confidence_threshold(`` or, lacking that, ``select_threshold(``;
@@ -2076,9 +2058,7 @@ def _validation_metric_lines_missing_labels(
     return found
 
 
-@pytest.mark.parametrize(
-    "recipe", guarded_with_template("validation_lines_carry_selection_and_check")()
-)
+@pytest.mark.parametrize("recipe", guarded("validation_lines_carry_selection_and_check"))
 def test_validation_metric_lines_carry_selection_and_check(recipe):
     """G1(d), CONTRIBUTING.md section 2: "a number from the validation split is a selection
     step" and, in an offline run, "any metric is a check that the pipeline works" -- together,
@@ -2226,7 +2206,7 @@ def _metric_lines_missing_check(source: str) -> list[str]:
     return missing
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("metric_lines_carry_check")())
+@pytest.mark.parametrize("recipe", guarded("metric_lines_carry_check"))
 def test_every_printed_metric_line_carries_at_least_check(recipe):
     """G1(d) clause 2 (issue #76 comment 6079429778): "every printed metric line carries at
     least {check}" -- the direct generalisation of
@@ -2575,7 +2555,7 @@ METRIC_PLOTS = ("plot_confusion_matrix", "plot_threshold_sweep", "plot_risk_cove
 TITLE_ARG = re.compile(r'title\s*=\s*(f?"(?:[^"\\]|\\.)*"|f?\'(?:[^\'\\]|\\.)*\')')
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("figure_titles_check_only")())
+@pytest.mark.parametrize("recipe", guarded("figure_titles_check_only"))
 def test_metric_figure_titles_carry_check_and_not_selection(recipe):
     """docs/notebook-style.md "Title convention": a figure's title carries the pipeline-check
     disclosure ``{check}`` and no other disclosure label, even when it is drawn from
@@ -2678,7 +2658,7 @@ def _cell_prints_the_plotted_object(source: str, name: str) -> bool:
     return False
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("print_what_you_plot")())
+@pytest.mark.parametrize("recipe", guarded("print_what_you_plot"))
 def test_every_plot_call_has_a_printed_table(recipe):
     """G1(e), docs/recipe-template.md and docs/notebook-style.md "Print what you plot" ("Pair
     every plot_* call with a print of the same data, rounded, in the same cell"; sweep helpers
@@ -2726,7 +2706,9 @@ def test_every_plot_call_has_a_printed_table(recipe):
 # check 6: every Next-steps link target exists on disk
 # --------------------------------------------------------------------------------------------
 
-NEIGHBOUR_LINK = re.compile(r"\]\(\.\./((?:[0-9]{2}|100)-[a-z0-9-]+)/\)")
+NEIGHBOUR_FOLDER = r"\.\./((?:[0-9]{2}|100)-[a-z0-9-]+)/"
+NEIGHBOUR_LINK = re.compile(rf"\]\({NEIGHBOUR_FOLDER}\)")
+NEIGHBOUR_HREF = re.compile(NEIGHBOUR_FOLDER)
 
 
 def test_recipe_100_next_steps_link_must_resolve_to_a_published_notebook(tmp_path, monkeypatch):
@@ -2755,7 +2737,7 @@ def test_recipe_100_next_steps_link_must_resolve_to_a_published_notebook(tmp_pat
     test_next_steps_links_resolve_to_a_published_recipe({"slug": source.name})
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("next_steps_links_exist")())
+@pytest.mark.parametrize("recipe", guarded("next_steps_links_exist"))
 def test_next_steps_links_resolve_to_a_published_recipe(recipe):
     """G1(f), docs/recipe-template.md: "Link only a recipe whose notebook.ipynb is already
     committed on main: a folder link to one that is not yet published would 404 on GitHub, and
@@ -2775,16 +2757,41 @@ def test_next_steps_links_resolve_to_a_published_recipe(recipe):
     assert not missing, "; ".join(missing)
 
 
+_MARKDOWN = MarkdownIt("commonmark")
+
+
+def _next_steps_targets(markdown: str) -> set[str]:
+    """Find recipe-folder links in a top-level Next steps section of one Markdown cell."""
+    targets = set()
+    in_next_steps = False
+    tokens = iter(_MARKDOWN.parse(markdown))
+    for token in tokens:
+        if token.type == "heading_open" and token.level == 0 and token.tag in {"h1", "h2"}:
+            heading = next(tokens)
+            title = "".join(
+                " " if part.type in {"softbreak", "hardbreak"} else part.content
+                for part in heading.children or ()
+                if part.type != "html_inline"
+            )
+            in_next_steps = token.tag == "h2" and title.split() == ["Next", "steps"]
+        elif in_next_steps and token.type == "inline":
+            for part in token.children or ():
+                if part.type == "link_open":
+                    href = part.attrGet("href")
+                    match = NEIGHBOUR_HREF.fullmatch(href) if isinstance(href, str) else None
+                    if match:
+                        targets.add(match[1])
+    return targets
+
+
 def _inbound_next_steps_links() -> dict[str, set[str]]:
-    """``{slug: {slugs of published recipes whose own notebook links ../slug/}}``, over every
-    published recipe (never ``_template``, which is not a catalog slug and is not a valid link
-    target either)."""
+    """Map each published slug to the recipes that link to it from their Next steps section."""
     inbound: dict[str, set[str]] = {r["slug"]: set() for r in PUBLISHED}
     for recipe in PUBLISHED:
         for cell in notebook_cells(recipe_dir(recipe)):
             if cell["cell_type"] != "markdown":
                 continue
-            for slug in NEIGHBOUR_LINK.findall(cell_source(cell)):
+            for slug in _next_steps_targets(cell_source(cell)):
                 if slug in inbound and slug != recipe["slug"]:
                     inbound[slug].add(recipe["slug"])
     return inbound
@@ -2793,14 +2800,119 @@ def _inbound_next_steps_links() -> dict[str, set[str]]:
 INBOUND_NEXT_STEPS_LINKS = _inbound_next_steps_links()
 
 
+def test_inbound_next_steps_audit_rejects_a_mid_notebook_only_link(tmp_path, monkeypatch):
+    source = {"slug": "01-source"}
+    target = {"slug": "02-target"}
+    monkeypatch.setitem(globals(), "PUBLISHED", [source, target])
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    for recipe in (source, target):
+        recipe_dir(recipe).mkdir()
+    (recipe_dir(target) / "notebook.ipynb").write_text('{"cells": []}', encoding="utf-8")
+
+    link = "[Try the target recipe](../02-target/)\n"
+    explanation = {"cell_type": "markdown", "id": "next-md", "source": ["## Explanation\n"]}
+    next_steps = {
+        "cell_type": "markdown",
+        "id": "closing-notes",
+        "source": ["## Next steps\n", "\n", link],
+    }
+    notebook = recipe_dir(source) / "notebook.ipynb"
+    cells = {"cells": [explanation, next_steps]}
+    notebook.write_text(json.dumps(cells), encoding="utf-8")
+    monkeypatch.setitem(globals(), "INBOUND_NEXT_STEPS_LINKS", _inbound_next_steps_links())
+    test_every_recipe_is_linked_from_some_other_recipes_next_steps(target)
+
+    explanation["source"].append(next_steps["source"].pop())
+    next_steps["source"].extend(["## Appendix\n", "\n", link])
+    notebook.write_text(json.dumps(cells), encoding="utf-8")
+    monkeypatch.setitem(globals(), "INBOUND_NEXT_STEPS_LINKS", _inbound_next_steps_links())
+    with pytest.raises(AssertionError, match="02-target: no other published recipe's Next steps"):
+        test_every_recipe_is_linked_from_some_other_recipes_next_steps(target)
+
+
+@pytest.mark.parametrize(
+    "before_link, after_link, counts",
+    [
+        pytest.param(" \t\r\n\r\n## Next steps\r\n", "", True, id="blank-prefix"),
+        pytest.param("Closing remarks.\n\n## Next steps\n", "", True, id="prose-prefix"),
+        pytest.param("Closing remarks.\n", "\n## Next steps\n", False, id="before-heading"),
+        pytest.param("```md\n## Next steps\n", "\n```\n", False, id="fenced-heading"),
+        pytest.param("## Next steps\n\n~~~md\n", "\n~~~\n", False, id="fenced-link"),
+        pytest.param("## Next steps\n\n~~~\n", "", False, id="unclosed-fence"),
+        pytest.param(
+            "## Next steps\n\n  ````md\n```\n## Appendix\n  ````\n\n### More reading\n",
+            "",
+            True,
+            id="fenced-appendix",
+        ),
+        pytest.param("## Next steps\n\n## Appendix\n", "", False, id="real-appendix"),
+        pytest.param("<!--\n## Next steps\n-->\n\n", "", False, id="commented-heading"),
+        pytest.param("## Next steps\n\n<!--\n", "\n-->\n", False, id="commented-link"),
+        pytest.param("## Next steps\n\n<!--\n", "", False, id="unclosed-comment"),
+        pytest.param(
+            "## Next steps\n\n<!--\n## Appendix\n```\n-->\n\n",
+            "",
+            True,
+            id="commented-appendix-and-fence",
+        ),
+        pytest.param("## Next steps\n\n```md\n<!--\n```\n\n", "", True, id="fenced-comment-opener"),
+        pytest.param("## Next steps\n\nExample: ``", "``\n", False, id="inline-literal-link"),
+        pytest.param("## Next steps\n\nType `<!--` then ", "", True, id="inline-comment-opener"),
+        pytest.param(
+            "Remarks with a stray `.\n\n## Next steps\n", " `\n", True, id="stray-backtick"
+        ),
+        pytest.param("## Next steps\n\n- First\n  - Second\n    ", "", True, id="nested-list-link"),
+        pytest.param("## Next steps\n\n> ```md\n> ", "\n> ```\n", False, id="quoted-fence"),
+        pytest.param("## Next steps\n\n    ", "", False, id="indented-code"),
+        pytest.param("## Next steps\n\nExample: `\n", "`", False, id="multiline-code-span"),
+        pytest.param("## Next steps\n\nAppendix\n--------\n\n", "", False, id="setext-appendix"),
+        pytest.param("## Next steps <!-- editorial note -->\n\n", "", True, id="heading-comment"),
+        pytest.param(
+            "## Next <!-- editorial note --> steps\n\n", "", True, id="comment-between-words"
+        ),
+        pytest.param("Next\nsteps\n----------\n\n", "", True, id="wrapped-setext-title"),
+        pytest.param("## Next steps\n\n!", "", False, id="image-is-not-a-link"),
+    ],
+)
+def test_inbound_next_steps_audit_respects_markdown_boundaries(
+    tmp_path, monkeypatch, before_link, after_link, counts
+):
+    source = {"slug": "01-source"}
+    target = {"slug": "02-target"}
+    monkeypatch.setitem(globals(), "PUBLISHED", [source, target])
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    link = "[Try the target recipe](../02-target/)"
+    for recipe, cells in (
+        (source, [{"cell_type": "markdown", "source": before_link + link + after_link}]),
+        (target, []),
+    ):
+        folder = recipe_dir(recipe)
+        folder.mkdir()
+        (folder / "notebook.ipynb").write_text(json.dumps({"cells": cells}), encoding="utf-8")
+    assert _inbound_next_steps_links()[target["slug"]] == ({source["slug"]} if counts else set())
+
+
+def test_inbound_next_steps_audit_resolves_markdown_reference_links():
+    markdown = """[recipe]: ../02-target/
+
+## Next steps
+
+See [the neighbouring recipe][recipe].
+"""
+    assert _next_steps_targets(markdown) == {"02-target"}
+
+
+# Inbound targets must be published in the catalog.
 @pytest.mark.catalog_audit
-@pytest.mark.parametrize("recipe", guarded("next_steps_inbound_links")())
+@pytest.mark.parametrize("recipe", guarded("next_steps_inbound_links", skip_template="Unpublished"))
 def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
     """G1(f) clause 2 (issue #76 comment 6079429778): "every published recipe is the target of
     at least one other recipe's Next steps" (R21) -- a per-recipe, per-check case exactly like
     ``next_steps_links_exist`` (see the module docstring's scope decisions), computed once over
-    the whole published set (``_inbound_next_steps_links``, built from the same
-    ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here.
+    the whole published set (``_inbound_next_steps_links``) and looked up per recipe here.
+    A top-level H2 titled Next steps identifies the section within a Markdown cell. CommonMark
+    link tokens with a recipe-folder destination count until the next top-level H1 or H2 or
+    the end of the cell. Code, comments and raw HTML do not produce Markdown link tokens.
 
     Marked ``catalog_audit`` (#203) and deselected by default (see ``pyproject.toml``'s
     ``addopts``): a new recipe's own pull request can never satisfy this check. The recipe
@@ -2834,7 +2946,7 @@ NAMED_DOMAIN_OUTCOME_EXEMPTIONS = {
 }
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("review_value_is_review")())
+@pytest.mark.parametrize("recipe", guarded("review_value_is_review"))
 def test_review_outcome_value_is_review_where_it_exists(recipe):
     """docs/glossary.md#review: "the outcome value itself is the string 'review' (not, say,
     'human_review'; a recipe may still name its own domain-specific sub-reasons)." Checked
@@ -3453,7 +3565,7 @@ def _reason_string_verdict(recipe_dir_: Path, slug: str) -> tuple[str, str]:
     return "ok", ""
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("review_reason_string")())
+@pytest.mark.parametrize("recipe", guarded("review_reason_string"))
 def test_the_confidence_gate_reason_string_is_exact(recipe):
     """docs/glossary.md#review: "the reason string for a confidence-gated review is exactly
     'confidence below the threshold', so two recipes' readers see the same words for the same
@@ -3916,7 +4028,7 @@ def test_a_recipe_listed_as_not_showing_the_reason_is_held_to_it_both_ways(tmp_p
 
 
 def test_every_exemption_names_a_published_recipe_and_gate_free_ones_have_no_live_gate():
-    published = {recipe["slug"] for recipe in PUBLISHED}
+    published = _published_recipe_slugs()
     assert set(GATE_FREE_DESIGNS) <= published
     assert set(REASON_NOT_IN_COMMITTED_OUTPUT) <= published
     assert not set(GATE_FREE_DESIGNS) & set(REASON_NOT_IN_COMMITTED_OUTPUT)
@@ -4018,7 +4130,13 @@ def _readme_source_ids(readme_text: str) -> list[str]:
     return SOURCE_ID.findall(readme_text.split(marker, 1)[1])
 
 
-@pytest.mark.parametrize("recipe", guarded("readme_sources_match_catalog")())
+@pytest.mark.parametrize(
+    "recipe",
+    guarded(
+        "readme_sources_match_catalog",
+        skip_template="The comparison needs a catalog row with source IDs.",
+    ),
+)
 def test_readme_sources_match_the_catalog(recipe):
     """tests/test_recipe_sources.py's own rule, folded into this module as one of these checks
     too (CONTRIBUTING.md: a recipe's README is one page of the contract same as any
@@ -4049,9 +4167,7 @@ LIVE_CALL_COUNT = _request_audit.LIVE_CALL_COUNT
 AUDIT_PREFIX = _request_audit.AUDIT_PREFIX
 
 
-@pytest.mark.parametrize(
-    "recipe", guarded_with_template("readme_budget_note_matches_request_audit")()
-)
+@pytest.mark.parametrize("recipe", guarded("readme_budget_note_matches_request_audit"))
 def test_the_live_budget_note_matches_the_request_audit(recipe):
     """A recipe states its live request count once, in ``request_budget.json``.
 
@@ -4090,23 +4206,28 @@ def test_the_live_budget_note_matches_the_request_audit(recipe):
     )
 
 
-def _drift_template_budget(folder: Path) -> None:
+def _drift_template_budget(folder: Path) -> int:
     path = folder / "request_budget.json"
     budget = json.loads(path.read_text("utf-8"))
-    budget["backends"]["main"]["requests"] += 1
+    backend = next(iter(budget["backends"].values()))
+    requests = backend["requests"]
+    backend["requests"] = requests + 1
+    if "at_most" in backend:
+        backend["at_most"] = max(backend["at_most"], backend["requests"])
     path.write_text(json.dumps(budget), "utf-8")
+    return requests
 
 
-def _drift_template_readme(folder: Path) -> None:
+def _drift_template_readme(folder: Path) -> int:
     path = folder / "README.md"
-    text = path.read_text("utf-8")
-    match = re.search(r"exactly \*\*(\d+)\*\* requests", text)
+    match = re.search(r"exactly \*\*(\d+)\*\* requests?\b", path.read_text("utf-8"))
     assert match, "the template README no longer holds the rendered request count"
     count = int(match.group(1))
-    path.write_text(text.replace(match.group(0), f"exactly **{count + 1}** requests", 1), "utf-8")
+    _edit_text(path, match.group(0), f"exactly **{count + 1}** requests")
+    return count
 
 
-def _drift_template_audit_line(folder: Path) -> None:
+def _drift_template_audit_line(folder: Path) -> int:
     path = folder / "notebook.ipynb"
     notebook = json.loads(path.read_text("utf-8"))
     for cell in notebook["cells"]:
@@ -4117,128 +4238,208 @@ def _drift_template_audit_line(folder: Path) -> None:
             for i, line in enumerate(lines):
                 if line.startswith(AUDIT_PREFIX):
                     payload = json.loads(line[len(AUDIT_PREFIX) :])
-                    # A self-consistent ledger with one call more than the declaration and the
-                    # README state: the call is appended and both counts move with it, so only
-                    # the comparison against the declaration can see the drift.
+                    # Keep the ledger self-consistent. The declaration's call-count comparison
+                    # reports the extra call before any replay fixture inventory comparison.
                     entry = payload["backends"][0]
-                    entry["calls"].append({"replay_key": "f" * 64, "returned": True})
+                    requests = entry["decide_calls"]
+                    keys = {call["replay_key"] for call in entry["calls"]}
+                    key = next(
+                        f"{candidate:064x}"
+                        for candidate in range(len(keys) + 1)
+                        if f"{candidate:064x}" not in keys
+                    )
+                    entry["calls"].append({"replay_key": key, "returned": True})
                     entry["decide_calls"] += 1
                     entry["distinct_requests"] += 1
                     lines[i] = AUDIT_PREFIX + json.dumps(payload, separators=(",", ":")) + "\n"
                     output["text"] = lines
                     path.write_text(json.dumps(notebook), "utf-8")
-                    return
+                    return requests
     raise AssertionError("the template notebook no longer commits an audit line")
 
 
-def _template_drift_message(kind: str) -> str:
-    """The message each drift must fail with, from the template's own declared total, so a
-    legitimate change to the template's request count moves the expectation with it."""
-    total = _request_audit.load_budget(TEMPLATE).total
-    return {
-        "budget": rf"made {total} decide\(\) calls, request_budget\.json declares {total + 1}",
-        "readme": r"README budget paragraph differs",
-        "audit line": rf"made {total + 1} decide\(\) calls, request_budget\.json declares {total}",
-    }[kind]
-
-
 _TEMPLATE_DRIFTS = {
-    "budget": _drift_template_budget,
-    "readme": _drift_template_readme,
-    "audit line": _drift_template_audit_line,
+    "budget": (
+        _drift_template_budget,
+        r"made {original} decide\(\) calls, request_budget\.json declares {drifted}",
+    ),
+    "readme": (_drift_template_readme, r"README budget paragraph differs"),
+    "audit-line": (
+        _drift_template_audit_line,
+        r"made {drifted} decide\(\) calls, request_budget\.json declares {original}",
+    ),
 }
 
 
-def _template_copy_under(tmp_path: Path, monkeypatch) -> dict:
-    """A copy of the real template at ``tmp_path / "_template"``, with ``RECIPES_DIR`` pointed at
-    ``tmp_path`` so the check under test reads the copy; returns the check's ``recipe`` argument."""
-    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
-    shutil.copytree(TEMPLATE, tmp_path / "_template")
-    return {"slug": "_template"}
-
-
-def test_the_request_audit_check_runs_on_the_template_and_passes_it_on_the_audited_route(
-    tmp_path, monkeypatch
-):
-    """#381: ``readme_budget_note_matches_request_audit`` once ran over ``PUBLISHED`` alone, so the
-    template, which is on the audited route, could let its declaration, its committed ledger and
-    its README paragraph drift apart without this check seeing it. The template is one of the
-    check's parametrised cases, the untouched copy passes it, and it passes on the AUDITED route:
-    ``audit_recipe`` returns the declared total, not ``None`` (the legacy route that counts
-    ``responses.json`` instead), so a template that lost its audit could not pass here unseen."""
-    (mark,) = [
-        m
-        for m in test_the_live_budget_note_matches_the_request_audit.pytestmark
-        if m.name == "parametrize"
-    ]
-    assert "_template" in [param.id for param in mark.args[1]]
-    recipe = _template_copy_under(tmp_path, monkeypatch)
-    copy = tmp_path / "_template"
+def test_the_template_passes_the_request_audit_on_the_audited_route():
+    """The template's audit returns the declared total, which distinguishes it from legacy replay."""
     assert (
-        _request_audit.audit_recipe(copy, notebook_cells(copy))
+        _request_audit.audit_recipe(TEMPLATE, notebook_cells(TEMPLATE))
         == _request_audit.load_budget(TEMPLATE).total
     )
-    test_the_live_budget_note_matches_the_request_audit(recipe)
 
 
 @pytest.mark.parametrize("drift", sorted(_TEMPLATE_DRIFTS))
 def test_each_template_drift_fails_the_request_audit_check_on_its_own_comparison(
     tmp_path, monkeypatch, drift
 ):
-    """#381, the three directions: the declaration against the ledger, the README paragraph
-    against the declaration, the committed audit line against both. Each fails the check itself
-    with its own comparison's message, not a neighbouring one that happens to see it."""
-    recipe = _template_copy_under(tmp_path, monkeypatch)
-    _TEMPLATE_DRIFTS[drift](tmp_path / "_template")
-    with pytest.raises(AssertionError, match=_template_drift_message(drift)):
-        test_the_live_budget_note_matches_the_request_audit(recipe)
+    """Check which comparison catches each change to the budget, README and committed ledger."""
+    folder = _copy_recipe(tmp_path, "_template")
+    mutate, message = _TEMPLATE_DRIFTS[drift]
+    count = mutate(folder)
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    with pytest.raises(AssertionError, match=message.format(original=count, drifted=count + 1)):
+        test_the_live_budget_note_matches_the_request_audit({"slug": "_template"})
 
 
-# The checks parametrised with ``guarded()`` and therefore NOT run on ``recipes/_template``, each
-# for the reason the module docstring's "Scope decisions" gives. A new check that uses
-# ``guarded()`` fails the test below until it is listed here with its reason there (#381).
-_CHECKS_THAT_SKIP_THE_TEMPLATE = {
-    "build_fixtures_scaffold",
-    "next_steps_inbound_links",
-    "readme_sources_match_catalog",
-    "simulated_side_effect_invoked",
-}
+def _check_recipe_scope_registration(tree: ast.Module) -> None:
+    # Catalog metadata and explicitly registered exclusions can use the published set. Other
+    # recipe cases start with the full set, including the template.
+    catalog_helpers = {
+        "guarded",
+        "_published_recipe_numbers",
+        "_published_recipe_slugs",
+        "_inbound_next_steps_links",
+        "side_effect_inventory_gaps",
+    }
+    pytest_names = {"pytest", "pytest.mark", "pytest.mark.parametrize"}
+    aliases = {}
+
+    def qualified_name(node: ast.expr) -> str:
+        name, separator, rest = ast.unparse(node).partition(".")
+        return aliases.get(name, name) + separator + rest
+
+    for statement in tree.body:
+        if isinstance(statement, ast.Import):
+            aliases.update(
+                (name.asname or name.name, "pytest")
+                for name in statement.names
+                if name.name == "pytest"
+            )
+        if isinstance(statement, ast.ImportFrom) and statement.module == "pytest":
+            aliases.update(
+                (name.asname or name.name, "pytest.mark")
+                for name in statement.names
+                if name.name == "mark"
+            )
+        if isinstance(statement, ast.Assign) and isinstance(
+            statement.value, (ast.Name, ast.Attribute)
+        ):
+            origin = qualified_name(statement.value)
+            if origin in pytest_names:
+                aliases.update(
+                    (target.id, origin)
+                    for target in statement.targets
+                    if isinstance(target, ast.Name)
+                )
+
+        catalog_helper = (
+            isinstance(statement, ast.FunctionDef) and statement.name in catalog_helpers
+        )
+        full_set_definition = (
+            isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+            and statement.targets[0].id == "RECIPES_WITH_TEMPLATE"
+        )
+        if not full_set_definition and not catalog_helper:
+            assert not any(
+                isinstance(node, ast.Name)
+                and node.id == "PUBLISHED"
+                and isinstance(node.ctx, ast.Load)
+                for node in ast.walk(statement)
+            ), f"line {statement.lineno}: use RECIPES_WITH_TEMPLATE for recipe sweeps"
+
+    for marker in ast.walk(tree):
+        if (
+            not isinstance(marker, ast.Call)
+            or qualified_name(marker.func) != "pytest.mark.parametrize"
+        ):
+            continue
+        args = dict(zip(("argnames", "argvalues"), marker.args, strict=False))
+        args.update((keyword.arg, keyword.value) for keyword in marker.keywords)
+        assert isinstance(args.get("argnames"), (ast.Constant, ast.List, ast.Tuple)), (
+            f"line {marker.lineno}: use literal parameter names to make recipe scope visible"
+        )
+        names = ast.literal_eval(args["argnames"])
+        if isinstance(names, str):
+            names = [name.strip() for name in names.split(",")]
+        if "recipe" not in names:
+            continue
+        values = args["argvalues"]
+        registered = isinstance(values, ast.Call) and ast.unparse(values.func) == "guarded"
+        all_recipes = isinstance(values, ast.Name) and values.id == "RECIPES_WITH_TEMPLATE"
+        assert registered or all_recipes, (
+            f"line {marker.lineno}: use guarded() or RECIPES_WITH_TEMPLATE for recipe cases"
+        )
 
 
-def test_only_the_documented_checks_skip_the_template():
-    """Every call of ``guarded(`` in this module names its check id as a string literal, the set
-    of those ids is exactly ``_CHECKS_THAT_SKIP_THE_TEMPLATE``, and each is named in the module
-    docstring's "Scope decisions" bullet that gives the reasons -- not merely anywhere in the
-    docstring, whose check-id table names nearly every check."""
-    tree = ast.parse(Path(__file__).read_text("utf-8"))
-    # ``guarded_with_template`` builds on ``guarded(check_id)``; that call passes its own
-    # parameter through and is not a check's parametrisation.
-    tree.body = [
-        n
-        for n in tree.body
-        if not (isinstance(n, ast.FunctionDef) and n.name == "guarded_with_template")
-    ]
-    calls = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "guarded"
-    ]
-    literal = [
-        call.args[0].value
-        for call in calls
-        if len(call.args) == 1
-        and isinstance(call.args[0], ast.Constant)
-        and isinstance(call.args[0].value, str)
-    ]
-    assert len(literal) == len(calls), "a guarded(...) call whose check id is not a literal"
-    used = set(literal)
-    assert used == _CHECKS_THAT_SKIP_THE_TEMPLATE, used ^ _CHECKS_THAT_SKIP_THE_TEMPLATE
-    docstring = __doc__ or ""
-    scope = docstring.split("Scope decisions", 1)[1].split("\n* ", 2)[1]
-    missing = [c for c in _CHECKS_THAT_SKIP_THE_TEMPLATE if f"``{c}``" not in scope]
-    assert not missing, f"no reason given in the Scope decisions bullet for {missing}"
+def test_recipe_checks_use_the_template_scope_registration():
+    _check_recipe_scope_registration(ast.parse(Path(__file__).read_text("utf-8")))
+
+
+def test_recipe_scope_registration_rejects_a_published_only_module_alias():
+    source = """\
+RECIPE_CASES = [recipe for recipe in PUBLISHED]
+def test_each_recipe():
+    for recipe in RECIPE_CASES:
+        assert recipe
+"""
+    with pytest.raises(AssertionError, match="use RECIPES_WITH_TEMPLATE for recipe sweeps"):
+        _check_recipe_scope_registration(ast.parse(source))
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        """\
+from pytest import mark as pm
+class TestRecipeCases:
+    @pm.parametrize(argnames="recipe", argvalues=CASES)
+    def test_each_recipe(self, recipe):
+        assert recipe
+""",
+        """\
+@pytest.mark.parametrize(argnames="recipe", argvalues=CASES)
+class TestRecipeCases:
+    def test_each_recipe(self, recipe):
+        assert recipe
+""",
+        """\
+from pytest import mark as pm
+parametrize = pm.parametrize
+@parametrize(argnames="recipe", argvalues=CASES)
+def test_each_recipe(recipe):
+    assert recipe
+""",
+        """\
+from pytest import mark as pm
+pytestmark = [pm.parametrize(argnames="recipe", argvalues=CASES)]
+def test_each_recipe(recipe):
+    assert recipe
+""",
+        """\
+class TestRecipeCases:
+    pytestmark = pytest.mark.parametrize(argnames="recipe", argvalues=CASES)
+    def test_each_recipe(self, recipe):
+        assert recipe
+""",
+    ],
+    ids=["class-method", "test-class", "assignment-alias", "module-pytestmark", "class-pytestmark"],
+)
+def test_recipe_scope_registration_checks_ordinary_parametrization_forms(source):
+    with pytest.raises(AssertionError, match=r"use guarded\(\) or RECIPES_WITH_TEMPLATE"):
+        _check_recipe_scope_registration(ast.parse(source))
+    registered = source.replace("argvalues=CASES", 'argvalues=guarded("example")')
+    _check_recipe_scope_registration(ast.parse(registered))
+
+
+def test_recipe_scope_registration_requires_the_template_in_the_full_set():
+    expected = _published_recipe_slugs() | {"_template"}
+    actual = [_slug(recipe) for recipe in RECIPES_WITH_TEMPLATE]
+    assert set(actual) == expected and len(actual) == len(expected), (
+        "RECIPES_WITH_TEMPLATE must contain the published recipes and the template exactly once"
+    )
 
 
 def _audited_mini_recipe(tmp_path: Path, n: int = 3) -> tuple[Path, str]:
@@ -4419,7 +4620,7 @@ def _backend_budget_verdict(folder: Path) -> tuple[str, str]:
     return "pass", ""
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("one_backend_per_budget")())
+@pytest.mark.parametrize("recipe", guarded("one_backend_per_budget"))
 def test_a_recipe_builds_exactly_the_backends_it_audits(recipe):
     """See ``_backend_budget_verdict``: one request budget per ``get_backend`` call."""
     status, message = _backend_budget_verdict(recipe_dir(recipe))
@@ -4567,7 +4768,7 @@ def _load_readme_install() -> ModuleType:
 _readme_install = _load_readme_install()
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("readme_no_dev_ml_install")())
+@pytest.mark.parametrize("recipe", guarded("readme_no_dev_ml_install"))
 def test_the_readme_never_installs_dev_and_ml_combined(recipe):
     """docs/recipe-template.md step 6: reproducing committed outputs installs ``.[ml]`` alone
     (``nbclient``/``ipykernel`` are core dependencies, so ``.[ml]`` is already enough to execute
@@ -4660,7 +4861,7 @@ def _disclosure_branches(source: str) -> list[list[ast.stmt]]:
 _branch_prints_n = _measured_cell.branch_prints_n
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("measured_cell_prints_n_offline")())
+@pytest.mark.parametrize("recipe", guarded("measured_cell_prints_n_offline"))
 def test_the_measured_cell_prints_n_in_the_offline_branch(recipe):
     """CONTRIBUTING.md section 2: the disclosure names, "in every mode", the run mode and N --
     the number of examples a reported number covers. docs/recipe-template.md states the
@@ -6838,7 +7039,7 @@ def test_the_effective_truth_sense_unit_cases():
         assert got == expected, f"{source_text!r} (needs {truth}): {got} != {expected}"
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("threshold_objective_pin")())
+@pytest.mark.parametrize("recipe", guarded("threshold_objective_pin"))
 def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
     """#244: nothing pins a notebook's threshold-selection OBJECTIVE. A printed f-string literal
     beside the call (``print(f"objective: select_confidence_threshold(..., min_coverage=0.75)")``)
@@ -7005,7 +7206,7 @@ def _gate_freeze_verdict(recipe_dir_: Path, slug: str) -> tuple[str, str]:
     )
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("confidence_gate_from_shared_helper")())
+@pytest.mark.parametrize("recipe", guarded("confidence_gate_from_shared_helper"))
 def test_a_confidence_gate_is_frozen_through_the_shared_helper(recipe):
     """#282: two checks (``threshold_objective_pin`` and ``stored_answers_strong_form``) key on
     finding a RESOLVABLE ``select_confidence_threshold(``/``select_threshold(`` call and skip when
@@ -7488,7 +7689,7 @@ def _noul_gold_gaps(recipe_dir_: Path) -> tuple[dict[str, list[str]], list[str]]
     return props, gaps
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("noul_proposition_gold_coverage")())
+@pytest.mark.parametrize("recipe", guarded("noul_proposition_gold_coverage"))
 def test_every_noul_proposition_has_gold_true_and_false_in_each_scored_split(recipe):
     """#283: recipe 48's review measured, on its merged fixtures, that ``breaks_reference`` had
     zero gold positives in validation -- no row where its tag could change a composed outcome,
@@ -8664,7 +8865,7 @@ def _side_effect_violations(slug: str, recipe_dir_: Path) -> list[str] | None:
     return violations
 
 
-@pytest.mark.parametrize("recipe", guarded("simulated_side_effect_invoked")())
+@pytest.mark.parametrize("recipe", guarded("simulated_side_effect_invoked"))
 def test_the_notebook_executes_its_simulated_side_effect(recipe):
     """#212: nothing else verifies that a recipe's notebook actually INVOKES the simulated side
     effect its prose and its helper tests describe. A helper can be thoroughly tested while the
@@ -8696,7 +8897,7 @@ def side_effect_inventory_gaps() -> list[str]:
 
 
 def test_the_side_effect_inventory_names_only_published_recipes_with_well_formed_entries():
-    stale = sorted(SIDE_EFFECT_INVENTORY.keys() - {r["slug"] for r in PUBLISHED})
+    stale = sorted(SIDE_EFFECT_INVENTORY.keys() - _published_recipe_slugs())
     assert not stale, f"SIDE_EFFECT_INVENTORY names recipes that are not published: {stale}"
     for slug, entry in SIDE_EFFECT_INVENTORY.items():
         declaration, problems = parse_side_effect_declaration(entry)
@@ -8872,6 +9073,27 @@ def test_an_unlisted_recipe_with_no_side_effect_is_neither_failed_nor_silently_p
     detected, no declaration exists and the recipe does not need a simulator."""
     folder = RECIPES_DIR / "01-sentiment-classification"
     assert _side_effect_violations("99-unlisted", folder) is None
+
+
+def test_the_template_side_effect_check_reports_an_undeclared_queue_write(tmp_path, monkeypatch):
+    folder = _copy_recipe(tmp_path, "_template")
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    notebook["cells"].append(
+        {
+            "cell_type": "code",
+            "outputs": [],
+            "source": [
+                "from jev_cookbook.simulation import ReviewQueue\n",
+                "queue = ReviewQueue()\n",
+                'queue.submit({"ticket": 7}, "synthetic review")\n',
+            ],
+        }
+    )
+    path.write_text(json.dumps(notebook), "utf-8")
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    with pytest.raises(AssertionError, match=r"no side-effect declaration.*ReviewQueue\.submit"):
+        test_the_notebook_executes_its_simulated_side_effect({"slug": "_template"})
 
 
 def test_a_recipe_that_needs_a_simulator_cannot_pass_by_detecting_nothing(tmp_path):
@@ -9842,9 +10064,8 @@ def test_the_scaffolded_declaration_is_a_placeholder_the_guard_rejects_until_it_
 
 def test_the_inventory_matches_what_the_published_recipes_do_today():
     """Every inventoried recipe passes, with nothing allowlisted and nothing skipped."""
-    for recipe in PUBLISHED:
-        if recipe["slug"] in SIDE_EFFECT_INVENTORY:
-            assert _side_effect_violations(recipe["slug"], recipe_dir(recipe)) == [], recipe["slug"]
+    for slug in SIDE_EFFECT_INVENTORY:
+        assert _side_effect_violations(slug, RECIPES_DIR / slug) == [], slug
 
 
 # --------------------------------------------------------------------------------------------
@@ -10428,6 +10649,20 @@ def _without_audit_lines(text: str) -> str:
     )
 
 
+def _scanned_output(recipe_dir_: Path) -> str:
+    """The exact text ``_printed_numbers`` scans: every code cell's committed output
+    (``_output_text``) with its audit lines blanked by ``_without_audit_lines``, the cells joined
+    by one ``"\\n"`` between their texts. Line structure is kept (a blanked audit line is still a
+    line). It is the join's ``"\\n"`` that keeps two cells apart: a cell's committed text may end
+    with a newline of its own, or (``print(..., end="")``) with none. Kept as one function so the
+    tests can pin the join and the blanking directly."""
+    return "\n".join(
+        _without_audit_lines(_output_text(cell))
+        for cell in notebook_cells(recipe_dir_)
+        if cell["cell_type"] == "code"
+    )
+
+
 def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     """The numbers a quote of each kind can be backed by. A ``metric`` quote: any number a code
     cell's committed output prints, or the recipe's own ``tests/`` type (CONTRIBUTING.md section
@@ -10438,12 +10673,21 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     or ``speed`` quote: only a price, a latency or a throughput the output prints with its unit,
     so a printed sample size of 180 does not back "180 ms".
 
+    A number and its unit are read on one output line and never across a line break: a
+    ``price``, latency, throughput or seconds figure, and a quoted fraction backed through a
+    printed percentage, are backed only when the number and its unit sit on the same committed
+    output line, so output printed on two lines (or a segment committed with no trailing newline,
+    followed by one that opens with the unit) backs nothing (#380). A quoted percentage is the
+    exception: it is still backed by a bare printed number on any line (see ``_is_printed``). Prose
+    may wrap a quote across lines; committed output is read line by line.
+
     The audited route's one committed ``AUDIT_PREFIX`` line (#213, #376) is a machine-readable
     ledger, not a printed quantity: its 64-character hex replay keys are excluded here, per line,
     before any digit scan sees them, so they cannot back a fabricated prose figure --
     ``_without_audit_lines`` blanks a matched line's content rather than deleting it, so the line
-    stays and the text on either side of it is never spliced together. This is symmetric across
-    both sources of the ``metric`` pool: the same blanking is applied to the committed output and
+    stays a line (``_scanned_output`` keeps that structure, pinned directly by a test). This is
+    symmetric across both sources of the ``metric`` pool: the same blanking is applied to the
+    committed output and
     to the recipe's own ``tests/*.py`` text, matching ``line.startswith(AUDIT_PREFIX)`` on each
     physical line of either source. That match requires the prefix at the very first character of
     the line, so it only reaches the ledger reproduced alone on its own line (e.g. a triple-quoted
@@ -10455,29 +10699,33 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     ``readme_budget_note_matches_request_audit`` against ``request_budget.json``, for every
     published recipe and for ``recipes/_template`` (#381); this exclusion
     removes nothing that check relies on."""
-    output = "\n".join(
-        _without_audit_lines(_output_text(cell))
-        for cell in notebook_cells(recipe_dir_)
-        if cell["cell_type"] == "code"
-    )
+    output = _scanned_output(recipe_dir_)
     metric = _decimals(output)
     tests_dir = recipe_dir_ / "tests"
     if tests_dir.is_dir():
         for path in sorted(tests_dir.glob("*.py")):
             metric += _decimals(_without_audit_lines(path.read_text("utf-8")))
+    # A number and its unit are read off one committed output line, never across a line break
+    # (#380): the unit patterns bind them with ``\s?``, which a newline satisfies, and a segment
+    # committed without its own trailing newline would otherwise fuse to the next one.
+    output_lines = output.splitlines()
     price = [
-        n for m in re.finditer(_PRICE_AMOUNT, output, re.IGNORECASE) for n in _decimals(m.group(0))
+        n
+        for line in output_lines
+        for m in re.finditer(_PRICE_AMOUNT, line, re.IGNORECASE)
+        for n in _decimals(m.group(0))
     ]
     speed = [
         n
+        for line in output_lines
         for pattern in (_LATENCY_MS, _THROUGHPUT, _SECONDS)
-        for m in pattern.finditer(output)
+        for m in pattern.finditer(line)
         for n in _decimals(m.group("q"))
     ]
-    percentages = [Decimal(m.group(1)) for m in _PERCENT.finditer(output)]
+    percentages = [Decimal(m.group(1)) for line in output_lines for m in _PERCENT.finditer(line)]
     metric += [pct / 100 for pct in percentages]
     complements: list[Decimal] = []
-    for line in output.splitlines():
+    for line in output_lines:
         if not _RATE_LINE.search(line):
             continue
         complements += [
@@ -10574,7 +10822,7 @@ def _honesty_failure(check: str, violations: list[str]) -> str:
     return f"{check}: " + "; ".join(violations) + f" (see {HONESTY_DOC})"
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("reported_provenance_matches_fixtures")())
+@pytest.mark.parametrize("recipe", guarded("reported_provenance_matches_fixtures"))
 def test_the_reported_provenance_agrees_with_what_the_fixtures_carry(recipe):
     """CONTRIBUTING.md section 2 (#218 item 3): "The notebook states near the top which mode it
     ran in." The vocabulary form of this check (a notebook that says ``recorded`` must have a
@@ -10592,7 +10840,7 @@ def test_the_reported_provenance_agrees_with_what_the_fixtures_carry(recipe):
     assert not violations, _honesty_failure("provenance", violations)
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("readme_states_fixture_provenance")())
+@pytest.mark.parametrize("recipe", guarded("readme_states_fixture_provenance"))
 def test_the_readme_states_the_mode_the_fixtures_carry(recipe):
     """CONTRIBUTING.md section 2: the README says "not measured live" when no live run was made,
     and a recorded recipe names the model and the capture dates. Its ``**Mode:**`` line must name
@@ -10602,9 +10850,7 @@ def test_the_readme_states_the_mode_the_fixtures_carry(recipe):
     assert not violations, _honesty_failure("README provenance", violations)
 
 
-@pytest.mark.parametrize(
-    "recipe", guarded_with_template("metric_output_lines_carry_pipeline_check")()
-)
+@pytest.mark.parametrize("recipe", guarded("metric_output_lines_carry_pipeline_check"))
 def test_every_metric_line_of_a_synthetic_run_carries_the_pipeline_check_label(recipe):
     """CONTRIBUTING.md section 2: "In a synthetic run, any metric is a check that the pipeline
     works, and the notebook says so next to the number." Read off the committed output, so it
@@ -10623,7 +10869,7 @@ def test_every_metric_line_of_a_synthetic_run_carries_the_pipeline_check_label(r
     )
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("prose_quantities_are_printed")())
+@pytest.mark.parametrize("recipe", guarded("prose_quantities_are_printed"))
 def test_a_quantity_quoted_in_prose_is_a_number_the_run_printed(recipe):
     """CONTRIBUTING.md section 2: no sentence about Jev's quality, latency or cost appears unless
     it comes from recorded live inference. The decidable part of that is a NUMBER: a percentage or
@@ -10639,7 +10885,7 @@ def test_a_quantity_quoted_in_prose_is_a_number_the_run_printed(recipe):
     assert not violations, _honesty_failure("quoted quantity", violations)
 
 
-@pytest.mark.parametrize("recipe", guarded_with_template("no_unhedged_quality_claim_about_jev")())
+@pytest.mark.parametrize("recipe", guarded("no_unhedged_quality_claim_about_jev"))
 def test_no_sentence_says_jev_does_well_in_a_synthetic_recipe(recipe):
     """CONTRIBUTING.md section 2 (#218 item 1, the narrow form): where every stored answer is
     synthetic, no README or markdown sentence says Jev or the model does something correctly,
@@ -10836,7 +11082,7 @@ def test_the_published_set_and_the_template_are_clear_of_all_five_honesty_checks
     assert not {check for _, check in KNOWN_FAILURES} & set(HONESTY_CHECKS)
     dirty = {
         recipe["slug"]: {k: v for k, v in _violations(recipe_dir(recipe)).items() if v}
-        for recipe in [*PUBLISHED, {"slug": "_template"}]
+        for recipe in RECIPES_WITH_TEMPLATE
     }
     assert not {slug: found for slug, found in dirty.items() if found}
 
@@ -10847,7 +11093,7 @@ def test_each_detector_sees_something_across_the_published_set():
     things: the lines are not empty, the metric lines exist, the prose quotes quantities, and the
     provenance lines are found in every notebook. The floors are well below today's counts (6548
     output lines, 1190 metric lines, 213 quoted quantities, measured when this landed)."""
-    recipes = [*PUBLISHED, {"slug": "_template"}]
+    recipes = RECIPES_WITH_TEMPLATE
     lines = [_committed_output_lines(recipe_dir(r)) for r in recipes]
     assert sum(len(x) for x in lines) > 3000
     metric = [
@@ -10873,7 +11119,7 @@ def test_the_provenance_reader_agrees_with_the_replay_backend():
     from jev_cookbook.backends import ReplayBackend
 
     checked = 0
-    for recipe in [*PUBLISHED, {"slug": "_template"}]:
+    for recipe in RECIPES_WITH_TEMPLATE:
         path = recipe_dir(recipe) / "fixtures" / "responses.json"
         if not path.is_file():
             assert _fixture_provenance(recipe_dir(recipe))[0] == "scripted", recipe["slug"]
@@ -11676,9 +11922,7 @@ def _strip_labels_from_outputs(folder: Path) -> None:
         path.write_text(json.dumps(notebook), "utf-8")
 
 
-@pytest.mark.parametrize(
-    "recipe", [pytest.param(r, id=r["slug"]) for r in [*PUBLISHED, {"slug": "_template"}]]
-)
+@pytest.mark.parametrize("recipe", RECIPES_WITH_TEMPLATE, ids=_slug)
 def test_every_honesty_check_fails_on_each_recipe_when_that_recipe_is_made_to_overclaim(
     tmp_path, recipe
 ):
@@ -11771,7 +12015,7 @@ def test_a_claim_is_caught_in_every_markdown_block_of_every_recipe_wherever_it_i
     claim = "Jev judges these tickets correctly"
     blocks = 0
     missed = []
-    for recipe in [*PUBLISHED, {"slug": "_template"}]:
+    for recipe in RECIPES_WITH_TEMPLATE:
         for where, raw in _prose_blocks(recipe_dir(recipe)):
             blocks += 1
             before = len(_claims_in_markdown(raw))
@@ -11996,8 +12240,10 @@ def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches
     in its cell rather than between two lines. Dropping the whole line (rather than blanking its
     content) used to splice "180" and "ms" together across the one optional whitespace
     character ``_LATENCY_MS`` (and ``_PERCENT``, ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``)
-    allow, backing a latency the recipe never printed. This is the same adjacency defect the
-    cell-boundary fix repaired, one layer in."""
+    allow, backing a latency the recipe never printed. Since #380 the units are also read per
+    line, so this test alone no longer fails for a mutant that deletes the audit line; the
+    scanned text is therefore pinned directly too: the blanked line must remain a line between
+    its neighbours (``_scanned_output``), and the end-to-end result must still catch the claim."""
     audit_line = _real_audit_line()
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_cell(
@@ -12005,6 +12251,9 @@ def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches
         "code",
         "median latency 180\n" + audit_line + "\nms over the sample\n",
         cell_id="number-ledger-unit",
+    )
+    assert "median latency 180\n\nms over the sample\n" in _scanned_output(folder), (
+        "the audit line must be blanked in place, not deleted"
     )
     _append_cell(
         folder,
@@ -12028,13 +12277,17 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     (cell texts, not lines) for exactly this, terminated, shape, but nothing before this test
     pinned that repair as a regression test: a mutant that keeps this round's per-line blanking
     exactly as shipped and only collapses the inter-cell gap (``.rstrip("\\n")`` on each filtered
-    cell's text before the outer join) passes the rest of this module's suite untouched. This
-    does not pin the *unterminated* shape (a cell whose committed stdout carries no trailing
-    newline at all, e.g. ``print(..., end="")``): that one is pre-existing on ``origin/main``
-    itself, not introduced or worsened here, and is filed as #380."""
+    cell's text before the outer join) is caught by the direct assertion on ``_scanned_output``
+    below (the per-line scan of #380 no longer notices it end to end). This does not pin the
+    *unterminated* shape (a cell whose committed stdout carries no trailing newline at all, e.g.
+    ``print(..., end="")``): that one was pre-existing, and #380's own test,
+    ``test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit``, pins it."""
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_cell(folder, "code", "median latency 180", cell_id="ends-with-number")
     _append_cell(folder, "code", "ms over the sample", cell_id="begins-with-unit")
+    assert "median latency 180\n\nms over the sample\n" in _scanned_output(folder), (
+        "two cells must stay separated by their own trailing newline plus the join's newline"
+    )
     _append_cell(
         folder,
         "markdown",
@@ -12043,6 +12296,175 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     )
     unbacked = _unprinted_quantities(folder)
     assert any("180" in message for message in unbacked), unbacked
+
+
+# #380: committed output whose number-ending segment carries no trailing newline. The last shape is
+# a quoted *fraction* backed through a printed percentage (a quoted percentage is backed by the bare
+# number anywhere, see below). Each shape is
+# (the segment that ends with the number, the segment that opens with the unit, a prose sentence
+# that quotes the fused quantity as a claim about Jev). The four unit patterns and ``_PERCENT``
+# bind a number to its unit with ``\s?``, so before #380 the one newline the output joins put
+# between the two segments fused them and backed the sentence.
+_UNTERMINATED_SHAPES = {
+    "latency": (
+        "median latency 180",
+        "ms over the sample",
+        "Jev answers with a median latency of 180 ms.",
+    ),
+    "throughput": (
+        "the replay handled 40",
+        "requests per second offline",
+        "Jev handles 40 requests per second.",
+    ),
+    "seconds": (
+        "replay rows: 12",
+        "seconds is the offline wall time",
+        "A live Jev call takes 12 seconds of latency.",
+    ),
+    "price": (
+        "budget line $",
+        "0.25 per call, from the fixture invoice",
+        "Each Jev call costs $0.25 per call.",
+    ),
+    "fraction-via-percent": (
+        "rows checked: 93",
+        "% of the fixture file was read",
+        # A printed percentage also backs its fraction, so the fused "93\n%" backed "0.93".
+        "Jev reaches an accuracy of 0.93 on this task.",
+    ),
+}
+
+# The quote the guard reports for each shape's sentence.
+_EXPECTED_QUOTE = {
+    "latency": "'180 ms'",
+    "throughput": "'40 requests per second'",
+    "seconds": "'12 seconds'",
+    "price": "'$0.25 per call'",
+    "fraction-via-percent": "'0.93'",
+}
+
+
+def _append_unterminated_output(
+    folder: Path, segments: list[str], cell_id: str, outputs: list[dict] | None = None
+) -> None:
+    """A code cell whose committed outputs are ``segments`` exactly as given: one stdout stream
+    each, with no trailing newline added (unlike ``_append_cell``), the shape a cell that ends in
+    ``print(..., end="")`` or ``sys.stdout.write(...)`` commits. ``outputs`` replaces them with
+    explicit nbformat output dicts."""
+    if outputs is None:
+        outputs = [{"name": "stdout", "output_type": "stream", "text": [seg]} for seg in segments]
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    notebook["cells"].append(
+        {
+            "cell_type": "code",
+            "id": cell_id,
+            "metadata": {},
+            "execution_count": None,
+            "source": ["import sys\n", "sys.stdout.write('probe')\n"],
+            "outputs": outputs,
+        }
+    )
+    path.write_text(json.dumps(notebook), "utf-8")
+
+
+def _stdout(text: str) -> dict:
+    return {"name": "stdout", "output_type": "stream", "text": [text]}
+
+
+def _stderr(text: str) -> dict:
+    return {"name": "stderr", "output_type": "stream", "text": [text]}
+
+
+def _execute_result(text: str) -> dict:
+    return {
+        "output_type": "execute_result",
+        "execution_count": 1,
+        "metadata": {},
+        "data": {"text/plain": [text]},
+    }
+
+
+def _display_data(text: str) -> dict:
+    return {"output_type": "display_data", "metadata": {}, "data": {"text/plain": [text]}}
+
+
+# Shapes for one cell's second output after a stdout stream: a displayed value, a stderr stream,
+# display_data (what Jupyter really saves) and a second stdout stream. The guard reads each
+# committed output part as its own line, the same way ``_committed_output_lines`` does for every
+# other output check, so all checks agree on what one printed line is; that is why stdout+stdout
+# stays a fusion case. Jupyter itself merges consecutive same-name streams when it saves, so a
+# committed notebook does not hold that shape (the pools are identical over all 52 recipe folders).
+_SECOND_OUTPUT = {
+    "execute-result": _execute_result,
+    "stderr": _stderr,
+    "display-data": _display_data,
+    "stdout": _stdout,
+}
+
+
+@pytest.mark.parametrize("where", ["across two cells", *sorted(_SECOND_OUTPUT)])
+@pytest.mark.parametrize("shape", sorted(_UNTERMINATED_SHAPES))
+def test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit(
+    tmp_path, shape, where
+):
+    """#380. The number ends one committed output segment with no trailing newline and its unit
+    opens the next, either in the next cell or in the same cell's next output part. Before the
+    fix the fused text was scanned as one and backed the fabricated sentence; the first assertion
+    shows the case reaches that fusion (the joined output really does hold ``number\\nunit`` and
+    the unit pattern really does match across it), the second that the guard now catches the
+    sentence anyway."""
+    ends_with_number, begins_with_unit, sentence = _UNTERMINATED_SHAPES[shape]
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    if where == "across two cells":
+        _append_unterminated_output(folder, [ends_with_number], "ends-with-number")
+        _append_unterminated_output(folder, [begins_with_unit + "\n"], "begins-with-unit")
+    else:
+        _append_unterminated_output(
+            folder,
+            [],
+            "split",
+            outputs=[_stdout(ends_with_number), _SECOND_OUTPUT[where](begins_with_unit + "\n")],
+        )
+    fused = _scanned_output(folder)
+    pattern = {
+        "latency": _LATENCY_MS,
+        "throughput": _THROUGHPUT,
+        "seconds": _SECONDS,
+        "price": re.compile(_PRICE_AMOUNT, re.IGNORECASE),
+        "fraction-via-percent": _PERCENT,
+    }[shape]
+    assert any("\n" in m.group(0) for m in pattern.finditer(fused)), fused
+    _append_cell(folder, "markdown", sentence, cell_id="fabricated-quantity")
+    unbacked = _unprinted_quantities(folder)
+    quote = _EXPECTED_QUOTE[shape]
+    assert any("fabricated-quantity" in m and quote in m for m in unbacked), unbacked
+
+
+def test_a_quoted_percentage_is_still_backed_by_a_bare_number_on_another_line(tmp_path):
+    """The documented exception to #380's per-line reading: a quoted percentage is backed by the
+    bare printed number anywhere in the output (the metric pool), so ``93%`` quoted is backed by
+    a ``93`` printed on one line with its ``%`` on none. Intended, not a loophole."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_unterminated_output(folder, ["rows checked: 93"], "number")
+    _append_unterminated_output(folder, ["% of the fixture file was read\n"], "unit")
+    sentence = "Jev reaches an accuracy of 93% on this task."
+    assert ("rate", "93%") in _quoted_quantities(sentence), _quoted_quantities(sentence)
+    _append_cell(folder, "markdown", sentence, cell_id="q")
+    assert [m for m in _unprinted_quantities(folder) if "'93%'" in m] == []
+
+
+def test_a_number_and_its_unit_printed_on_one_line_is_still_backed(tmp_path):
+    """The other direction of #380: reading units per line removes nothing a recipe genuinely
+    prints. The same five sentences, each backed by one output line that prints the number with
+    its unit, unterminated or not, all pass."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    for i, (number, unit, _) in enumerate(_UNTERMINATED_SHAPES.values()):
+        joined = number + (" " if not number.endswith("$") else "") + unit
+        _append_unterminated_output(folder, [joined], f"printed-{i}")
+    for i, (_, _, sentence) in enumerate(_UNTERMINATED_SHAPES.values()):
+        _append_cell(folder, "markdown", sentence, cell_id=f"backed-{i}")
+    assert [m for m in _unprinted_quantities(folder) if "backed-" in m] == []
 
 
 def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabrication(tmp_path):
