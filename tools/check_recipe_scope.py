@@ -85,12 +85,16 @@ def without_code_fences(body: str) -> str:
     """``body`` with fenced code blocks removed, as GitHub links nothing written inside one.
 
     A fence is three or more backticks or tildes, indented by at most three spaces; it closes at a
-    line of the same character, at least as long, with nothing but spaces after it, and a fence
-    that never closes runs to the end of the text (CommonMark).
+    line of the same character, at least as long, with only ASCII spaces or tabs after it.
+    A fence that never closes runs to the end of the text (CommonMark).
     """
     kept = []
     fence = None  # (character, length) while inside a fenced block
-    for line in body.splitlines():
+    # CommonMark lines end only at CRLF, LF or CR; Unicode separators remain content.
+    lines = re.split(r"\r\n|\r|\n", body)
+    if lines[-1] == "":
+        lines.pop()  # retain the existing treatment of a final line ending
+    for line in lines:
         match = FENCE.fullmatch(line)
         if fence is None:
             if match and not (match.group("mark")[0] == "`" and "`" in match.group("info")):
@@ -98,7 +102,7 @@ def without_code_fences(body: str) -> str:
                 continue
             kept.append(line)
         elif match and match.group("mark")[0] == fence[0]:
-            if len(match.group("mark")) >= fence[1] and not match.group("info").strip():
+            if len(match.group("mark")) >= fence[1] and not match.group("info").strip(" \t"):
                 fence = None
     return "\n".join(kept)
 
