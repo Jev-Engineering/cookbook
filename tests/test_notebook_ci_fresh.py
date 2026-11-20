@@ -18,7 +18,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from matplotlib.figure import Figure
 
+from jev_cookbook import Provenance
+from jev_cookbook.answers import ScoreAnswer
 from jev_cookbook.style import (
     apply_style,
     plot_answer_probabilities,
@@ -157,6 +160,26 @@ def test_known_limits_a_moved_threshold_line_is_not_seen():
     # marker) is narrower than the comparison's 2 by 2 block, so moving it passes. The text outputs
     # are what guard such a chart. If this starts to fail the comparison got stricter.
     same, detail = fresh_tool.compare_png(sweep(0.5), sweep(0.6))
+    assert same, detail
+
+
+def test_known_limits_a_moved_score_legend_is_not_seen():
+    # Move only the score legend between corners. The saved figure changes, but the
+    # comparison can miss that move, as documented in docs/notebook-ci.md.
+    apply_style()
+    score = ScoreAnswer.from_probabilities(
+        [0.0, 0.57, 0.43], ["low", "mid", "high"], Provenance.synthetic()
+    )
+    figure = Figure(figsize=(6.4, 6.4), layout="none")
+    ax = figure.subplots()
+    plot_answer_probabilities(score, ax=ax)
+    ax.legend(loc="lower right")
+    lower = png_of(figure)
+    ax.legend(loc="upper right")
+    upper = png_of(figure)
+
+    assert lower != upper
+    same, detail = fresh_tool.compare_png(lower, upper)
     assert same, detail
 
 
