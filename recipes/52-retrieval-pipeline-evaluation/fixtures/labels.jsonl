@@ -1,0 +1,18 @@
+{"id": "v01", "label": {"verdict": "supported", "evidence": ["v01-p3"]}}
+{"id": "v02", "label": {"verdict": "supported", "evidence": ["v02-p2", "v02-p4"]}}
+{"id": "v03", "label": {"verdict": "contradicted", "evidence": ["v03-p3"]}}
+{"id": "v04", "label": {"verdict": "not_enough_evidence", "evidence": []}}
+{"id": "v05", "label": {"verdict": "supported", "evidence": ["v05-p2"]}}
+{"id": "v06", "label": {"verdict": "supported", "evidence": ["v06-p1"]}}
+{"id": "v07", "label": {"verdict": "contradicted", "evidence": ["v07-p3"]}}
+{"id": "v08", "label": {"verdict": "not_enough_evidence", "evidence": []}}
+{"id": "t01", "label": {"verdict": "supported", "evidence": ["t01-p3"]}}
+{"id": "t02", "label": {"verdict": "supported", "evidence": ["t02-p2", "t02-p4"]}}
+{"id": "t03", "label": {"verdict": "contradicted", "evidence": ["t03-p3"]}}
+{"id": "t04", "label": {"verdict": "not_enough_evidence", "evidence": []}}
+{"id": "t05", "label": {"verdict": "supported", "evidence": ["t05-p2", "t05-p5"]}}
+{"id": "t06", "label": {"verdict": "supported", "evidence": ["t06-p1"]}}
+{"id": "t07", "label": {"verdict": "contradicted", "evidence": ["t07-p4"]}}
+{"id": "t08", "label": {"verdict": "not_enough_evidence", "evidence": []}}
+{"id": "t09", "label": {"verdict": "supported", "evidence": ["t09-p3"]}}
+{"id": "t10", "label": {"verdict": "supported", "evidence": ["t10-p3", "t10-p4"]}}
