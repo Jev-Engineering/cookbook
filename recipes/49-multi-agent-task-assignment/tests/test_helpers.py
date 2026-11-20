@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import get_backend, load_helpers, replay_key
+from jev_cookbook.backends import ReplayMiss
 from jev_cookbook.evaluation import score_level, select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
@@ -69,20 +70,37 @@ def test_build_state_carries_only_the_two_text_fields():
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():
     # The fixture validator cannot see question drift; this test can.
     questions = helpers.build_questions()
+    demo_count = 0
+    scored_keys = set()
     for example in load_inputs(RECIPE):
-        assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
+        if example.split == "demo":
+            demo_count += 1
+            assert example.replay_keys == ()
+        else:
+            assert example.split in ("validation", "test")
+            key = replay_key(helpers.build_state(example.fields), questions)
+            assert example.replay_keys == (key,)
+            assert key not in scored_keys
+            scored_keys.add(key)
+    assert demo_count == 2
+    assert len(scored_keys) == 72
 
 
 def test_every_stored_answers_top_choice_matches_its_own_spec():
     # A fixture-building shorthand must never default the field that carries the label. Here
     # that is ROWS' own (gold, shape, peak) tuple: check the committed stored answer's modal
-    # level equals the peak the row's spec named, for every scored and demo row.
+    # level equals the peak the row's spec named for each scored pair.
     bf = _load_build_fixtures()
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
-    for ident, split, agent_id, subtask_id, _label, _shape, peak in bf.ROWS:
-        fields = bf._fields(split, agent_id, subtask_id)
-        answer = backend.decide(helpers.build_state(fields), questions)["suitability"]
+    for ident, split, agent_id, subtask_id, _label, shape, peak in bf.ROWS:
+        state = helpers.build_state(bf._fields(split, agent_id, subtask_id))
+        if split == "demo":
+            assert shape is None and peak is None
+            with pytest.raises(ReplayMiss):
+                backend.decide(state, questions)
+            continue
+        answer = backend.decide(state, questions)["suitability"]
         assert score_level(answer) == peak, f"{ident}: stored top choice does not match its spec"
 
 
