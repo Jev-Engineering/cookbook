@@ -394,3 +394,24 @@ def test_known_layout_baseline_uses_no_labels_and_fails_reflow_and_absence():
     assert not helpers.success(outcomes["t02"], labels["t02"])
     assert not helpers.success(outcomes["t03"], labels["t03"])
     assert helpers.summarize(test, outcomes, labels)[0].false_positives == 3
+
+
+def test_suppressed_box_count_is_absent_denominator_minus_false_positives():
+    labels = load_labels(RECIPE)
+    replay = ReplayBackend.from_json(responses_path(RECIPE))
+    policy = validation_policy()
+    test = select_split(load_inputs(RECIPE), "test")
+    seen = {e.id: helpers.observe(replay, e.fields, RECIPE) for e in test}
+    outcomes = {
+        e.id: helpers.route(seen[e.id], policy, helpers.dimensions(e.fields, RECIPE)) for e in test
+    }
+    suppressed = [
+        e.id
+        for e in test
+        if gold_box(labels[e.id]["target"]) is None
+        and seen[e.id].location is not None
+        and outcomes[e.id].box is None
+    ]
+    report, _ = helpers.summarize(test, outcomes, labels)
+    assert len(suppressed) == report.n_absent - report.false_positives == 3
+    assert "t12" in suppressed and outcomes["t12"].status == "review"
