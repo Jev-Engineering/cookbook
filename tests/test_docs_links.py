@@ -400,3 +400,31 @@ def test_a_text_only_call_omits_the_images_header_and_respects_long_context(flag
     for _ in range(2):
         backend.decide({"text": "Please refund me."}, questions)
     assert [call.get("extra_headers") for call in client.calls] == [expected, expected]
+
+
+@pytest.mark.parametrize(
+    "separator,is_line_ending",
+    [
+        ("\u2028", False),
+        ("\u2029", False),
+        ("\x85", False),
+        ("\n", True),
+        ("\r", True),
+        ("\r\n", True),
+    ],
+)
+def test_linked_pages_respects_markdown_line_boundaries(tmp_path, separator, is_line_ending):
+    page = tmp_path / "page.md"
+    page.write_text(f"Intro{separator}~~~\n[guide](guide.md)\n~~~", encoding="utf-8")
+    expected = frozenset() if is_line_ending else frozenset({tmp_path / "guide.md"})
+    assert linked_pages(page) == expected
+
+
+@pytest.mark.parametrize(
+    "suffix,closes", [("\u2028", False), ("\xa0", False), (" ", True), ("\t", True)]
+)
+def test_linked_pages_respects_fence_closing_whitespace(tmp_path, suffix, closes):
+    page = tmp_path / "page.md"
+    page.write_text(f"~~~\n~~~{suffix}\n[guide](guide.md)", encoding="utf-8")
+    expected = frozenset({tmp_path / "guide.md"}) if closes else frozenset()
+    assert linked_pages(page) == expected

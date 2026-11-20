@@ -914,3 +914,60 @@ def test_the_scope_check_and_the_asset_checker_agree_on_which_suffixes_are_image
     assets = load("check_recipe_assets_for_scope_test", REPO / "tools" / "check_recipe_assets.py")
     assert scope.IMAGE_SUFFIXES == assets.IMAGE_SUFFIXES
     assert set(assets.ALLOWED_SUFFIXES) <= set(scope.IMAGE_SUFFIXES)
+
+
+# CommonMark 0.31.2 defines line endings as CRLF, LF or CR, not str.splitlines' set.
+@pytest.mark.parametrize(
+    "separator", ["\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+)
+def test_fence_non_line_separators_do_not_invent_an_opening_fence(separator):
+    text = f"Intro{separator}~~~\nCloses #1\n~~~"
+    assert scope.without_code_fences(text) == f"Intro{separator}~~~\nCloses #1"
+    assert scope.closing_issues(text, "o/r") == {1}
+
+
+@pytest.mark.parametrize(
+    "separator", ["\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+)
+def test_fence_non_line_separators_do_not_invent_a_closing_fence(separator):
+    text = f"~~~\ncontent{separator}~~~\nCloses #1\n~~~\nCloses #2"
+    assert scope.without_code_fences(text) == "Closes #2"
+    assert scope.closing_issues(text, "o/r") == {2}
+
+
+@pytest.mark.parametrize(
+    "separator", ["\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+)
+def test_fence_parser_preserves_non_line_separators_in_ordinary_prose(separator):
+    text = f"Intro{separator}ordinary prose\nCloses #1"
+    assert scope.without_code_fences(text) == text
+    assert scope.closing_issues(text, "o/r") == {1}
+
+
+@pytest.mark.parametrize("ending", ["\n", "\r", "\r\n"])
+def test_fence_parser_recognizes_real_line_endings_at_both_boundaries(ending):
+    text = ending.join(["Intro", "~~~", "Closes #1", "~~~", "Closes #2"])
+    assert scope.without_code_fences(text) == "Intro\nCloses #2"
+    assert scope.closing_issues(text, "o/r") == {2}
+    unclosed = ending.join(["Intro", "~~~", "Closes #1"])
+    assert scope.without_code_fences(unclosed) == "Intro"
+    assert scope.closing_issues(unclosed, "o/r") == set()
+    assert scope.without_code_fences(f"Intro{ending}") == "Intro"
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    ["\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029", "\xa0", "\u2003"],
+)
+def test_fence_close_rejects_non_ascii_whitespace(suffix):
+    text = f"~~~\n~~~{suffix}\nCloses #1\n~~~\nCloses #2"
+    assert scope.without_code_fences(text) == "Closes #2"
+    assert scope.closing_issues(text, "o/r") == {2}
+
+
+@pytest.mark.parametrize("suffix", ["", " ", "\t", " \t "])
+@pytest.mark.parametrize("ending", ["\n", "\r", "\r\n"])
+def test_fence_close_accepts_ascii_spaces_and_tabs(suffix, ending):
+    text = ending.join(["~~~", "Closes #1", f"~~~{suffix}", "Closes #2"])
+    assert scope.without_code_fences(text) == "Closes #2"
+    assert scope.closing_issues(text, "o/r") == {2}
