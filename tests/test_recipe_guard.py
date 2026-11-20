@@ -414,6 +414,7 @@ import json
 import operator
 import re
 import shutil
+import sys
 import textwrap
 import tokenize
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
@@ -494,6 +495,7 @@ def load_tool(name: str) -> ModuleType:
     """A tool module, loaded by file path (tools/ has no __init__.py)."""
     spec = importlib.util.spec_from_file_location(f"{name}_for_recipe_guard", REPO / "tools" / name)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve annotated fields through their module
     spec.loader.exec_module(module)
     return module
 
@@ -795,7 +797,11 @@ def test_no_issue_numbers_or_the_issue_in_recipe_files(recipe):
 # --------------------------------------------------------------------------------------------
 
 CODE_SPAN = re.compile(r"`([^`\n]+)`")
-CODE_FENCE = re.compile(r"^(```|~~~).*?^\1[ \t]*$", re.MULTILINE | re.DOTALL)
+# This private module instance uses the dev-installed block parser. The scope CLI and docs
+# loader use separate instances and retain their dependency-free physical-line mode.
+_cell_id_scope = load_tool("check_recipe_scope.py")
+_cell_id_scope.COMMONMARK_FENCE_CONTEXT = True
+without_code_fences = _cell_id_scope.without_code_fences
 
 
 def _hyphenated_cell_ids(recipe_dir_: Path) -> set[str]:
@@ -809,9 +815,13 @@ def _hyphenated_cell_ids(recipe_dir_: Path) -> set[str]:
 
 def _cell_id_citations(text: str, ids: set[str], location: str) -> list[str]:
     """Every backticked span of ``text`` that is exactly one of ``ids``. Fenced blocks are
-    code, not prose addressed to the reader, and are skipped (a fence of three backticks or three
-    tildes at the start of a line; a longer fence or an indented block is not recognised)."""
-    text = CODE_FENCE.sub(" ", text)
+    code, not prose addressed to the reader. The shared helper's explicitly selected CommonMark
+    mode removes fence-token line ranges, including fences inside containers, while preserving
+    fence-looking lines in HTML blocks. An unclosed fence ends at its container or the document.
+    Inline spans, HTML content and indented code otherwise keep this check's existing policy.
+    The reader models CommonMark (markdown-it-py's preset), not GitHub's cmark-gfm, so GFM-only
+    containers such as footnote definitions are not modelled."""
+    text = without_code_fences(text)
     return [
         f"{location}: `{m.group(1)}` is a cell id, which only the .ipynb JSON shows"
         for m in CODE_SPAN.finditer(text)
@@ -1140,6 +1150,45 @@ def test_the_citations_recipe_17_carried_are_found_where_they_were_written(tmp_p
     assert len(hits) == 2, hits
     assert "ranking-discuss" in hits[0] and "`selective-discuss`" in hits[0]
     assert "next-md" in hits[1] and "`python-rule`" in hits[1]
+
+
+@pytest.mark.parametrize(
+    "text,expected_count",
+    [
+        (" ```text\n`python-rule`\n ```", 0),
+        ("  ~~~text\n`python-rule`\n  ~~~", 0),
+        ("   ```text\n`python-rule`\n   ```", 0),
+        ("````text\n`python-rule`\n`````", 0),
+        ("~~~~text\n`python-rule`\n~~~~~", 0),
+        ("````\n```\n`python-rule`\n````", 0),
+        ("~~~\n```\n`python-rule`\n~~~", 0),
+        ("```\n```text\n`python-rule`\n```", 0),
+        ("```text\n`python-rule`", 0),
+        ("    ```text\n`python-rule`\n    ```", 1),
+        ("before ```text\n`python-rule`", 1),
+        ("```py`tag`\n`python-rule`", 1),
+        ("`python-rule`\n~~~\n`python-rule`\n~~~\n`python-rule`", 2),
+    ],
+)
+def test_cell_id_citations_follow_shared_commonmark_fence_edges(text, expected_count):
+    hits = _cell_id_citations(text, {"python-rule"}, "prose")
+    assert len(hits) == expected_count, hits
+    assert all("`python-rule`" in hit for hit in hits)
+
+
+def test_cell_id_citations_use_the_scope_tools_fence_parser(monkeypatch):
+    module = sys.modules[without_code_fences.__module__]
+    assert Path(module.__file__).resolve() == REPO / "tools/check_recipe_scope.py"
+    assert without_code_fences is module.without_code_fences
+    calls = []
+
+    def fenced(text):
+        calls.append(text)
+        return ""
+
+    monkeypatch.setitem(globals(), "without_code_fences", fenced)
+    assert _cell_id_citations("`python-rule`", {"python-rule"}, "prose") == []
+    assert calls == ["`python-rule`"]
 
 
 # --------------------------------------------------------------------------------------------
@@ -13118,3 +13167,96 @@ def test_a_recorded_answer_with_a_malformed_date_is_a_fixture_problem(tmp_path):
         mode, _, _, problems = _fixture_provenance(folder_i)
         assert mode is None and any("no capture date" in p for p in problems), bad
     assert _fixture_provenance(folder)[0] == "synthetic"
+
+
+@pytest.mark.parametrize(
+    "separator", ["\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+)
+def test_cell_id_citations_preserve_non_line_separators(separator):
+    text = f"Intro{separator}~~~\n`python-rule`\n~~~"
+    assert _cell_id_citations(text, {"python-rule"}, "prose") == [
+        "prose: `python-rule` is a cell id, which only the .ipynb JSON shows"
+    ]
+    fenced = f"~~~\ncontent{separator}~~~\n`python-rule`\n~~~"
+    assert _cell_id_citations(fenced, {"python-rule"}, "prose") == []
+
+
+@pytest.mark.parametrize("ending", ["\n", "\r", "\r\n"])
+def test_cell_id_citations_recognize_real_fence_line_endings(ending):
+    text = ending.join(["Intro", "~~~", "`python-rule`", "~~~", "`python-rule`"])
+    assert _cell_id_citations(text, {"python-rule"}, "prose") == [
+        "prose: `python-rule` is a cell id, which only the .ipynb JSON shows"
+    ]
+    unclosed = ending.join(["Intro", "~~~", "`python-rule`"])
+    assert _cell_id_citations(unclosed, {"python-rule"}, "prose") == []
+
+
+@pytest.mark.parametrize(
+    "suffix,expected_count",
+    [
+        ("\v", 0),
+        ("\f", 0),
+        ("\x85", 0),
+        ("\u2028", 0),
+        ("\u2029", 0),
+        ("\xa0", 0),
+        ("\u2003", 0),
+        (" ", 1),
+        ("\t", 1),
+    ],
+)
+def test_cell_id_citations_require_ascii_fence_closing_whitespace(suffix, expected_count):
+    text = f"~~~\n~~~{suffix}\n`python-rule`"
+    hits = _cell_id_citations(text, {"python-rule"}, "prose")
+    assert len(hits) == expected_count, hits
+
+
+@pytest.mark.parametrize(
+    "case,text,expected_count",
+    [
+        ("html-comment-followed-by-prose", "<!--\n~~~\n-->\n\nSee `python-rule`.", 1),
+        ("list-closer-followed-by-prose", "- ~~~\n  example\n  ~~~\n\nRead `python-rule`.", 1),
+        ("list-contained-id", "- ~~~\n  `python-rule`\n  ~~~", 0),
+        ("ordered-list-contained-id", "1. ```text\n   `python-rule`\n   ```", 0),
+        ("quote-contained-id", "> ~~~\n> `python-rule`\n> ~~~", 0),
+        ("nested-list-quote", "> - ~~~\n>   `python-rule`\n>   ~~~\n\nRead `python-rule`.", 1),
+        (
+            "unclosed-list-fence-ends-at-container",
+            "- ~~~\n  `python-rule`\n\nRead `python-rule`.",
+            1,
+        ),
+        (
+            "unclosed-quote-fence-ends-at-container",
+            "> ~~~\n> `python-rule`\n\nRead `python-rule`.",
+            1,
+        ),
+        ("unclosed-document-fence", "~~~\n`python-rule`", 0),
+        ("raw-html-block-fence-lookalike", "<div>\n~~~\n</div>\n\nRead `python-rule`.", 1),
+        ("raw-pre-block-fence-lookalike", "<pre>\n~~~\n</pre>\n\nRead `python-rule`.", 1),
+        ("comment-in-list", "- <!--\n  ~~~\n  -->\n\nRead `python-rule`.", 1),
+        (
+            "genuine-fence-contains-comment-marker",
+            "~~~\n<!--\n`python-rule`\n~~~\n\nRead `python-rule`.",
+            1,
+        ),
+        (
+            "html-comment-followed-by-real-fence",
+            "<!--\n~~~\n-->\n\n~~~\n`python-rule`\n~~~\nRead `python-rule`.",
+            1,
+        ),
+    ],
+)
+def test_cell_id_citations_respect_commonmark_block_context(case, text, expected_count):
+    hits = _cell_id_citations(text, {"python-rule"}, "prose")
+    assert len(hits) == expected_count, (case, hits)
+    assert all("`python-rule`" in hit for hit in hits)
+
+
+def test_cell_id_citations_explicitly_select_context_on_their_private_scope_module():
+    assert _cell_id_scope.COMMONMARK_FENCE_CONTEXT is True
+    assert without_code_fences is _cell_id_scope.without_code_fences
+
+
+def test_cell_id_citations_conservatively_retain_text_beyond_parser_nesting_limit():
+    text = "> " * 25 + "~~~\n" + "> " * 25 + "`python-rule`"
+    assert len(_cell_id_citations(text, {"python-rule"}, "prose")) == 1

@@ -6,6 +6,7 @@ Windows cannot create on disk (symlinks, executables, submodules) are written st
 index with ``git update-index --cacheinfo``.
 """
 
+import ast
 import importlib.util
 import json
 import shutil
@@ -986,6 +987,13 @@ def test_fence_close_accepts_ascii_spaces_and_tabs(suffix, ending):
         ("Intro\u2028~~~\nCloses #1\n~~~", "Intro\u2028~~~\nCloses #1"),
         ("~~~\n~~~\u2028\nCloses #2\n~~~\nCloses #1", "Closes #1"),
         ("<div>\n~~~\n</div>\n\nCloses #1", "<div>\n~~~\n</div>\n\nCloses #1"),
+        # Indented code is not a fence and stays visible (the helper removes fenced code only).
+        ("    ~~~\n    Closes #1\n    ~~~", "    ~~~\n    Closes #1\n    ~~~"),
+        # Past the preset's nesting limit the parser stops, so fenced text stays visible.
+        (
+            "> " * 25 + "~~~\n" + "> " * 25 + "Closes #1",
+            "> " * 25 + "~~~\n" + "> " * 25 + "Closes #1",
+        ),
     ],
 )
 def test_opt_in_fence_context_uses_parser_ranges(monkeypatch, text, expected):
@@ -1021,3 +1029,17 @@ def test_opt_in_fence_context_does_not_fallback_if_dependency_is_missing(monkeyp
     monkeypatch.setattr(builtins, "__import__", missing_parser)
     with pytest.raises(ModuleNotFoundError, match="synthetic absent optional parser"):
         scope.without_code_fences("~~~\nCloses #2")
+
+
+def test_scope_tool_imports_only_the_standard_library_at_module_level():
+    """The Scope workflow runs this file from the base branch with nothing installed, so the
+    optional parser may be imported only inside the opt-in function, never at module level."""
+    tree = ast.parse(TOOL.read_text("utf-8"))
+    imported = set()
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            imported |= {alias.name.split(".")[0] for alias in node.names}
+        elif isinstance(node, ast.ImportFrom) and node.level == 0:
+            imported.add((node.module or "").split(".")[0])
+    assert imported, "no top-level imports found; the check would be vacuous"
+    assert imported <= set(sys.stdlib_module_names), imported - set(sys.stdlib_module_names)
