@@ -1122,7 +1122,7 @@ def test_the_citations_recipe_17_carried_are_found_where_they_were_written(tmp_p
     assert _recipe_cell_id_citations(folder) == []
     _edit_markdown(
         folder,
-        "The paragraph above about `t06-adversarial-wrong` already said",
+        'The paragraph beginning "At this gate" in "Evaluation" already said',
         "`selective-discuss` already said",
     )
     _edit_markdown(
