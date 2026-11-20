@@ -354,7 +354,7 @@ A validation error or `RegenerationMismatch` leaves every destination unchanged.
 file is then installed by an atomic replacement, but the batch is **not a filesystem
 transaction**: an I/O failure, interruption or concurrent filesystem change during installation
 can leave an installed prefix. The prepared bytes are kept in memory only for this call. The
-image scaffold uses this batch helper so a bad later row cannot leave earlier PNGs orphaned.
+image scaffold will adopt this helper in a follow-up (#506).
 
 `canvas.manifest_entry(recipe_dir, path, description)` returns the entry for
 [`assets-manifest.json`](fixtures.md#image-provenance-manifest): the hash, format and size read
