@@ -1,0 +1,581 @@
+{
+  "schema": 1,
+  "assets": [
+    {
+      "path": "assets/amber.png",
+      "sha256": "8ad854582836001c4e36d15b7aed5bbd85da618f6e5f727862c4858a9a78e7ab",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "input",
+        "layout": "standard",
+        "situation": "duplicate",
+        "workspace": "Amber"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with an input control, standard layout and duplicate target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/aspen.png",
+      "sha256": "8db60671356150570c257705aa82d165e53e4eae39c19b80aca51bdce8d1242f",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "menu",
+        "layout": "standard",
+        "situation": "disabled",
+        "workspace": "Aspen"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a menu control, standard layout and disabled target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/atlas.png",
+      "sha256": "4d458c313934b1d028e6e63b5c1290b4254fe779d02bea9711cb531662d4ca5b",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "button",
+        "layout": "reflow",
+        "situation": "normal",
+        "workspace": "Atlas"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a button control, reflow layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/breeze.png",
+      "sha256": "1caf2fc112d73502c11cb2621abf72d39432e50943b374f9fd3c4648a0519f50",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "menu",
+        "layout": "standard",
+        "situation": "absent",
+        "workspace": "Breeze"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a menu control, standard layout and absent target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/cedar.png",
+      "sha256": "6f0627f6769a87e69f8c557b566a9fb4d74bff5751ecca3a54acf9a389ef3585",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "button",
+        "layout": "standard",
+        "situation": "normal",
+        "workspace": "Cedar"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a button control, standard layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/clover.png",
+      "sha256": "ef2fc3f1ed4d3832bdd549d45769196f58a4fa2b1e96ead6f8707ae8e89679c5",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "button",
+        "layout": "standard",
+        "situation": "normal",
+        "workspace": "Clover"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a button control, standard layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/fern.png",
+      "sha256": "ca0ab5332e58bba8cfbd716087f4c39ca56f754e8d03131399609a1f5b3c7140",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "input",
+        "layout": "reflow",
+        "situation": "normal",
+        "workspace": "Fern"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with an input control, reflow layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/finch.png",
+      "sha256": "06d870f0d8f1245fb4c7a0538b369ad931e4b12b3031d26874e0ae47314cbf58",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "input",
+        "layout": "standard",
+        "situation": "absent",
+        "workspace": "Finch"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with an input control, standard layout and absent target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/harbor.png",
+      "sha256": "cc85ccc09f6b0ae736e992657d3101d4d17edcc4ec77d879556676a0d0224a89",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "menu",
+        "layout": "reflow",
+        "situation": "normal",
+        "workspace": "Harbor"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a menu control, reflow layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/hazel.png",
+      "sha256": "300433b071022e65c155c707f8d3b1ef34482305ebe539ced10fac8a6136a058",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "menu",
+        "layout": "reflow",
+        "situation": "absent",
+        "workspace": "Hazel"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a menu control, reflow layout and absent target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/laurel.png",
+      "sha256": "a7810e7cf2c3c4141200f8463a6c626d50e9e1b200a1102faacefa284e231722",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "menu",
+        "layout": "standard",
+        "situation": "normal",
+        "workspace": "Laurel"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a menu control, standard layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/linden.png",
+      "sha256": "cf4f181ccad97bd9bb07a797d1bbf040d65e2544aa87a680a9b1729142c8b99b",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "menu",
+        "layout": "clipped",
+        "situation": "normal",
+        "workspace": "Linden"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a menu control, clipped layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/lumen.png",
+      "sha256": "aa1547d953e938bb385febce875c2be04f07a8021419783cb29b4ff36f356b4f",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "input",
+        "layout": "reflow",
+        "situation": "normal",
+        "workspace": "Lumen"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with an input control, reflow layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/maple.png",
+      "sha256": "71112611a50b90cb9ae8bdf532e4ed758881334048174d73aa8762090ee041fb",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "button",
+        "layout": "standard",
+        "situation": "disabled",
+        "workspace": "Maple"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a button control, standard layout and disabled target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/marble.png",
+      "sha256": "274329c8e00a26c4621e3d5786fb7466a3ab2f5d7b230003794803cbfc0b709f",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "button",
+        "layout": "reflow",
+        "situation": "normal",
+        "workspace": "Marble"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a button control, reflow layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/meadow.png",
+      "sha256": "61828145bb0b2db72b3415c6b1b8b5db660b16ee61d2d37d208f4bb878fc316b",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "button",
+        "layout": "standard",
+        "situation": "normal",
+        "workspace": "Meadow"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a button control, standard layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/nimbus.png",
+      "sha256": "7d8b910cc4f44942fb755a86cc8abe53ca8655102f6643b13e5bf5c189630a60",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "menu",
+        "layout": "standard",
+        "situation": "absent",
+        "workspace": "Nimbus"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a menu control, standard layout and absent target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/orchard.png",
+      "sha256": "5747e5a1a5b14c0b7130e56da1a41d8621b8a44c24015c696de18a81eed7e43a",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "button",
+        "layout": "reflow",
+        "situation": "normal",
+        "workspace": "Orchard"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a button control, reflow layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/pebble.png",
+      "sha256": "7f99af32ccff2543a510752ee4d5da9ef939b80422999700e5caabc52b30883c",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "input",
+        "layout": "reflow",
+        "situation": "duplicate",
+        "workspace": "Pebble"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with an input control, reflow layout and duplicate target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/quartz.png",
+      "sha256": "4ba2e81fed68567467544a4e14cb825c043163ec63d5717b34bac3818a0679cb",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "button",
+        "layout": "reflow",
+        "situation": "normal",
+        "workspace": "Quartz"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a button control, reflow layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/river.png",
+      "sha256": "7e0b223ab25a9dc0ca2e67455460c9a6f057b7612796bfe833a57f403e582dda",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "input",
+        "layout": "standard",
+        "situation": "absent",
+        "workspace": "River"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with an input control, standard layout and absent target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/saffron.png",
+      "sha256": "22e5209d3168f0ebeed6a60bb849dbeb175a6e78ea5350197b188a98c40a973d",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "input",
+        "layout": "reflow",
+        "situation": "normal",
+        "workspace": "Saffron"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with an input control, reflow layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/solstice.png",
+      "sha256": "734d4b74ddb425e17159976e568aefbedd744078ccef4b2c8530f610c5581583",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "button",
+        "layout": "reflow",
+        "situation": "absent",
+        "workspace": "Solstice"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a button control, reflow layout and absent target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/willow.png",
+      "sha256": "850d052c46e100e1e1cc3abc1f20c31ba927399e41bbf46ac00d288bd05d4f84",
+      "format": "PNG",
+      "width": 512,
+      "height": 384,
+      "origin": "generated",
+      "generator": "build_fixtures.py:render",
+      "parameters": {
+        "kind": "menu",
+        "layout": "standard",
+        "situation": "normal",
+        "workspace": "Willow"
+      },
+      "licence": "CC0-1.0",
+      "description": "A fictional project workspace with a menu control, standard layout and normal target.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    }
+  ]
+}

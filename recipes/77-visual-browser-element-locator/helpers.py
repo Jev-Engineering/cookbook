@@ -1,0 +1,364 @@
+"""Visual judgments propose a region; Python decides whether to simulate an action."""
+
+from dataclasses import dataclass
+
+from PIL import Image
+
+from jev_cookbook import Box, Noul
+from jev_cookbook.evaluation import (
+    evaluate_outcomes,
+    noul_confidence,
+    select_confidence_threshold,
+)
+from jev_cookbook.simulation import ActionLog, ReviewQueue
+from jev_cookbook.vision import (
+    box_confidence,
+    box_iou,
+    crop_box,
+    draw_boxes,
+    gold_box,
+    image_asset,
+    image_reference,
+    image_request_profile,
+    localization_report,
+    normalized_box,
+    normalized_to_pixels,
+    preflight_image_request,
+    resolve_asset_path,
+)
+
+NOUL_NAMES = ("present", "unique", "enabled")
+IOU_TARGET = 0.50
+REVIEW = "review"
+BASELINE_PIXELS = {
+    "button": (306, 282, 466, 326),
+    "input": (64, 138, 448, 182),
+    "menu": (300, 104, 470, 144),
+}
+
+
+@dataclass(frozen=True)
+class Policy:
+    presence: float
+    box: float
+
+    def __post_init__(self):
+        if not 0.5 <= self.presence <= 1 or not 0 <= self.box <= 1:
+            raise ValueError("invalid policy thresholds")
+
+
+@dataclass(frozen=True)
+class Observation:
+    judgments: dict
+    location: object | None
+
+
+@dataclass(frozen=True)
+class Outcome:
+    status: str
+    reason: str
+    box: dict | None = None
+    point: tuple | None = None
+
+
+def request_data(fields, recipe_dir):
+    """Use only the target description and an opaque, content-derived image reference."""
+    asset = image_asset(fields["image"], root=recipe_dir)
+    ref = image_reference(asset)
+    state = {"screenshot": ref, "target": fields["target"], "kind": fields["kind"]}
+    return state, {ref: asset}
+
+
+def noul_questions():
+    """The three independent propositions about one screenshot."""
+    return {
+        "present": Noul(instructions="The screenshot visibly contains the named target control."),
+        "unique": Noul(
+            instructions=(
+                "Exactly one visible control matches the target name and kind; "
+                "there is no second equally plausible matching control."
+            )
+        ),
+        "enabled": Noul(
+            instructions=(
+                "The named target control is visibly enabled for interaction, "
+                "rather than greyed out, disabled, or covered."
+            )
+        ),
+    }
+
+
+def build_questions(state):
+    """Independent questions about one screenshot share a single request.
+
+    The three propositions and the rectangle do not depend on one another's answers, so they
+    are asked together. The Box describes the concrete target in its instructions (a Box has no
+    criteria); Python decides afterwards whether the rectangle may be used.
+    """
+    return {
+        **noul_questions(),
+        "target_box": Box(
+            instructions=(
+                f"Locate the single {state['kind']} labelled {state['target']!r} in the screenshot. "
+                "Return the visible part of its outer rectangle, excluding its surrounding card "
+                "and excluding any separate text label above an input."
+            )
+        ),
+    }
+
+
+def classify_noul(answer, gate):
+    """Classify one proposition or abstain when its derived confidence is too low."""
+    if noul_confidence([answer.noul])[0] < gate:
+        return None
+    return answer.noul > 0.5
+
+
+def presence_disposition(judgments, gate):
+    """Resolve absence or a presence review before any rectangle may be used."""
+    present = classify_noul(judgments["present"], gate)
+    if present is None:
+        return Outcome(REVIEW, "confidence below the threshold")
+    if not present:
+        if any(judgments[name].noul > 0.5 for name in ("unique", "enabled")):
+            return Outcome(REVIEW, "absence conflicts with uniqueness or enabled state")
+        return Outcome("absent", "target judged absent")
+    return None
+
+
+def first_gate(judgments, threshold, *, ungated=None):
+    """Use the same validation-selected probability bound for the independent propositions."""
+    gate = noul_confidence([threshold])[0]
+    blocked = presence_disposition(judgments, 0.0 if ungated == "present" else gate)
+    if blocked is not None:
+        return blocked
+    for name, reason in (
+        ("unique", "target is ambiguous"),
+        ("enabled", "target is disabled"),
+    ):
+        decision = classify_noul(judgments[name], 0.0 if ungated == name else gate)
+        if decision is None:
+            return Outcome(REVIEW, "confidence below the threshold")
+        if not decision:
+            return Outcome(REVIEW, reason)
+    return None
+
+
+def image_decide(backend, state, questions, assets):
+    """Check the aggregate image size before the request."""
+    preflight_image_request(image_request_profile(state, questions, assets))
+    return backend.decide(state, questions, assets=assets)
+
+
+def observe(backend, fields, recipe_dir):
+    """One request per screenshot: the presence questions and the Box together."""
+    state, assets = request_data(fields, recipe_dir)
+    answers = image_decide(backend, state, build_questions(state), assets).answers
+    judgments = {name: answers[name] for name in NOUL_NAMES}
+    return Observation(judgments, answers["target_box"])
+
+
+def route(observation, policy, dimensions):
+    """Reject first, then derive a center from validated normalized coordinates."""
+    blocked = first_gate(observation.judgments, policy.presence)
+    if blocked is not None:
+        return blocked
+    answer = observation.location
+    if answer is None:
+        return Outcome(REVIEW, "box confidence unavailable")
+    try:
+        confidence = box_confidence(answer)
+    except ValueError:
+        return Outcome(REVIEW, "box confidence invalid")
+    if confidence is None:
+        return Outcome(REVIEW, "box confidence unavailable")
+    if confidence < policy.box:
+        return Outcome(REVIEW, "confidence below the threshold")
+    try:
+        box = normalized_box(answer.box)
+        width, height = dimensions
+        if type(width) is not int or type(height) is not int or width <= 0 or height <= 0:
+            raise ValueError("invalid image dimensions")
+        left, top, right, bottom = normalized_to_pixels(box, width, height)
+    except (TypeError, ValueError, KeyError):
+        return Outcome(REVIEW, "box outside image bounds or invalid")
+    if left >= right or top >= bottom:
+        return Outcome(REVIEW, "box has no pixel area")
+    point = ((left + right - 1) // 2, (top + bottom - 1) // 2)
+    if not (0 <= point[0] < width and 0 <= point[1] < height):
+        return Outcome(REVIEW, "center outside image bounds")
+    return Outcome("located", "all gates passed", box, point)
+
+
+def dimensions(fields, recipe_dir):
+    """Read actual image dimensions; do not trust a field supplied by a model."""
+    with Image.open(resolve_asset_path(fields["image"], root=recipe_dir)) as image:
+        return image.size
+
+
+def simulate(example, observation, policy, recipe_dir, actions=None, reviews=None):
+    """Append an explicitly simulated action or review; never control a browser."""
+    actions = ActionLog() if actions is None else actions
+    reviews = ReviewQueue() if reviews is None else reviews
+    outcome = route(observation, policy, dimensions(example.fields, recipe_dir))
+    evidence = {name: answer.to_dict() for name, answer in observation.judgments.items()}
+    if observation.location is not None:
+        evidence["target_box"] = observation.location.to_dict()
+    if outcome.status == "located":
+        kind = "simulate_focus" if example.fields["kind"] == "input" else "simulate_click"
+        actions.record(
+            kind,
+            {"example": example.id, "target": example.fields["target"], "point": outcome.point},
+            answer=evidence,
+            rule="presence + unique + enabled + box confidence + bounds",
+        )
+    elif outcome.status == "review":
+        reviews.submit({"example": example.id}, outcome.reason, answer=evidence)
+    return outcome, actions, reviews
+
+
+def actionable(label):
+    return gold_box(label["target"]) is not None and label["unique"] and label["enabled"]
+
+
+def success(outcome, label):
+    target = gold_box(label["target"])
+    if target is None:
+        return outcome.status == "absent"
+    if not actionable(label):
+        return outcome.status == "review"
+    return outcome.box is not None and box_iou(outcome.box, target) >= IOU_TARGET
+
+
+def summarize(examples, outcomes, labels):
+    """Score every example, including disabled, duplicated and absent targets."""
+    pairs = [(outcomes[e.id], labels[e.id]) for e in examples]
+    accepted = [out.status != "review" for out, _ in pairs]
+    correct = [success(out, gold) for out, gold in pairs]
+    selective = evaluate_outcomes(accepted, correct)
+    spatial = localization_report(
+        [gold["target"] for _, gold in pairs],
+        [(out.status, out.box) for out, _ in pairs],
+        iou_threshold=IOU_TARGET,
+    )
+    return spatial, {
+        "N": len(pairs),
+        "answered": sum(accepted),
+        "reviewed": len(pairs) - sum(accepted),
+        "location_proposals": sum(out.box is not None for out, _ in pairs),
+        "task_success": sum(correct) / len(pairs),
+        "unsafe_proposals": sum(
+            out.box is not None and not success(out, gold) for out, gold in pairs
+        ),
+        "abstention": 1 - selective.coverage,
+        "coverage": selective.coverage,
+        "answered_accuracy": selective.accuracy,
+        "answered_risk": selective.risk,
+    }
+
+
+def noul_gold(label):
+    """Read the three concern labels independently of the inference state."""
+    return {
+        "present": gold_box(label["target"]) is not None,
+        "unique": label["unique"],
+        "enabled": label["enabled"],
+    }
+
+
+def select_noul_gate(examples, observations, labels):
+    """Fit one confidence floor over all three independent validation judgments."""
+    if not examples or any(e.split != "validation" for e in examples):
+        raise ValueError("policy selection requires only validation examples")
+    probabilities, correct = [], []
+    for example in examples:
+        for name, expected in noul_gold(labels[example.id]).items():
+            probability = observations[example.id].judgments[name].noul
+            probabilities.append(probability)
+            correct.append((probability > 0.5) == expected)
+    return select_confidence_threshold(correct, noul_confidence(probabilities), min_coverage=0.7)
+
+
+def box_selection_rows(examples, observations, presence):
+    """Yield only proposals eligible for confidence calibration."""
+    for example in examples:
+        seen = observations[example.id]
+        if first_gate(seen.judgments, presence) is not None:
+            continue
+        if seen.location is not None and seen.location.confidence is not None:
+            yield example, seen.location
+
+
+def select_policy(examples, observations, labels):
+    """Freeze presence before selecting the Box gate from eligible validation proposals."""
+    presence = (1 + select_noul_gate(examples, observations, labels)) / 2
+    confidences, correct = [], []
+    for example, box in box_selection_rows(examples, observations, presence):
+        gold = labels[example.id]
+        confidences.append(box.confidence)
+        correct.append(
+            actionable(gold) and box_iou(box.box, gold_box(gold["target"])) >= IOU_TARGET
+        )
+    if not confidences:
+        raise ValueError("no eligible validation boxes with confidence; cannot freeze a Box gate")
+    threshold = select_confidence_threshold(correct, confidences, min_coverage=0.5)
+    return Policy(presence, threshold)
+
+
+def measure_noul_gates(examples, observations, policy):
+    """Remove each gate in turn and count changes on the original validation judgments."""
+    if not examples or any(example.split != "validation" for example in examples):
+        raise ValueError("gate ablation requires only validation examples")
+
+    def disposition(outcome):
+        return outcome.status if outcome is not None else "localize"
+
+    rows = [observations[example.id].judgments for example in examples]
+    full = [disposition(first_gate(judgments, policy.presence)) for judgments in rows]
+    results = {}
+    for name in NOUL_NAMES:
+        changed, total = [0, 0], [0, 0]
+        for judgments, original in zip(rows, full, strict=True):
+            side = judgments[name].noul > 0.5
+            without = first_gate(judgments, policy.presence, ungated=name)
+            total[side] += 1
+            changed[side] += disposition(without) != original
+        results[name] = tuple(zip(changed, total, strict=True))
+    return results
+
+
+def baseline(fields, size):
+    """A frozen known-layout locator has no image interpretation or abstention."""
+    width, height = size
+    left, top, right, bottom = BASELINE_PIXELS[fields["kind"]]
+    box = normalized_box(
+        {
+            "left": left / width,
+            "top": top / height,
+            "right": right / width,
+            "bottom": bottom / height,
+        }
+    )
+    return Outcome("located", "fixed known-layout coordinates", box)
+
+
+def show_location(fields, recipe_dir, outcome):
+    """Annotated screenshot and actual crop, displayed with the cookbook's figure style."""
+    from matplotlib.figure import Figure
+
+    with Image.open(resolve_asset_path(fields["image"], root=recipe_dir)) as source:
+        image = source.convert("RGB")
+    fig = Figure(figsize=(10, 4), layout="constrained")
+    full, close = fig.subplots(1, 2, gridspec_kw={"width_ratios": [2, 1]})
+    overlay = draw_boxes(image, {"predicted target": outcome.box}) if outcome.box else image
+    full.imshow(overlay)
+    full.set_title(fields["target"])
+    full.axis("off")
+    if outcome.box:
+        close.imshow(crop_box(image, outcome.box, expand=0.10))
+        close.set_title("Crop of proposed region")
+    else:
+        close.text(0.5, 0.5, outcome.reason, ha="center", va="center", wrap=True)
+        close.set_title("No action")
+    close.axis("off")
+    return fig
