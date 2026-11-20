@@ -19,9 +19,9 @@ The command never overwrites: if the folder exists it stops with a message and e
 ``--mode replay-images`` is the multimodal variant of replay (docs/vision.md). It writes the files
 above and then runs the new folder's own ``build_fixtures.py`` once, which draws the example
 images with ``jev_cookbook.synthetic_images`` and writes ``assets/``, ``assets-manifest.json`` and
-``fixtures/``. This tool itself stays standard library only; that one step needs the installed
-package and Pillow, which the scaffolded ``build_fixtures.py`` imports. If it fails, the folder is
-removed and the command exits with status 1.
+``fixtures/``. The scaffold core stays standard library only; image generation and its encoder
+warning need the installed package and Pillow. If the build fails, the folder is removed and
+the command exits with status 1, retaining the complete stdout and stderr in its diagnostic.
 
 The scaffold is born on the audited request-count route (#213, #368): the notebook's one
 ``get_backend(...)`` is wrapped in ``AuditedBackend(..., label="main")``, a final standalone cell
@@ -33,7 +33,7 @@ hand-edit. The README's
 adds more ``decide()`` calls while writing Evaluation, ``request_budget.json`` and the rendered
 paragraph are updated together (the README TODO there says how).
 
-Standard library only. See docs/recipe-template.md for the walkthrough.
+Standard library only except the image-generation path. See docs/recipe-template.md.
 """
 
 from __future__ import annotations
@@ -642,6 +642,9 @@ for line in str(report).splitlines():
 """,
         ),
     }
+    missing = set(replacements) - {cell["id"] for cell in cells}
+    if missing:
+        raise ScaffoldError(f"image notebook replacement cell IDs are missing: {sorted(missing)}")
     out: list[dict] = []
     for cell in cells:
         out.append(replacements.get(cell["id"], cell))
@@ -1571,21 +1574,22 @@ def draw(row):
 
 
 def write_images(rows, overwrite, *, canvases=None):
-    """Draw and save every image under the byte policy; return the manifest entries by path.
+    """Validate every image and its provenance before saving; return manifest entries by path.
 
-    Raises ``si.RegenerationMismatch`` (and saves nothing more) for a picture that differs from
-    the committed file, unless ``overwrite`` is true."""
-    entries = []
+    A validation error or ``si.RegenerationMismatch`` leaves all destination PNGs unchanged.
+    Installation is atomic per file, not a rollback transaction for later I/O failures."""
+    images = []
     for row in rows:
         path = image_path(row[0])
         canvas = draw(row)
-        status = canvas.write(HERE, path, overwrite=overwrite)
-        print(f"{status}: {path}")
         description = f"An invented sign-in window in the {row[3]!r} state (seed {row[4]})."
-        entries.append(canvas.manifest_entry(HERE, path, description))
+        images.append((canvas, path, description))
+    written = si.write_assets(images, HERE, overwrite=overwrite)
+    for (canvas, path, _description), (status, _entry) in zip(images, written, strict=True):
+        print(f"{status}: {path}")
         if canvases is not None:
             canvases.append(canvas)
-    return sorted(entries, key=lambda entry: entry["path"])
+    return sorted((entry for _status, entry in written), key=lambda entry: entry["path"])
 
 
 def _fields(row):
@@ -1721,6 +1725,7 @@ if __name__ == "__main__":
 
 IMAGE_TESTS = r'''"""Tests for recipe @RANK@'s helpers. They load the helpers by file path."""
 
+import ast
 import json
 from pathlib import Path
 
@@ -1768,17 +1773,32 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 def test_every_scene_can_be_redrawn_from_its_manifest_entry():
     # A shared scene is rebuilt from the generator and parameters its entry records and compared
-    # with the committed file; a recipe's own generator is covered by test_build_fixtures.py.
+    # with the committed file. A function in build_fixtures.py is covered by the emitted test
+    # that reruns that script and compares every fixture, manifest and image byte. A different
+    # script requires extending that regeneration test and this coverage assertion together.
     manifest = json.loads((RECIPE / "assets-manifest.json").read_text("utf-8"))
-    shared = [
-        entry
-        for entry in manifest["assets"]
-        if entry["generator"].startswith("jev_cookbook.synthetic_images:")
-    ]
-    if not shared:
-        pytest.skip("no entry names a shared scene; test_build_fixtures.py covers the rest")
-    for entry in shared:
-        assert si.check_reproducible(RECIPE, entry) in ("unchanged", "kept-committed-bytes")
+    assert manifest["assets"], "the image recipe must have manifest entries"
+    for entry in manifest["assets"]:
+        module, separator, function = entry["generator"].partition(":")
+        assert separator and function, "each entry must name a generator function"
+        if module == "jev_cookbook.synthetic_images":
+            assert si.check_reproducible(RECIPE, entry) in ("unchanged", "kept-committed-bytes")
+        else:
+            assert module == "build_fixtures.py", "extend the regeneration test for this script"
+            script = RECIPE / module
+            assert script.is_file(), "the declared generator script must exist"
+            definitions = ast.parse(script.read_text("utf-8")).body
+            assert any(
+                isinstance(node, ast.FunctionDef) and node.name == function for node in definitions
+            )
+            coverage = RECIPE / "tests" / "test_build_fixtures.py"
+            assert coverage.is_file(), "custom scenes need the fixture/image regeneration test"
+            checks = ast.parse(coverage.read_text("utf-8")).body
+            assert any(
+                isinstance(node, ast.FunctionDef)
+                and node.name == "test_the_generator_reproduces_the_committed_fixtures_and_images"
+                for node in checks
+            )
 
 
 def test_a_confident_yes_with_a_confident_rectangle_is_located():
@@ -2032,6 +2052,17 @@ def files_for(catalog: dict, recipe: dict, mode: str = "replay") -> dict[str, st
 BUILD_TIMEOUT = 300  # seconds the image scaffold waits for the new folder's build_fixtures.py
 
 
+def _builder_diagnostics(stdout: str | bytes | None, stderr: str | bytes | None) -> str:
+    """Keep both complete streams, including bytes captured by TimeoutExpired."""
+    parts = []
+    for name, stream in (("stdout", stdout), ("stderr", stderr)):
+        if isinstance(stream, bytes):
+            stream = stream.decode("utf-8", errors="replace")
+        if stream:
+            parts.append(f"{name}:\n{stream}")
+    return "\n".join(parts)
+
+
 def _draw_images(target: Path) -> None:
     """Run ``target``'s own ``build_fixtures.py`` once, which draws ``assets/`` and writes
     ``assets-manifest.json`` and ``fixtures/`` (``--mode replay-images``). If it cannot run or
@@ -2043,12 +2074,24 @@ def _draw_images(target: Path) -> None:
             cwd=target,
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=BUILD_TIMEOUT,
         )
-        problem = "" if done.returncode == 0 else "\n".join(done.stderr.strip().splitlines()[-8:])
-        if done.returncode != 0 and not problem:
-            problem = f"exit status {done.returncode}"
-    except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as error:
+        problem = ""
+        if done.returncode != 0:
+            problem = f"exit status {done.returncode}\n" + _builder_diagnostics(
+                done.stdout, done.stderr
+            )
+        else:
+            # Optional package/Pillow imports stay confined to the successful image path.
+            from jev_cookbook import synthetic_images as si
+
+            canonical = si.bytes_are_canonical()
+    except subprocess.TimeoutExpired as error:
+        problem = f"TimeoutExpired after {error.timeout} seconds\n" + _builder_diagnostics(
+            error.stdout, error.stderr
+        )
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError, ImportError) as error:
         problem = f"{type(error).__name__}: {error}"
     except BaseException:
         shutil.rmtree(target, ignore_errors=True)
@@ -2059,6 +2102,13 @@ def _draw_images(target: Path) -> None:
             "--mode replay-images draws the example images by running the new folder's "
             "build_fixtures.py, which needs the installed package and Pillow "
             f'(pip install -e ".[dev]"); it failed, so nothing was created:\n{problem}'
+        )
+    if not canonical:
+        print(
+            "warning: this image build used a noncanonical PNG encoder. Before committing new "
+            "PNGs, regenerate with --overwrite-assets under .github/constraints-notebooks.txt "
+            "(see docs/synthetic-images.md).",
+            file=sys.stderr,
         )
 
 
