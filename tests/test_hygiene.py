@@ -1623,7 +1623,7 @@ def test_a_scaffold_of_every_catalog_recipe_passes_the_scanner():
         recipe = new_recipe.find_recipe(catalog, int(slug.split("-", 1)[0]))
         for mode in new_recipe.MODES:
             for name, text in new_recipe.files_for(catalog, recipe, mode).items():
-                found = hygiene.scan_text(text)
+                found = hygiene.scan_text(text) + packaged_scan.scan_text(text)
                 if found:
                     findings[(slug, mode, name)] = found
     assert findings == {}
@@ -1655,3 +1655,51 @@ def test_a_slash_key_glued_to_a_recipe_path_is_still_caught_and_a_bare_path_is_n
             ):
                 found = {r for _, r, _ in module.scan_text(text)}
                 assert "high-entropy-token" in found, (module.__name__, text)
+
+
+def _lowercase_keys(count: int, seed: int) -> list[str]:
+    # synthetic: random lowercase letters and digits, at least one of each (base36-like)
+    rng = random.Random(seed)
+    keys = []
+    while len(keys) < count:
+        key = "".join(rng.choice(string.ascii_lowercase + string.digits) for _ in range(40))
+        if any(c.isalpha() for c in key) and any(c.isdigit() for c in key):
+            keys.append(key)
+    return keys
+
+
+def test_every_catalog_slug_is_in_the_letters_only_or_digits_only_shape():
+    # the tightened rule must keep matching all of them, in both copies
+    for slug in _catalog_slugs():
+        for module in (hygiene, packaged_scan):
+            assert module._RECIPE_PATH.fullmatch(f"recipes/{slug}"), (module.__name__, slug)
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+def test_a_mixed_letters_and_digits_key_after_a_recipe_path_is_still_caught(scanner):
+    # review B1: a lowercase+digit key after "recipes/NN-" or after a real slug and "-" must not
+    # be read as slug words and cut out before scoring; each text is scored whole as on main
+    slug = "84-bounding-box-self-verification"
+    keys = _lowercase_keys(100, seed=5081)
+    for key in keys:
+        for text in (f"recipes/1-x-{key}", f"recipes/{slug}-{key}"):
+            assert "high-entropy-token" in {r for _, r, _ in scanner.scan_text(text)}, text
+    # the probe's segmented key: five lowercase+digit groups after "recipes/12-"
+    rng = random.Random(5082)
+    chars = string.ascii_lowercase + string.digits
+    for _ in range(50):
+        groups = ["".join(rng.choice(chars) for _ in range(8)) for _ in range(5)]
+        text = "recipes/12-" + "-".join(groups)
+        assert "high-entropy-token" in {r for _, r, _ in scanner.scan_text(text)}, text
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+def test_a_key_split_around_a_recipe_like_prefix_is_not_cut_short_by_a_capital(scanner):
+    # a slug ends at a letter or digit of any case: "recipes/1-a-b" followed by capitals is the
+    # middle of a key, not a slug, so the two halves are scored together
+    # (a key whose next characters are not letters or digits ends the slug, as for any path)
+    keys = [k for k in _base64_keys(100, seed=5083) if k[20:24].isalnum()]
+    assert len(keys) > 50
+    for key in keys:
+        text = key[:20] + "recipes/1-a-b" + key[20:]
+        assert "high-entropy-token" in {r for _, r, _ in scanner.scan_text(text)}, text

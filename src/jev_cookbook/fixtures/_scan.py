@@ -91,8 +91,9 @@ _ASSIGNMENT = re.compile(
 # (/home, /usr, ...), "./", "../" or a drive letter, or ends in a file-like suffix.
 # A recipe folder path, ``recipes/`` then the catalog's ``NN-words-joined-by-hyphens`` slug
 # shape (``recipes/84-bounding-box-self-verification``), is cut out of the word first: a slug
-# is two or more lowercase words or digit runs joined by "-", which no base64 key is, and it
-# ends at the first character that is not a lowercase letter, digit or "-", so any
+# is two or more words joined by "-", each only lowercase letters or only digits (no catalog
+# slug has a segment that mixes them), which no base64 key is, and it
+# ends at the first character that is not a letter, digit or "-", so any
 # punctuation, "/" or end of word may follow it. What is left of the word, a key before or
 # after such a path included, is scored as any other word, "/" and all.
 # Hexadecimal strings never reach the entropy threshold (16 symbols give at most 4.0 bits per
@@ -102,7 +103,7 @@ _WORD = re.compile(r"""[^\s"'<>()\[\]{},;`]+""")
 _TOKEN = re.compile(r"[A-Za-z0-9_+=-]{32,}")
 _TOKEN_SLASH = re.compile(r"[A-Za-z0-9_+=/-]{32,}")
 _PATH_SHAPED = re.compile(r"://|^/[a-z_.-]+/|^\.{1,2}/|^[A-Za-z]:[\/]|\.[A-Za-z0-9]{1,5}$")
-_RECIPE_PATH = re.compile(r"recipes/[0-9]{1,3}-[a-z0-9]+(?:-[a-z0-9]+)+(?![a-z0-9-])")
+_RECIPE_PATH = re.compile(r"recipes/[0-9]{1,3}(?:-(?:[a-z]+|[0-9]+)){2,}(?![A-Za-z0-9-])")
 _DATA_URI = re.compile(r"data:[\w./+-]+;base64,[A-Za-z0-9+/=]+")
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _ENTROPY_THRESHOLD = 4.2
