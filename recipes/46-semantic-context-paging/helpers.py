@@ -14,11 +14,14 @@ primitive that makes "never loses" a property of the store itself, not a promise
 to keep by hand.
 """
 
+import math
+from collections.abc import Iterable
 from dataclasses import dataclass
+from statistics import fmean
 from typing import Any
 
 from jev_cookbook import Score
-from jev_cookbook.evaluation import score_level
+from jev_cookbook.evaluation import recall_at_budget, score_level
 from jev_cookbook.simulation import Budget
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
@@ -147,6 +150,38 @@ class PagingDecision:
     rehydrated: bool
 
 
+def _rank_candidates(
+    classifications: list[Classification], expected_scores: dict[str, float]
+) -> list[Classification]:
+    return sorted(
+        (c for c in classifications if c.outcome == CANDIDATE),
+        key=lambda c: (-expected_scores[c.chunk_id], c.chunk_id),
+    )
+
+
+def paging_recall(
+    classifications: list[Classification],
+    expected_scores: dict[str, float],
+    gold_relevant: list[bool],
+    slots: int = BUDGET_SLOTS,
+) -> float:
+    """Recall of the allocator's retained chunks, with gold labels in classification order."""
+    ranked = _rank_candidates(classifications, expected_scores)
+    strict_scores = {c.chunk_id: -rank for rank, c in enumerate(ranked)}
+    return recall_at_budget(
+        gold_relevant,
+        [strict_scores.get(c.chunk_id, 0) for c in classifications],
+        slots,
+        eligible=[c.chunk_id in strict_scores for c in classifications],
+    )
+
+
+def mean_task_recall(recalls: Iterable[float]) -> float:
+    """Average defined task recalls, returning NaN when no task has relevant gold."""
+    defined = [recall for recall in recalls if not math.isnan(recall)]
+    return fmean(defined) if defined else math.nan
+
+
 def allocate_budget(
     classifications: list[Classification],
     expected_scores: dict[str, float],
@@ -185,10 +220,7 @@ def allocate_budget(
     if slots < 1:
         raise ValueError("slots must be at least 1")
     budget = Budget(slots=slots)
-    ranked = sorted(
-        (c for c in classifications if c.outcome == CANDIDATE),
-        key=lambda c: (-expected_scores[c.chunk_id], c.chunk_id),
-    )
+    ranked = _rank_candidates(classifications, expected_scores)
     retained_ids: set[str] = set()
     for c in ranked:
         if not budget.can_spend("slots"):

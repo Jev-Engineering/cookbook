@@ -1,13 +1,20 @@
 """Tests for recipe 46's helpers. They load the helpers by file path."""
 
 import json
+import math
 import random
 from pathlib import Path
 
 import pytest
 
 from jev_cookbook import Provenance, ScoreAnswer, get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import score_level, select_confidence_threshold, selective_curve
+from jev_cookbook.evaluation import (
+    mean_recall_at_budget,
+    recall_at_budget,
+    score_level,
+    select_confidence_threshold,
+    selective_curve,
+)
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 from jev_cookbook.simulation import Store
 
@@ -231,6 +238,90 @@ def test_allocate_budget_never_exceeds_slots_over_every_fixture_task():
             classifications, expected_scores, {}, slots=helpers.BUDGET_SLOTS
         )
         assert budget.used("slots") <= helpers.BUDGET_SLOTS
+
+
+@pytest.mark.parametrize("slots", [1, helpers.BUDGET_SLOTS])
+def test_paging_recall_matches_retained_chunks_on_every_scored_task(slots):
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    answers = {
+        e.id: backend.decide(helpers.build_state(e.fields), questions)["relevance"]
+        for e in examples
+        if e.id in labels
+    }
+    validation = [e for e in examples if e.split == "validation" and e.id in answers]
+    gate = select_confidence_threshold(
+        [score_level(answers[e.id]) == labels[e.id] for e in validation],
+        [answers[e.id].confidence for e in validation],
+        min_coverage=MIN_COVERAGE,
+    )
+
+    tasks = {}
+    for e in examples:
+        if e.id in answers:
+            tasks.setdefault((e.split, e.fields["task_id"]), []).append(e)
+    assert len(tasks) == 13
+    for task, chunks in tasks.items():
+        classifications = [
+            helpers.classify_chunk(e.fields["chunk_id"], answers[e.id], gate) for e in chunks
+        ]
+        scores = {e.fields["chunk_id"]: answers[e.id].score for e in chunks}
+        needed = [labels[e.id] == 3 for e in chunks]
+        decisions, _ = helpers.allocate_budget(classifications, scores, {}, slots)
+        found = sum(
+            gold and d.status == helpers.RETAINED for gold, d in zip(needed, decisions, strict=True)
+        )
+        assert helpers.paging_recall(classifications, scores, needed, slots) == pytest.approx(
+            found / sum(needed)
+        ), task
+
+
+@pytest.mark.parametrize("slots", [1, helpers.BUDGET_SLOTS])
+def test_paging_recall_uses_eligibility_and_the_chunk_id_tie_break(slots):
+    classifications = [
+        helpers.Classification("b", 3, helpers.CANDIDATE, ""),
+        helpers.Classification("a", 3, helpers.CANDIDATE, ""),
+        helpers.Classification("c", 3, helpers.REVIEW, ""),
+    ]
+    scores = {"a": 2.0, "b": 2.0, "c": 3.0}
+    needed = [True, False, True]
+    decisions, budget = helpers.allocate_budget(classifications, scores, {}, slots)
+    assert budget.used("slots") == min(slots, 2)
+    assert decisions[1].status == helpers.RETAINED
+    assert decisions[2].status == helpers.PAGED_OUT
+    found = sum(
+        gold and d.status == helpers.RETAINED for gold, d in zip(needed, decisions, strict=True)
+    )
+    assert helpers.paging_recall(classifications, scores, needed, slots) == found / sum(needed)
+
+
+@pytest.mark.parametrize("slots", [1, helpers.BUDGET_SLOTS])
+def test_mean_task_recall_skips_tasks_without_any_needed_chunks(slots):
+    classifications = [
+        helpers.Classification("a", 3, helpers.CANDIDATE, ""),
+        helpers.Classification("b", 3, helpers.REVIEW, ""),
+    ]
+    scores = {"a": 2.0, "b": 3.0}
+    task_labels = [[True, False], [False, False], [False, True]]
+    policy_recalls = [
+        helpers.paging_recall(classifications, scores, gold, slots) for gold in task_labels
+    ]
+    baseline_scores = [0, -1]
+    baseline_recalls = [recall_at_budget(gold, baseline_scores, slots) for gold in task_labels]
+    expected_baseline = 0.5 if slots == 1 else 1.0
+
+    assert policy_recalls[0] == 1.0
+    assert math.isnan(policy_recalls[1])
+    assert policy_recalls[2] == 0.0
+    assert helpers.mean_task_recall(iter(policy_recalls)) == 0.5
+    assert helpers.mean_task_recall(iter(baseline_recalls)) == expected_baseline
+    assert expected_baseline == mean_recall_at_budget(
+        ((gold, baseline_scores) for gold in task_labels), slots
+    )
+    assert math.isnan(helpers.mean_task_recall([policy_recalls[1], baseline_recalls[1]]))
+    assert math.isnan(helpers.mean_task_recall(iter(())))
 
 
 def test_allocate_budget_pages_out_the_lowest_scored_candidates_first():
