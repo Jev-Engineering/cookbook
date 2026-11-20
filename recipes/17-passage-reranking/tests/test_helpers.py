@@ -6,7 +6,12 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import Provenance, ScoreAnswer, get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import score_level, select_confidence_threshold
+from jev_cookbook.evaluation import (
+    recall_at_budget,
+    score_level,
+    select_confidence_threshold,
+    top_k_query_accuracy,
+)
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -156,16 +161,16 @@ def test_rerank_keeps_each_passages_source_reference():
     assert ordered == original
 
 
-# ------------------------------------------------------------------------- The top-1 ranking gap
+# ------------------------------------------------------------------------- The top-1 ranking metric
 
 
 def test_top1_accuracy_credits_a_clear_winner():
     # One query, three passages; the second one (index 1) is gold-relevant and scores highest.
-    assert helpers.top1_accuracy([([0, 1, 0], [0.1, 0.9, 0.2])]) == 1.0
+    assert top_k_query_accuracy([([0, 1, 0], [0.1, 0.9, 0.2])], k=1) == 1.0
 
 
 def test_top1_accuracy_zero_when_the_top_scored_item_is_not_relevant():
-    assert helpers.top1_accuracy([([0, 1, 0], [0.9, 0.1, 0.2])]) == 0.0
+    assert top_k_query_accuracy([([0, 1, 0], [0.9, 0.1, 0.2])], k=1) == 0.0
 
 
 def test_top1_accuracy_averages_over_queries():
@@ -173,41 +178,43 @@ def test_top1_accuracy_averages_over_queries():
         ([0, 1], [0.1, 0.9]),  # correct
         ([1, 0], [0.1, 0.9]),  # wrong
     ]
-    assert helpers.top1_accuracy(queries) == 0.5
+    assert top_k_query_accuracy(queries, k=1) == 0.5
 
 
 def test_top1_accuracy_gives_fractional_credit_on_a_tie_at_the_top():
     # Two items tie for the top score and exactly one of them is relevant: the same
     # expectation-over-tie-orders rule recall_at_budget uses gives half credit.
-    assert helpers.top1_accuracy([([1, 0], [0.5, 0.5])]) == 0.5
+    assert top_k_query_accuracy([([1, 0], [0.5, 0.5])], k=1) == 0.5
 
 
 def test_top1_accuracy_empty_queries_is_an_error():
     with pytest.raises(ValueError):
-        helpers.top1_accuracy([])
+        top_k_query_accuracy([], k=1)
 
 
-def test_top1_accuracy_raises_when_no_query_has_a_relevant_item():
-    with pytest.raises(ValueError):
-        helpers.top1_accuracy([([0, 0], [0.1, 0.9])])
+def test_top1_accuracy_is_undefined_when_no_query_has_a_direct_passage():
+    assert math.isnan(top_k_query_accuracy([([0, 0], [0.1, 0.9])], k=1))
+
+
+def test_top1_accuracy_excludes_queries_without_a_direct_passage():
+    queries = [
+        ([0, 1], [0.1, 0.9]),  # hit
+        ([1, 0], [0.1, 0.9]),  # miss
+        ([0, 0], [0.1, 0.9]),  # undefined; excluded from the mean
+    ]
+    assert top_k_query_accuracy(queries, k=1) == 0.5
 
 
 def test_top1_accuracy_differs_from_recall_at_a_budget_of_one():
-    # Two of three passages are gold-relevant, and the top-scored passage is one of them: the
-    # single top-scored item IS relevant, so top-1 ranking accuracy is 1.0. But reviewing only
-    # that one item finds just one of the two relevant passages, so recall at a budget of 1
-    # item is 0.5. An earlier version of top1_accuracy computed the mean of
-    # evaluation.recall_at_budget(relevant, scores, 1) over queries, on the mistaken assumption
-    # that the two always agree; this fixture is exactly the case where they do not.
-    from jev_cookbook.evaluation import recall_at_budget
-
+    # The top-scored passage is a direct answer, so the query is a hit. A review budget
+    # of one reaches only one of the two direct passages.
     relevant, scores = [1, 1, 0], [0.9, 0.1, 0.2]
-    assert helpers.top1_accuracy([(relevant, scores)]) == 1.0
+    assert top_k_query_accuracy([(relevant, scores)], k=1) == 1.0
     assert recall_at_budget(relevant, scores, 1) == 0.5
 
 
 def test_top1_accuracy_is_one_when_every_passage_is_relevant():
-    assert helpers.top1_accuracy([([1, 1, 1], [0.9, 0.1, 0.2])]) == 1.0
+    assert top_k_query_accuracy([([1, 1, 1], [0.9, 0.1, 0.2])], k=1) == 1.0
 
 
 # ----------------------------------------------------------------- The fixtures tell this story
