@@ -644,8 +644,11 @@ arithmetic on a state-frame list. It is a separate module, not part of `vision`,
 frames are stills that were already extracted, and the timestamps you pass are the truth,
 **elapsed seconds since the start of the sequence** (never Unix time; the 1e-9 s slack below
 is meaningless at epoch scale). Python owns order, sampling and every time calculation; the
-model only sees the rows you choose to send. The block below continues from the `frames`
-loaded above (timestamps 0.0, 0.75 and 1.5 s):
+model only sees the rows you choose to send. The helpers in this module require finite,
+nonnegative timestamps in increasing order, with each adjacent gap greater than
+`frames.TIME_EPSILON` (1e-9 s) after conversion to floats. Empty input and gaps at or below
+that minimum raise `ValueError`. The block below continues from the `frames` loaded above
+(timestamps 0.0, 0.75 and 1.5 s):
 
 ```python
 from jev_cookbook.frames import (
@@ -661,7 +664,7 @@ from jev_cookbook.frames import (
     window_timestamps,
 )
 
-times = frame_timestamps(frames)  # validated: finite, nonnegative, strictly increasing
+times = frame_timestamps(frames)  # validated, including minimum spacing
 chosen = sample_frames(times, every_seconds=0.5)  # [0, 1, 2]: ascending, no repeats
 sampled = select_frames(frames, chosen)  # copies of those rows, each with frame_index
 gaps = frame_intervals(sampled)  # [0.75, 0.75]: seconds between rows, n - 1 values
@@ -691,8 +694,8 @@ window = window_timestamps(sampled, 1, 2)  # start 0.75, end 1.5, duration 0.75 
   returns every frame.
 - At most one of `every_seconds` and `count`; with neither, the whole window is kept.
 - Comparisons carry 1e-9 s of slack (`frames.TIME_EPSILON`), so `0.1 + 0.2` against `0.3`
-  cannot flip a boundary or a tie. Empty input, a duplicate, reversed, negative or non-finite
-  time, and a non-positive rate raise `ValueError`. Rates need not be integers.
+  stays within the boundary or tie tolerance. A non-positive rate raises `ValueError`.
+  Rates need not be integers.
 
 Other helpers:
 
@@ -708,19 +711,14 @@ Other helpers:
   the last frame in the window, so a window of `k` frames at gap `g` has duration `(k - 1) * g`.
 - `frame_at(timestamps, seconds, *, side="before")` returns the index of the frame at or
   before (`"before"`), at or after (`"after"`) or nearest to (`"nearest"`) a log line or
-  recorded agent-state time; it raises when no frame qualifies. `"nearest"` uses the
-  `sample_frames` tie rule above for that one time: the frames within `TIME_EPSILON` of the
-  smallest distance are tied, however many, and the earliest is returned, so
-  `frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")` returns 1, the frame that rule
-  picks for that time. When every gap between frames is larger than `3 * TIME_EPSILON`
-  (3e-9 s) this is the closer of the `"before"` and `"after"` frames, a tie going to the
-  earlier of the two. That bound holds in exact arithmetic; float rounding of the slack
-  comparisons can still change the answer for a gap within rounding distance of 3e-9 s, which
-  timestamps of thousands of seconds reach. With a smaller gap a frame up to `2 * TIME_EPSILON` away can tie
-  with one at the time: `frame_at([0, 1, 1 + 2.5e-9, 2], 1 + 1.6e-9, side="nearest")`
-  returns 1. So with frames that close together `"nearest"` can be earlier
-  than the `"before"` frame, and a frame exactly at the time loses to an earlier frame within
-  the slack of it (`frame_at([0, 1, 1 + 5e-10, 2], 1 + 5e-10, side="nearest")` returns 1).
+  recorded agent-state time. A frame within `TIME_EPSILON` of the requested time qualifies
+  for either `"before"` or `"after"`. If no frame qualifies, the helper raises `ValueError`.
+  `"nearest"` uses the `sample_frames` tie rule above and returns an exact timestamp match
+  when present. In exact arithmetic, for adjacent gaps greater than `3 * TIME_EPSILON`,
+  applying the tie rule to the `"before"` and `"after"` candidates alone gives the same result.
+  Float rounding can affect that equivalence near the bound. With smaller valid gaps,
+  `"nearest"` can select a frame earlier than `"before"`. For example, at `1 + 1.6e-9` in
+  `[0, 1, 1 + 2.5e-9, 2]`, `"nearest"` returns 1 and `"before"` returns 2.
 - `frame_windows(timestamps, *, width_seconds, stride_seconds)` enumerates sliding windows
   (ranks 89 and 92) as `{"window_start_seconds", "window_end_seconds", "indices"}`, edges
   inclusive, only windows that fit by stride. If the last of those stops short of the end, one
@@ -887,3 +885,55 @@ no usage reported  recorded   jev-1.13.0    123         123         not measured
 A character count or a synthetic row does not demonstrate a measured long-context inference
 ([multimodal-track.md](multimodal-track.md#what-an-evaluation-must-show)). `run_record` takes
 `input_tokens` from the recorded response and gives a synthetic or scripted row none.
+
+### Comparing models
+
+A table whose arms differ by model is a model comparison only when each arm names one release
+and the arms were answered by different models. `model_comparison(rows, requested_models)`
+checks that before the rows reach `comparison_table`. `rows` are `run_record` rows with a
+`label`, one per arm, and `requested_models` maps each label to the model that arm asked for. It
+returns the rows as a new list, and raises `ValueError` when:
+
+- there are fewer than two arms, a label is missing or repeated, or the labels are not exactly
+  the keys of `requested_models`;
+- an arm is synthetic or scripted, because such a row has no returned model, so it checks the
+  pipeline rather than comparing models;
+- an arm's requested model is not pinned, for example a moving alias such as `jev-latest` or
+  `jev-preview`, which can answer from a different release on a later run
+  ([live](live.md#model));
+- an arm's returned model is not the model it requested, which means the responses files were
+  swapped or re-recorded against another release, or a moving alias answered, so the arm's
+  label would be false: `arm '1.13' requested 'jev-1.13.0' but was answered by 'jev-1.14.0'`;
+- two arms were answered by the same returned model, which compares a model with itself, for
+  example when both arms request the same pinned model.
+
+The helper checks the declaration you pass, not a recording: recorded results do not store what
+was requested, so give it the same constants the recipe hands `get_backend(model=...)` for each
+arm.
+
+Arms that compare something else on one model, such as two prompts or two context strategies,
+are not a model comparison and do not go through this check.
+
+```python
+from jev_cookbook.vision import comparison_table, model_comparison, run_record
+
+# `old_result` and `new_result` are recorded results replayed from one responses file per arm.
+rows = [
+    {"label": "1.13", **run_record(old_result, mode="recorded", n=1)},
+    {"label": "1.14", **run_record(new_result, mode="recorded", n=1)},
+]
+print(comparison_table(model_comparison(rows, {"1.13": "jev-1.13.0", "1.14": "jev-1.14.0"})))
+```
+
+With two invented results that each report 61 input tokens and 0 output tokens, it prints:
+
+```text
+label  mode      model       input_tokens  output_tokens  latency_seconds  cost_usd      n
+-----  --------  ----------  ------------  -------------  ---------------  ------------  -
+1.13   recorded  jev-1.13.0  61            0              not measured     not measured  1
+1.14   recorded  jev-1.14.0  61            0              not measured     not measured  1
+```
+
+Requesting `jev-latest` for the second arm instead raises `ValueError: arm '1.14' requested
+'jev-latest': a model comparison needs a pinned model such as jev-1.13.0, not a moving alias
+such as jev-latest or jev-preview`.

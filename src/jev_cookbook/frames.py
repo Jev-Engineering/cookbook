@@ -3,9 +3,9 @@
 Python owns frame order, sampling, timestamps and every piece of arithmetic here; nothing
 calls a model and nothing decodes video. A *state frame* is the mapping that
 :func:`jev_cookbook.vision.load_frames` returns: ``timestamp_seconds`` (elapsed seconds,
-finite, nonnegative) and ``image`` (a reference), in strictly increasing time order. Every
-function validates that and raises ``ValueError`` on empty input, a non-finite or negative
-time, or a duplicate or out-of-order time, instead of repairing it.
+finite, nonnegative) and ``image`` (a reference), in increasing time order. Adjacent frame
+times must differ by more than :data:`TIME_EPSILON` seconds after conversion to floats.
+Empty input, invalid timestamps and gaps at or below that minimum raise ``ValueError``.
 
 Timestamps are compared with an absolute slack of :data:`TIME_EPSILON` (1e-9 seconds) so
 float drift such as ``0.1 + 0.2`` against ``0.3`` cannot move a frame across a boundary.
@@ -54,8 +54,11 @@ def _ordered(times: Iterable[Any]) -> list[float]:
     result: list[float] = []
     for position, value in enumerate(times):
         seconds = _seconds(value, f"timestamp at position {position}")
-        if result and seconds <= result[-1]:
-            raise ValueError("frame timestamps must be strictly increasing")
+        if result and seconds - result[-1] <= TIME_EPSILON:
+            raise ValueError(
+                f"frame timestamps must be strictly increasing with gaps greater than "
+                f"TIME_EPSILON ({TIME_EPSILON:g} seconds): invalid gap at position {position}"
+            )
         result.append(seconds)
     if not result:
         raise ValueError("frames must not be empty")
@@ -90,12 +93,11 @@ def sample_frames(
 ) -> list[int]:
     """Indices of the frames to keep, ascending and without repeats.
 
-    ``timestamps`` are the strictly increasing frame times (use
-    :func:`frame_timestamps` for state frames). ``start`` and ``end`` bound the *window*
-    (inclusive, both default to the first and last timestamp); only frames inside it are
-    eligible. At most one of ``every_seconds`` and ``count`` may be given; with neither,
-    every frame in the window is selected. The window must contain a frame, otherwise
-    ``ValueError`` is raised rather than returning nothing.
+    ``timestamps`` are the increasing frame times with adjacent gaps greater than
+    :data:`TIME_EPSILON` (use :func:`frame_timestamps` for state frames). ``start`` and ``end``
+    bound the *window* (inclusive, both default to the first and last timestamp); only frames
+    inside it are eligible. At most one of ``every_seconds`` and ``count`` may be given; with
+    neither, every frame in the window is selected. A window with no frame raises ``ValueError``.
 
     ``every_seconds``: targets are ``window_start + k * every_seconds`` for ``k = 0, 1, ...``
     while the target is at most ``end`` (computed by multiplication, so error does not
@@ -257,24 +259,19 @@ def _nearest(times: list[float], target: float) -> int:
 def frame_at(timestamps: Iterable[float], seconds: float, *, side: str = "before") -> int:
     """Index of the frame at ``seconds`` (a log line, an agent-state record, a clicked time).
 
+    Adjacent frame times must be increasing with gaps greater than :data:`TIME_EPSILON`.
     ``side="before"`` is the last frame at or before ``seconds``; ``"after"`` the first frame
     at or after it; for these two sides a frame within :data:`TIME_EPSILON` of ``seconds``
     counts as at it.
     ``"nearest"`` uses the rule of :func:`sample_frames` for one target: the frames whose
     distance from ``seconds`` is within :data:`TIME_EPSILON` of the smallest distance are tied,
-    however many there are and on either side, and **the earliest tied frame is returned** (so
-    an exact midpoint goes to the earlier frame, and
-    ``frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")`` returns 1). When every gap
-    between frames is larger than ``3 * TIME_EPSILON``, this is the closer of the ``"before"``
-    and ``"after"`` frames, a tie going to the earlier. That bound holds in exact arithmetic;
-    float rounding of the slack comparisons can still change the answer for a gap within
-    rounding distance of ``3 * TIME_EPSILON``, which timestamps of thousands of seconds reach.
-    With a smaller gap a frame
-    up to ``2 * TIME_EPSILON`` away can tie with one at ``seconds``
-    (``frame_at([0, 1, 1 + 2.5e-9, 2], 1 + 1.6e-9, side="nearest")`` returns 1). So with frames
-    that close together, ``"nearest"`` can return a frame earlier than the ``"before"`` frame,
-    and a frame exactly at ``seconds`` loses to an earlier frame within the slack of it
-    (``frame_at([0, 1, 1 + 5e-10, 2], 1 + 5e-10, side="nearest")`` returns 1).
+    on either side, and **the earliest tied frame is returned**. An exact midpoint goes to the
+    earlier frame, and an exact timestamp match is selected. In exact arithmetic, for adjacent
+    gaps greater than ``3 * TIME_EPSILON``, applying the tie rule to the ``"before"`` and
+    ``"after"`` candidates alone gives the same result. Float rounding can affect that
+    equivalence near the bound. With smaller valid gaps, ``"nearest"`` can select a frame
+    earlier than ``"before"``. For example, at ``1 + 1.6e-9`` in ``[0, 1, 1 + 2.5e-9, 2]``,
+    ``"nearest"`` returns 1 and ``"before"`` returns 2.
     Raises ``ValueError`` when no frame qualifies (for example
     ``"before"`` a time earlier than the first frame) instead of guessing, because attaching an
     event to the wrong frame is a silent error.
@@ -306,6 +303,7 @@ def frame_windows(
 ) -> list[dict[str, Any]]:
     """Sliding windows over the sequence, each with the indices of the frames inside.
 
+    Adjacent frame times must be increasing with gaps greater than :data:`TIME_EPSILON`.
     Window ``k`` spans ``[w, w + width_seconds]`` (both edges inclusive, so a frame on the
     shared edge of neighbouring windows belongs to both) with ``w = start + k * stride_seconds``
     (multiplied, not accumulated). ``start`` / ``end`` default to the first and last
