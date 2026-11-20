@@ -27,6 +27,7 @@ import io
 import json
 import math
 import textwrap
+import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -40,6 +41,7 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from matplotlib.figure import Figure
+from matplotlib.text import Text
 
 __all__ = [
     "CATEGORICAL",
@@ -137,8 +139,147 @@ def _register_cmap() -> None:
         mpl.colormaps.register(SEQUENTIAL_CMAP, name="jev_sequential")
 
 
+# Figures a chart helper returned in the current notebook cell that have not been displayed yet,
+# by id. Each entry holds the figure itself, not a weak reference: a chart from an unassigned
+# ``plot_*(...)`` statement has no other owner, so the garbage collector could free it before
+# the end of the cell and the cell would show nothing. Holding it also keeps its id from being
+# reused by a later figure. Filled only while the notebook display is registered (see
+# _register_notebook_display); emptied at the end of every cell, so nothing outlives its cell.
+_UNSHOWN: dict[int, Figure] = {}
+_DISPLAY_ACTIVE = False
+
+
+def _inline_backend_shows(root: Any) -> bool:
+    """True when matplotlib's inline backend itself displays ``root`` at the end of the cell.
+
+    A figure pyplot manages (``plt.subplots()``) has a canvas manager; under the inline backend
+    its own end-of-cell hook displays it, so showing it here as well would be a second image.
+    A helper's own ``Figure()`` has no manager, and the inline backend never sees it.
+    """
+    manager = getattr(getattr(root, "canvas", None), "manager", None)
+    return manager is not None and "inline" in str(mpl.get_backend()).lower()
+
+
+def _keep_display_mark() -> None:
+    """Make sure whichever ``Figure`` PNG formatter is active also marks a figure as displayed.
+
+    ``%matplotlib inline`` replaces the formatter :func:`_register_notebook_display` installed
+    with matplotlib's own, so ``display(fig)`` would no longer clear the figure from ``_UNSHOWN``
+    and the end-of-cell display would show it a second time. Wrap the current formatter (once)
+    so it records "displayed" and then delegates, keeping matplotlib's own rendering.
+    """
+    shell = _shell()
+    formatter = getattr(getattr(shell, "display_formatter", None), "formatters", {}).get(
+        "image/png"
+    )
+    if formatter is None:
+        return
+    current = formatter.type_printers.get(Figure)
+    if current is None or current is _figure_png or getattr(current, "_marks_displayed", False):
+        return
+
+    def marking(fig: Figure, *args: Any, **kwargs: Any) -> Any:
+        _UNSHOWN.pop(id(fig), None)
+        return current(fig, *args, **kwargs)
+
+    marking._marks_displayed = True  # type: ignore[attr-defined]
+    formatter.for_type(Figure, marking)
+
+
+def _track(fig: Any) -> Any:
+    """Note that a chart helper returned ``fig``, so the cell shows it even if it is not the
+    cell's result (see :func:`_show_unshown`). Returns ``fig`` unchanged."""
+    if _DISPLAY_ACTIVE:
+        _keep_display_mark()
+        root = _root_figure_of(fig)
+        if isinstance(root, Figure) and not _inline_backend_shows(root):
+            _UNSHOWN[id(root)] = root
+    return fig
+
+
+def _root_figure_of(fig: Any) -> Any:
+    try:
+        return fig.get_figure(root=True)
+    except TypeError:  # matplotlib before 3.10: a subfigure's ``figure`` is the root
+        return getattr(fig, "figure", fig)
+    except AttributeError:
+        return fig
+
+
+def _forget_unshown() -> None:
+    """Start of a cell: drop figures left over from a call made outside a cell run, and make
+    sure :func:`_close_result_figure` runs before the inline backend's own end-of-cell hook."""
+    _UNSHOWN.clear()
+    _keep_display_mark()
+    shell = _shell()
+    callbacks = getattr(getattr(shell, "events", None), "callbacks", {}).get("post_execute")
+    if callbacks and _close_result_figure in callbacks and callbacks[0] is not _close_result_figure:
+        callbacks.remove(_close_result_figure)
+        callbacks.insert(0, _close_result_figure)
+
+
+def _shell() -> Any:
+    try:
+        from IPython import get_ipython
+    except ImportError:
+        return None
+    return get_ipython()
+
+
+def _close_result_figure() -> None:
+    """End of cell, before the inline backend's hook: a pyplot figure that is the cell's result
+    was already displayed by the formatter, and the inline backend would display it again (it
+    shows, then closes, every open pyplot figure). Close it first when that backend would."""
+    shell = _shell()
+    count = getattr(shell, "execution_count", 0) or 0
+    # This cell's result, if it had one: IPython has already advanced the count by now. With
+    # history or the output cache off there is no such entry, and the lookup finds nothing.
+    outputs = getattr(shell, "user_ns", {}).get("Out")
+    result = None
+    if isinstance(outputs, dict) and count > 1:
+        result = outputs.get(count - 1)
+    if not isinstance(result, Figure):
+        return
+    root = _root_figure_of(result)
+    if not _inline_backend_shows(root):
+        return
+    try:
+        from matplotlib_inline.config import InlineBackend
+
+        if not InlineBackend.instance().close_figures:
+            return
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return
+    plt.close(root)
+
+
+def _show_unshown(result: Any = None) -> None:
+    """After a cell, display every helper figure the cell made but did not display.
+
+    A figure reaches the notebook through the PNG formatter only when it is the cell's result,
+    so a cell that ends with a ``print`` after its ``plot_*`` call used to commit no image at all,
+    with every check green (#232). Running after the cell, this shows such a figure once, below
+    the cell's printed output. Whether a figure was the cell's result is decided here from the
+    result itself (``result.result``), not from the formatter, because ``%matplotlib inline``
+    replaces the formatter and a figure it formats would otherwise be shown a second time.
+    """
+    figures = dict(_UNSHOWN)
+    _UNSHOWN.clear()
+    shown = getattr(result, "result", None)
+    if isinstance(shown, Figure):
+        figures.pop(id(_root_figure_of(shown)), None)
+    if not figures:
+        return
+    from IPython.display import display
+
+    for fig in figures.values():
+        display(fig)
+
+
 def _figure_png(fig: Figure) -> bytes:
     """The figure as PNG bytes, drawn with the Agg canvas (no pyplot, no GUI backend)."""
+    _UNSHOWN.pop(id(fig), None)  # displayed: the end-of-cell display must not repeat it
     buffer = io.BytesIO()
     FigureCanvasAgg(fig)  # a non-pyplot Figure has no canvas that can print PNG yet
     fig.savefig(buffer, format="png", bbox_inches="tight")
@@ -150,8 +291,11 @@ def _register_notebook_display() -> None:
 
     The chart helpers return figures that are not registered with pyplot, so the inline
     backend never sees them. This registers a PNG formatter for ``Figure`` on the running
-    shell's display formatter; outside IPython (a script, pytest) it does nothing, and so
-    does a missing IPython. Registering twice replaces the earlier formatter.
+    shell's display formatter, and an end-of-cell hook that displays any figure a chart helper
+    returned in the cell but that was not the cell's result (a ``print`` after the ``plot_*``
+    call), so statement order in a plotting cell cannot drop a figure. Outside IPython (a
+    script, pytest) it does nothing, and so does a missing IPython. Registering twice replaces
+    the earlier formatter and hook.
     """
     try:
         from IPython import get_ipython
@@ -160,14 +304,29 @@ def _register_notebook_display() -> None:
     shell = get_ipython()
     if shell is None or not hasattr(shell, "display_formatter"):
         return
+    global _DISPLAY_ACTIVE
     shell.display_formatter.formatters["image/png"].for_type(Figure, _figure_png)
+    events = getattr(shell, "events", None)
+    if events is not None:
+        for name, hook in (
+            ("pre_execute", _forget_unshown),
+            ("post_execute", _close_result_figure),
+            ("post_run_cell", _show_unshown),
+        ):
+            try:
+                events.unregister(name, hook)
+            except ValueError:  # not registered yet
+                pass
+            events.register(name, hook)
+        _DISPLAY_ACTIVE = True
 
 
 def apply_style() -> None:
     """Apply the cookbook style to matplotlib globally (call once, near the top).
 
     Under IPython (a notebook) it also makes a cell that ends with a returned ``Figure``
-    display as a PNG, whether or not ``%matplotlib inline`` was run.
+    display as a PNG, whether or not ``%matplotlib inline`` was run, and a chart helper's
+    figure display once at the end of its cell when the cell ends with something else.
     """
     _register_cmap()
     mpl.rcParams.update(rc_params())
@@ -588,10 +747,26 @@ def _text_colour(background: Sequence[float]) -> str:
     return INK if ink >= paper else PAPER
 
 
+def _tick_names(labels: Sequence[Any]) -> tuple[list[str], bool]:
+    """Tick text for one axis: abbreviated, unless that would merge two different labels.
+
+    Returns the names and whether the abbreviation was given up (the labels are then whole).
+    """
+    full = [str(x) for x in labels]
+    names = [_shorten(x, _TICK_WIDTH) for x in full]
+    if len(set(names)) < len(set(full)):
+        return full, True
+    return names, False
+
+
 def plot_confusion_matrix(
     counts: Any,
     labels: Sequence[str] | None = None,
     *,
+    row_labels: Sequence[str] | None = None,
+    col_labels: Sequence[str] | None = None,
+    row_axis_title: str = "Gold",
+    col_axis_title: str = "Predicted",
     normalize: bool = False,
     title: str | None = None,
     ax: Axes | None = None,
@@ -605,44 +780,57 @@ def plot_confusion_matrix(
     ``counts`` may instead be any object with ``.labels`` and ``.matrix`` (such as the
     evaluation toolkit's ``ConfusionMatrix``); ``labels`` then defaults to ``.labels``.
 
+    ``labels`` names both axes. For a table whose rows and columns are different quantities
+    (gold content against the final action, say) pass ``row_labels`` and ``col_labels``
+    instead, and ``row_axis_title`` and ``col_axis_title`` to name the axes; ``counts`` is
+    then ``len(row_labels)`` rows by ``len(col_labels)`` columns. Either one defaults to
+    ``labels``, and the titles default to ``"Gold"`` (rows) and ``"Predicted"`` (columns).
+    A rectangular table's figure (when ``ax`` is not given) is sized from its cell counts and
+    then grown until no label, tick or title runs past the figure edge; a square table's
+    figure is sized exactly as before.
+
     A label longer than 14 characters is abbreviated to its first 11 plus ``...``. If that
-    would make two different labels render as the same tick, no label is abbreviated and the
-    column labels are rotated, so the axes never carry two identical names.
+    would make two different labels on an axis render as the same tick, no label on that axis
+    is abbreviated (and the column labels are rotated), so an axis never carries two
+    identical names.
     """
     if hasattr(counts, "matrix") and hasattr(counts, "labels"):
         if labels is None:
             labels = counts.labels
         counts = counts.matrix
-    if labels is None:
+    rows = labels if row_labels is None else row_labels
+    cols = labels if col_labels is None else col_labels
+    if rows is None or cols is None:
         raise ValueError("labels are required unless counts has .labels and .matrix")
     arr = np.asarray(counts, dtype=float)
-    n = len(labels)
-    if arr.shape != (n, n):
-        raise ValueError(f"counts must be {n}x{n} to match labels, got shape {arr.shape}")
+    n_rows, n_cols = len(rows), len(cols)
+    if arr.shape != (n_rows, n_cols):
+        raise ValueError(
+            f"counts must be {n_rows}x{n_cols} (one row per row label, one column per "
+            f"column label; labels names both axes, row_labels and col_labels one each), "
+            f"got shape {arr.shape}"
+        )
     shown = arr
     if normalize:
         totals = arr.sum(axis=1, keepdims=True)
         shown = np.divide(arr, totals, out=np.zeros_like(arr), where=totals > 0)
-    side = max(4.0, 0.9 * n + 2.5)
-    fig, ax = _new_figure(ax, (side, side))
+    own_figure = ax is None
+    fig, ax = _new_figure(ax, (max(4.0, 0.9 * n_cols + 2.5), max(4.0, 0.9 * n_rows + 2.5)))
     with style_context():
         vmax = float(shown.max()) if shown.max() > 0 else 1.0
         ax.imshow(shown, cmap=SEQUENTIAL_CMAP, vmin=0.0, vmax=vmax)
         ax.grid(False)
-        full = [str(x) for x in labels]
-        names = [_shorten(x, _TICK_WIDTH) for x in full]
-        rotation = 0
-        if len(set(names)) < len(set(full)):
-            # Shortening made two different labels render as one tick. Keep the full text
-            # (a figure must not mislabel rows and columns) and stand the column labels on
-            # end so long names do not run into each other.
-            names, rotation = full, 90
-        ax.set_xticks(range(n), labels=names, rotation=rotation)
-        ax.set_yticks(range(n), labels=names)
-        ax.set_xlabel("Predicted")
-        ax.set_ylabel("Gold")
-        for i in range(n):
-            for j in range(n):
+        # Each axis is checked on its own: a collision among the row labels says nothing
+        # about the column labels. Whole labels on the columns are stood on end so long names
+        # do not run into each other.
+        row_names, _ = _tick_names(rows)
+        col_names, col_whole = _tick_names(cols)
+        ax.set_xticks(range(n_cols), labels=col_names, rotation=90 if col_whole else 0)
+        ax.set_yticks(range(n_rows), labels=row_names)
+        ax.set_xlabel(col_axis_title)
+        ax.set_ylabel(row_axis_title)
+        for i in range(n_rows):
+            for j in range(n_cols):
                 value = shown[i, j]
                 colour = _text_colour(SEQUENTIAL_CMAP(value / vmax)[:3])
                 text = f"{value:.2f}" if normalize else f"{round(value)}"
@@ -651,19 +839,48 @@ def plot_confusion_matrix(
             spine.set_visible(True)
         if title:
             ax.set_title(title)
-    return fig
+    if own_figure and n_rows != n_cols:
+        _grow_to_fit_text(fig)
+    return _track(fig)
+
+
+def _grow_to_fit_text(fig: Figure, rounds: int = 4, pad_px: float = 2.0) -> None:
+    """Enlarge ``fig`` until no text artist runs past its edge.
+
+    The size of a rectangular confusion matrix comes from its cell counts, which says nothing
+    about how long its labels are: two columns of short actions against long whole row
+    labels, or a few rows under whole rotated column labels, leave text cut off by the
+    figure edge. This measures the laid-out text and grows the figure in the direction that
+    is short (constrained layout re-centres the axes, so by twice the overflow) until it fits.
+    """
+    for _ in range(rounds):
+        with warnings.catch_warnings():
+            # An intermediate size can be too small for constrained layout, which then warns
+            # and asks for a larger figure: exactly what this loop goes on to do.
+            warnings.filterwarnings(
+                "ignore", message="constrained_layout not applied", category=UserWarning
+            )
+            fig.draw_without_rendering()
+        boxes = [
+            t.get_window_extent()
+            for t in fig.findobj(Text)
+            if t.get_visible() and t.get_text().strip()
+        ]
+        if not boxes:
+            return
+        width_px, height_px = fig.bbox.width, fig.bbox.height
+        over_x = max(0.0, -min(b.x0 for b in boxes), max(b.x1 for b in boxes) - width_px)
+        over_y = max(0.0, -min(b.y0 for b in boxes), max(b.y1 for b in boxes) - height_px)
+        if over_x == 0.0 and over_y == 0.0:
+            return
+        w, h = fig.get_size_inches()
+        grow_w = 2 * (over_x + pad_px) / fig.dpi if over_x else 0.0
+        grow_h = 2 * (over_y + pad_px) / fig.dpi if over_y else 0.0
+        fig.set_size_inches(w + grow_w, h + grow_h)
 
 
 _LEGEND_CORNERS = ("lower right", "upper right")
 _LEGEND_CLEARANCE_PX = 2.0
-
-
-def _root_figure(ax: Axes) -> Figure:
-    """The top-level ``Figure`` of ``ax``: ``ax.figure`` is the subfigure for an axes in one."""
-    try:
-        return ax.get_figure(root=True)
-    except TypeError:  # matplotlib before 3.10: ``figure`` of a subfigure is already the root
-        return ax.figure
 
 
 def _place_score_legend(ax: Axes) -> None:
@@ -683,7 +900,8 @@ def _place_score_legend(ax: Axes) -> None:
     after the title and labels are set: under constrained layout they move the axes, and the
     clearance is only a guarantee for the layout it was measured on.
     """
-    fig = _root_figure(ax)
+    # A SubFigure shares the root Figure's canvas, including on matplotlib before 3.10.
+    fig = ax.figure.canvas.figure
     labels = ax.texts
     for loc in _LEGEND_CORNERS:
         legend = ax.legend(loc=loc)
@@ -760,7 +978,7 @@ def plot_answer_probabilities(
             # last: where it can go depends on the layout the title leaves.
             ax.axhline(score_pos, color=MAGENTA, linestyle="--", linewidth=2.0, label="score")
             _place_score_legend(ax)
-    return fig
+    return _track(fig)
 
 
 _SWEEP_METRICS = ("precision", "recall", "f1")
@@ -828,7 +1046,7 @@ def plot_threshold_sweep(
         ax.legend(loc="best")
         if title:
             ax.set_title(title)
-    return fig
+    return _track(fig)
 
 
 def plot_risk_coverage(
@@ -837,6 +1055,7 @@ def plot_risk_coverage(
     *,
     label: str | None = None,
     reference_risk: float | None = None,
+    connect: bool = True,
     title: str | None = None,
     ax: Axes | None = None,
 ) -> Figure:
@@ -844,6 +1063,13 @@ def plot_risk_coverage(
 
     ``coverage`` and ``risk`` are aligned 1-D arrays. ``reference_risk`` draws a dashed line,
     for example the error rate when every case is answered.
+
+    The points are joined by a line in the order given, which is right for a curve such as a
+    ``SelectiveCurve`` (its coverage is monotone) and wrong for separate policies, where a
+    line implies a frontier that does not exist. For those pass ``connect=False``: the same
+    coordinates are drawn as markers only, in the order given, with no line between them,
+    unclipped (so a policy at coverage 1.0 shows whole), and always with a visible marker,
+    even on an axes created outside the style. Nothing is sorted either way.
 
     ``coverage`` may instead be any object with ``.coverage`` and ``.risk`` arrays (such as
     the evaluation toolkit's ``SelectiveCurve``), with ``risk`` left out.
@@ -858,7 +1084,15 @@ def plot_risk_coverage(
         raise ValueError(f"coverage has {x.size} values but risk has {y.size}")
     fig, ax = _new_figure(ax, (6.4, 4.0))
     with style_context():
-        ax.plot(x, y, label=label)
+        if connect:
+            ax.plot(x, y, label=label)
+        else:
+            # Markers are then the only mark: draw them unclipped so a policy at coverage 1.0
+            # is not cut in half by the axes edge, and give them a marker of the style's own
+            # when the axes was made outside style_context (matplotlib's default cycle has none).
+            (points,) = ax.plot(x, y, label=label, linestyle="none", clip_on=False)
+            if points.get_marker() in (None, "None", "none", "", " "):
+                points.set_marker(_MARKERS[0])
         if reference_risk is not None and not math.isnan(reference_risk):
             ax.axhline(
                 reference_risk,
@@ -875,4 +1109,4 @@ def plot_risk_coverage(
             ax.legend(loc="best")
         if title:
             ax.set_title(title)
-    return fig
+    return _track(fig)

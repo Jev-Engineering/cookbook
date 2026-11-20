@@ -156,7 +156,9 @@ After (the same level, default `width`):
 All helpers take plain arrays or mappings, return a matplotlib `Figure` (the one that owns
 `ax` when you pass `ax=`), never call `plt.show()`, and work on the `Agg` backend. The
 figures are not registered with pyplot, so a notebook does not show them twice: end the
-cell with the returned figure, or call `fig.savefig(...)`.
+cell with the returned figure, or let `apply_style()` show it at the end of the cell (see
+"Where a figure appears"). A figure you assign and save with `fig.savefig(...)` is still shown
+once in that cell.
 
 **Print what you plot.** CI's figure comparison is loose by design (it compares what a figure
 shows, not its exact pixels, so a moved line or marker still passes); the number that is actually
@@ -165,6 +167,23 @@ same data, rounded, in the same cell — the confusion matrix's counts, a sweep'
 reader (and a diff) can see the numbers a figure draws without reading pixels. See
 [recipe-template.md](recipe-template.md), "Choices the template makes for you", for the worked
 example.
+
+**Where a figure appears.** A chart helper's figure reaches the notebook as the cell's result when
+the cell ends with the `plot_*` call. When it does not (a `print` after the call), `apply_style()`
+shows the figure once at the end of the cell, below the cell's printed output, so statement order
+can no longer drop a committed figure. Put the `print` before the `plot_*` call anyway: the
+numbers then read above the figure that draws them, and the cell's output order matches its source.
+A figure is shown in the cell that drew it; to draw several panels into one figure, pass `ax=`
+and end the cell with that figure. Behaviour to know: a trailing semicolon (`plot_*(...);`) no
+longer hides the figure, because the figure is shown at the end of the cell whatever the cell
+returns; assigning a figure (`fig = plot_*(...)`) and ending a later cell with `fig` shows it in
+both cells; and a cell that raises after the call shows the figure below the traceback. A figure
+that pyplot manages (`fig, ax = plt.subplots()` with `ax=ax`) is left to matplotlib's inline
+backend and is shown once, as is a chart that is the cell's result after `%matplotlib inline`.
+After `apply_style()`, a pyplot figure that is a cell's result (`fig` ending the cell, not only a
+cookbook chart) is closed once it has been displayed, so the inline backend does not show it
+again. That is a global effect on any pyplot figure, and it applies only when the inline backend
+closes figures after display (its default).
 
 **Title convention.** A figure's `title=` carries the pipeline-check disclosure, `{check}`, when
 it is plotted in a synthetic or scripted run, and no other disclosure label: a figure is read
@@ -197,15 +216,36 @@ a real kernel and asserts an `image/png` output, and its negative control (no
 
 | Helper | Draws |
 | --- | --- |
-| `plot_confusion_matrix(counts, labels=None, *, normalize=False, title=None, ax=None)` | gold by predicted, every cell annotated; `counts` may be an object with `.labels` and `.matrix` |
+| `plot_confusion_matrix(counts, labels=None, *, row_labels=None, col_labels=None, row_axis_title="Gold", col_axis_title="Predicted", normalize=False, title=None, ax=None)` | gold by predicted, every cell annotated; `counts` may be an object with `.labels` and `.matrix`; rows and columns may have different labels and titles |
 | `plot_answer_probabilities(answer, *, highlight=None, title=None, ax=None)` | probability bars for a Choice, Score, Noul, or a plain mapping |
 | `plot_threshold_sweep(thresholds, metrics=None, *, chosen=None, title=None, ax=None)` | one line per metric, chosen threshold marked; `thresholds` may be a list of objects with `.threshold` and `.precision`, `.recall`, `.f1` |
-| `plot_risk_coverage(coverage, risk=None, *, label=None, reference_risk=None, title=None, ax=None)` | error rate on answered cases against fraction answered; `coverage` may be an object with `.coverage` and `.risk` |
+| `plot_risk_coverage(coverage, risk=None, *, label=None, reference_risk=None, connect=True, title=None, ax=None)` | error rate on answered cases against fraction answered; `coverage` may be an object with `.coverage` and `.risk`; `connect=False` draws markers only |
 
 The evaluation toolkit's results are accepted by duck typing, without importing it:
 `confusion_matrix(...)` results (`.labels`, `.matrix`), the list from `threshold_sweep(...)`
 (each point has `.threshold`, `.precision`, `.recall`, `.f1`; an undefined NaN value leaves a
 gap in the line), and `selective_curve(...)` results (`.coverage`, `.risk`).
+
+Two options exist for data that is not one vocabulary or one curve, and three decisions
+came with them:
+
+- `plot_confusion_matrix` takes one `labels` list for both axes, as it always has. A table whose
+  rows and columns are different quantities (gold content against the final action) is a plain
+  array with `row_labels` and `col_labels` (either defaults to `labels`) and, to name the axes,
+  `row_axis_title` and `col_axis_title`. `ConfusionMatrix` does not change: it stays one
+  vocabulary, so its "gold option / predicted option" wording stays true, and a two-vocabulary
+  table is not a `ConfusionMatrix`. Abbreviation is judged on each axis on its own. A
+  rectangular table's figure starts from its cell counts and grows until no label or title
+  runs past the figure edge; a square table's figure is sized exactly as before.
+- Abbreviating a label past 14 characters stays the default presentation. Wrapping or
+  rotating every long label would move each committed matrix that has one (recipe 47 among
+  them); only an axis on which abbreviation would merge two different labels gives it up.
+- `plot_risk_coverage` joins its points in the order given and never sorts them, so a
+  `SelectiveCurve` draws as it always has. Points that are separate policies, not a curve,
+  take `connect=False`: the same coordinates as markers only, unclipped so a policy at
+  coverage 1.0 shows whole, with a marker even on an axes made outside the style (whose
+  default cycle has none). Sorting was not chosen because
+  a sorted line still says the policies lie on one frontier.
 
 ### What the rendering tests check
 
@@ -224,15 +264,17 @@ that module with a new helper, or a new option on an existing one.
 Two behaviours follow from it:
 
 - `plot_confusion_matrix` abbreviates a label longer than 14 characters to its first 11 plus
-  `...`, as it always has. If that would make two different labels look the same (they share
-  their first 11 characters), it abbreviates none of them and stands the column labels on end.
+  `...`, as it always has. If that would make two different labels on an axis look the same
+  (they share their first 11 characters), it abbreviates none of that axis's labels and, for
+  the columns, stands them on end.
 - `plot_answer_probabilities` puts a Score's `score` legend in the lower-right corner, as it
   always has, unless a bar's value label would sit under it (a confident answer whose highest
   level is the bottom bar); it then moves to the upper-right corner, and outside the axes if
   neither corner is free. The corner is chosen on the finished layout, after the title is set,
-  by drawing the whole top-level figure, so it needs matplotlib 3.6 or later and works for an
-  `ax` inside a subfigure or a grid. Outside the axes it can be clipped in a figure that is
-  not laid out by constrained layout.
+  using `Figure.draw_without_rendering()` (matplotlib 3.6 or later). The axes' canvas points to
+  the top-level figure, including for an `ax` inside a subfigure on matplotlib 3.8. A legend
+  outside the axes can be clipped when constrained layout is off. The dashed score line can
+  cross a bar's value label, as it crosses `0.98` in recipe 49.
 
 Both rules move figures that were already committed: a notebook whose Score answer is
 confident, or whose confusion matrix has colliding labels, draws differently now. Re-execute

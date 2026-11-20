@@ -168,15 +168,20 @@ A recipe that scores a transition over an ordered frame sequence ([vision](visio
 ```
 
 - `transition` is a non-empty string naming the transition. A prediction is the right transition when its name equals this one. It is a resolved label: `evaluation.transition_metrics` raises `ValueError` on a gold label that is one of its review labels (`uncertain` by default).
-- `seconds` is a finite number, 0 or more: **elapsed seconds since the start of the sequence** (never Unix time), the `timestamp_seconds` of the first frame of the full-rate sequence in which the new state is visible, the convention of `frames.transition_time`. A label that has no time, such as `unchanged`, has no `seconds` key. It does not carry a `null` one.
+- `seconds` is a nonnegative number that converts to a finite float. It records **elapsed seconds since the start of the sequence**, using the `timestamp_seconds` of the first frame of the full-rate sequence in which the new state is visible, the convention of `frames.transition_time`. A label that has no time, such as `unchanged`, omits `seconds`.
 - The object has no other key. In particular it has no `present` key, which is reserved for Box labels (above).
 - One transition per example. A sequence with several transitions becomes several examples, each with its own label ([evaluation](evaluation.md#transitions)).
 
 `(label["transition"], label.get("seconds"))` is the `(label, seconds_or_None)` pair that `evaluation.transition_metrics` takes for gold ([evaluation](evaluation.md#transitions)).
 
-**What the validator checks.** Nothing that is specific to this format. A transition label gets the checks every label gets (for example, the line must be valid JSON, so a line with `NaN` is an error, and every example in a labelled split needs a label). A negative, non-finite (`1e400`, which JSON reads as `inf`), string, boolean or `null` `seconds`, a missing or empty `transition`, an extra key and a review label all pass `python -m jev_cookbook.fixtures validate`. The one interaction is the `present` key: a label object that has one at its top, or a nested object whose only keys are `present` and `box`, is checked as a Box label, and once any label in the file is a Box label at the top, a label that is not one is an error, so a file that mixes top-level Box labels and transition labels fails. Transition labels beside labels that nest a Box label under a key pass. Extending the validator to check this format is tracked in #396.
+**What the validator checks.** A label object with a top-level `transition` key and no `present` key declares the transition format. When both `inputs.jsonl` and `labels.jsonl` are readable and a loaded label declares the format, `python -m jev_cookbook.fixtures validate` checks each loaded label and reports these problems.
 
-The recipe's own test therefore decodes every split it ships (`train` included) and checks the key set exactly. Scoring the decoded pairs with `transition_metrics` already raises `ValueError` for a negative, non-finite, string or boolean `seconds` and for a review label; it does not notice an empty or non-string `transition`, a `null` `seconds` (read as "no time") or an extra key.
+- a label that is not a transition label (a string, a list, or an object without `transition`, such as `{"seconds": 2.5}`), naming the first label that declares the format;
+- a key other than `transition` and `seconds`;
+- a `transition` that is not a non-empty string, or that is `uncertain`, the review label `evaluation.transition_metrics` refuses as gold by default;
+- a `seconds` value that is anything other than a JSON number, such as a string, a boolean, or `null`. The validator also rejects a decoded number that is negative or cannot convert to a finite float, such as `1e400` (which JSON reads as `inf`) or an integer outside the float range. Since `seconds` measures elapsed time from the start of the sequence, its minimum is 0.
+
+A top-level `present` key assigns a label to the Box check, even if the label also has a `transition` key. In a file with a top-level Box label, the Box check reports any transition labels. In a file that declares the transition format, the transition check reports a label such as `{"target": {"present": false}}` because it lacks a top-level `transition` key. When a recipe supplies its own `uncertain_labels`, `transition_metrics` raises `ValueError` if any of them appears as a gold label.
 
 ## Nesting limit
 
@@ -529,7 +534,7 @@ and checked against the schema by `tests/test_fixtures_assets.py`):
 | `path` | Relative to the recipe folder, forward slashes, starting `assets/`, lowercase `.png`/`.jpg`/`.jpeg`. Letters, digits, `_`, `.`, `-` only, and no segment starts with `.`, so it can contain no `..`. It is exactly the string an `inputs.jsonl` `fields` value uses. |
 | `sha256`, `format`, `width`, `height` | Digest of the file's bytes (the digest behind `image_reference`), `PNG` or `JPEG`, and pixel size. Checked against the file. |
 | `origin` | `generated`: drawn by the recipe's own code. Nothing else is allowed. |
-| `generator` | `build_fixtures.py:draw_scene`: a `.py` file in the recipe folder (it must exist and mention the function name), or `jev_cookbook.<module>:<function>` for shared code. |
+| `generator` | `build_fixtures.py:draw_scene`: a `.py` file in the recipe folder (it must exist and mention the function name), or `jev_cookbook.<module>:<function>` for shared code (the module must be part of the package and its source must mention the function name). |
 | `parameters` | The arguments, seed included, that reproduce the file from the generator. `{}` if there are none. |
 | `licence` | `MIT` (this repository's licence) or `CC0-1.0`. Third-party material is not allowed, so no other licence is. |
 | `description` | What the image shows, for a reader who cannot see it. |
@@ -551,22 +556,26 @@ Each failure is one line, `path: [rule] message`, naming the image (or the manif
 | `unlisted-asset` | A file under `assets/` has no entry, or a `fields` image path names no entry. |
 | `missing-file` | An entry's file is not in `assets/`. |
 | `hash-mismatch`, `format-mismatch`, `size-mismatch` | The file's SHA-256, format (read from the bytes) or pixel size is not what the entry says. |
-| `generator` | The generator script is not a file in the recipe, or does not contain the function name. Whether the function really draws the image is for the reviewer. |
+| `generator` | The generator script is not a file in the recipe, or does not contain the function name; or a `jev_cookbook.<module>` is not a module of the installed package, or its source does not mention the function name as a word (the recipe-script rule). A package's `__init__.py` is read before a `.py` file of the same name, the order `import` uses. The module's source is read, not imported. Both generator checks run for every entry that passes the schema, also when its file is missing. Whether the name is a function that really draws the image is for the reviewer. |
 | `split-leak` | Examples in different scored splits (`train`, `validation`, `test`) name images with the same bytes, under one path or two. |
 
 A **`fields` image path** is any string value in `fields`, at any depth and under any key, that
-has no whitespace and starts with `assets/`. In a recipe that has images (an `assets/` folder or a
-manifest) a string that ends in `.png`, `.jpg` or `.jpeg` (any case) and contains a `/` or a
-backslash is one too, so a typo such as `../x.png`, `fixtures/x.png`, `./assets/x.png`,
+has no whitespace and starts with `assets/`, except, in a recipe without images (no file under
+`assets/` and no manifest), a plain word path made of segments of letters, digits, `_` and `-`
+only (`assets/equity`, `assets/v2/draft`), which is text there. In a recipe that has images (a
+file under `assets/`, or a manifest) a string that ends in `.png`, `.jpg` or `.jpeg` (any case)
+and contains a `/` or a backslash is one too, so a typo such as `../x.png`, `fixtures/x.png`, `./assets/x.png`,
 `assets\x.png` or `C:/x.png` is reported rather than ignored. Every such string must be written
 `assets/<name>.png` (or `.jpg`, `.jpeg`) with forward slashes and equal a manifest `path` exactly,
 whichever operating system runs the validator; anything else is an `asset-path` failure. A bare
 file name (`IMG_2041.JPG`), a URL in a recipe without images, and a prose sentence that mentions
-`chart.png` are not paths. So a text-only recipe is unaffected by the image-suffix rule, but not by
-the `assets/` prefix rule: a text-only recipe still fails if a `fields` value has no whitespace and
-starts with `assets/` (`assets/equity`). In a recipe that has images, a value that
-ends in an image suffix and contains a `/` or a backslash (an upload path, an attachment URL)
-cannot be kept in `fields` as written; keep only the bare file name, put whitespace in the value,
+`chart.png` are not paths. In a text-only recipe a value such as `assets/equity` is therefore not a
+path, while `assets/ghost.png` still is, and fails as `unlisted-asset` because there is no manifest
+to list it; `assets/diagram.svg`, `assets/v1.2` and `assets/../x` are paths too, and fail as
+`asset-path` because they are not written `assets/<name>.png` (or `.jpg`, `.jpeg`). In a recipe
+that has images, `assets/equity` is a path and fails as `asset-path`, and a value that ends in an
+image suffix and contains a `/` or a backslash (an upload path, an attachment URL) cannot be
+kept in `fields` as written; keep only the bare file name, put whitespace in the value,
 or leave it out. `state` examples are not scanned,
 so an image recipe puts its image paths in `fields`, or the reference and leak checks never see
 them. `demo` examples are exempt from the leak rule, as they are from the label rule. An
@@ -575,7 +584,8 @@ see it; it still needs an entry, like every file under `assets/`. For a referenc
 `"shared_across_splits": true` on every entry that carries those bytes.
 
 What the validator does not do: decode pixels (two encodings of the same picture have different
-hashes), run or read the generator beyond finding the function name, or judge whether a description
+hashes), run or import the generator, read a generator script or package module beyond finding
+the function name, or judge whether a description
 or an attestation is true. The reviewer does the last two, and the image-file contract above
 (`tools/check_recipe_assets.py`) still decides what a valid file is.
 

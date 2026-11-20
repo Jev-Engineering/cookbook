@@ -1,5 +1,6 @@
 """The rule about ``.[dev,ml]`` in a recipe README, shared by ``tests/test_recipe_guard.py`` (every
-published README and the template) and ``tests/test_new_recipe.py`` (the scaffold's output).
+published README and the template), ``tests/test_new_recipe.py`` (the scaffold's output) and
+``tests/test_readme_install.py`` (the rule's own cases).
 
 What the rule is for (#127, #137, #162, docs/recipe-template.md step 6). The ``Notebook (<recipe>)``
 job installs ``.[ml]`` under ``.github/constraints-notebooks.txt`` and runs neither ``ruff`` nor
@@ -11,8 +12,8 @@ running a recipe's *tests*. Since #238 both ``Tests`` jobs install ``ml`` and a 
 ``helpers.py`` uses scikit-learn needs ``pip install -e ".[dev,ml]"`` to run ``pytest`` at all.
 
 So the rule is now about the paragraph, not the whole file: a paragraph that is about reproducing
-committed outputs (it names the constraints file, or says "reproduc..." or "byte for byte") must
-not contain ``.[dev,ml]``. Anywhere else the string is allowed.
+committed outputs (it names the constraints file, or says "reproduc...", "byte for byte" or
+"byte-for-byte") must not contain ``.[dev,ml]``. Anywhere else the string is allowed.
 
 This is a plain module (not a test file), loaded by path like the other helpers in tests/.
 """
@@ -22,7 +23,9 @@ from __future__ import annotations
 import re
 
 COMBINED = ".[dev,ml]"
-REPRODUCTION = re.compile(r"constraints-notebooks|reproduc|byte for byte", re.IGNORECASE)
+REPRODUCTION = re.compile(
+    r"constraints-notebooks|reproduc|byte for byte|byte-for-byte", re.IGNORECASE
+)
 
 # The install the Notebook job runs, and the line a README documents for reproducing outputs.
 REPRODUCTION_INSTALL = 'pip install -e ".[ml]" -c .github/constraints-notebooks.txt'
