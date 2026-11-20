@@ -36,10 +36,27 @@ photo = image_asset(row["fields"]["image"], root=RECIPE_DIR)
 
 `root=` resolves symbolic links and requires the real file to be inside the real root. An
 absolute path, a URL, a `..` that leaves the folder or a symlink that points outside it raises
-`AssetPathError` (a `ValueError`) before anything is opened; `assets/../assets/a.png`
-stays inside and works. `image_assets(paths, root=...)` and `load_frames(frames, root=...)`
-apply the same check to every path, and `resolve_asset_path(path, root=...)` returns the
-contained real path for code that opens files itself.
+`AssetPathError` (a `ValueError`) before anything is opened. This check is about containment
+only: `image_asset("assets/../assets/a.png", root=...)` stays inside the folder and loads, but
+that spelling is not allowed in a fixture. The fixture validator requires every image path in
+`fields` to be written as `assets/` followed by file names joined with forward slashes
+(subfolders are allowed), ending in `.png`, `.jpg` or `.jpeg` in lower case, with each name
+starting with a letter or digit and using only letters, digits, `_`, `.` and `-`. A path spelled
+any other way, such as `assets/../assets/a.png` or `./assets/a.png`, fails validation as
+`asset-path`. A well-formed path that the recipe's `assets-manifest.json` does not list fails as
+`unlisted-asset` ([fixtures.md](fixtures.md#image-provenance-manifest)).
+`image_assets(paths, root=...)` and `load_frames(frames, root=...)` apply the same check to every
+path, and `resolve_asset_path(path, root=...)` returns the contained real path for code that opens
+files itself.
+
+Every file under a recipe's `assets/` (not only images) needs an entry in `assets-manifest.json`,
+and an entry's path must be a well-formed image path as above, so a non-image file there cannot
+pass validation. The manifest sits beside `assets/` (not inside it) and records each file's
+provenance, licence and attestations, and its SHA-256, format and pixel size,
+which `python -m jev_cookbook.fixtures validate` compares against the file.
+[fixtures.md](fixtures.md#image-provenance-manifest) gives the format and every failure code, and
+[synthetic-images.md](synthetic-images.md#saving-and-the-manifest) shows a generator writing the
+manifest beside the images it draws.
 
 `validate_image_asset(asset)` validates an existing raw descriptor and returns its
 decoded, still-encoded PNG/JPEG file bytes. Neither function changes those bytes.
@@ -145,6 +162,28 @@ still be refused:
   it is still supplied. The page says every asset must be referenced and answers `400` otherwise,
   and the preflight does not refuse it.
 
+Only `LiveBackend.decide` runs the preflight. Replay, scripted mode and the recipe guard do not,
+so on their own they cannot catch an over-cap request offline, and without a check of your own
+the first signal is the refusal during a recording run (it spends nothing, but it stops the run).
+This is a decision, not an oversight: a replay of committed answers must not start refusing a
+request it can answer, and the guard does not yet build each recipe's requests. The preflight is
+pure, so a recipe with large or repeated images can check every request it will send in its own
+tests:
+
+```python
+from jev_cookbook.vision import image_request_profile, preflight_image_request
+
+
+# `requests` stands for however the recipe builds its requests: a list of (state, questions,
+# assets) in the form the notebook passes to `decide`.
+def test_every_request_fits_the_image_caps():
+    for state, questions, assets in requests:
+        preflight_image_request(image_request_profile(state, questions, assets))
+```
+
+The refusal message gives the sizes as exact bytes, so a request one byte over the cap is told
+apart from one at it, and it lists only the questions that hold copies.
+
 Image tokens are not separable. They appear only inside the `usage.input_tokens` of a recorded
 response, there is no estimator, and the cookbook does not guess one. What it records is the
 count: `AuditedBackend` entries carry `images` (copies) and `distinct_images` per call (see
@@ -229,8 +268,9 @@ def localization_outcome(answer, presence, threshold):
 
 Choose the presence and confidence thresholds on validation examples and freeze
 them before evaluating the test split. Keep reviews in the recipe's review queue
-and account for them in `localization_report` (and, for the overall review rate,
-`evaluation.evaluate_outcomes`); a review is not a claim that the target is absent.
+and account for them in `localization_report`: `report.review_rate` (`n_review` over `n_total`)
+is the overall review rate, counting presence reviews and rectangle-gate reviews over all
+examples. `evaluation.evaluate_outcomes` covers only the presence question's reviews; a review is not a claim that the target is absent.
 
 ### Gold labels
 
@@ -266,7 +306,9 @@ false positive, never an IoU. A review is never an absent prediction. The report
 - `hit_rate`: located present targets with IoU at or above `iou_threshold` (default 0.5),
   over `n_present`;
 - `false_positives` and `false_positive_rate` (over `n_absent`), `correct_absents` and
-  `correct_absent_rate` (over `n_absent`), `absent_review`.
+  `correct_absent_rate` (over `n_absent`), `absent_review`;
+- `n_review` (`present_review + absent_review`) and `review_rate`, `n_review` over `n_total`:
+  the share of every example sent to review, present and absent gold together.
 
 A mean or rate whose denominator is zero is NaN (and prints `n/a`), never 0. `str(report)`
 names every denominator, and `report.denominators` returns them by metric name.
@@ -296,6 +338,7 @@ assert report.absent_table == {"located": 1, "absent": 1, "review": 1}
 assert report.mean_iou_located == 0.75  # (1.0 + 0.5) / 2 located present targets
 assert report.mean_iou_present == 0.375  # (1.0 + 0.5) / 4 present targets
 assert report.hit_rate == 0.5  # 2 of 4 present targets at IoU >= 0.5
+assert (report.n_review, report.review_rate) == (2, 2 / 7)  # 1 present + 1 absent, of all 7
 print(report)
 ```
 
@@ -308,6 +351,7 @@ Present targets (n = 4): box returned 2, said absent (missed) 1, sent to review 
 Absent targets (n = 3): box returned (false positive) 1, correct absent 1, sent to review 1
   false positive rate: 1/3 = 0.3333 (denominator 3: all absent targets)
   correct absent rate: 1/3 = 0.3333 (denominator 3: all absent targets)
+Sent to review, present and absent together: 2/7 = 0.2857 (denominator 7: all examples)
 ```
 
 `tests/test_vision.py` runs this example and compares the printed text. Malformed gold,
@@ -622,8 +666,11 @@ arithmetic on a state-frame list. It is a separate module, not part of `vision`,
 frames are stills that were already extracted, and the timestamps you pass are the truth,
 **elapsed seconds since the start of the sequence** (never Unix time; the 1e-9 s slack below
 is meaningless at epoch scale). Python owns order, sampling and every time calculation; the
-model only sees the rows you choose to send. The block below continues from the `frames`
-loaded above (timestamps 0.0, 0.75 and 1.5 s):
+model only sees the rows you choose to send. The helpers in this module require finite,
+nonnegative timestamps in increasing order, with each adjacent gap greater than
+`frames.TIME_EPSILON` (1e-9 s) after conversion to floats. Empty input and gaps at or below
+that minimum raise `ValueError`. The block below continues from the `frames` loaded above
+(timestamps 0.0, 0.75 and 1.5 s):
 
 ```python
 from jev_cookbook.frames import (
@@ -639,7 +686,7 @@ from jev_cookbook.frames import (
     window_timestamps,
 )
 
-times = frame_timestamps(frames)  # validated: finite, nonnegative, strictly increasing
+times = frame_timestamps(frames)  # validated, including minimum spacing
 chosen = sample_frames(times, every_seconds=0.5)  # [0, 1, 2]: ascending, no repeats
 sampled = select_frames(frames, chosen)  # copies of those rows, each with frame_index
 gaps = frame_intervals(sampled)  # [0.75, 0.75]: seconds between rows, n - 1 values
@@ -669,8 +716,8 @@ window = window_timestamps(sampled, 1, 2)  # start 0.75, end 1.5, duration 0.75 
   returns every frame.
 - At most one of `every_seconds` and `count`; with neither, the whole window is kept.
 - Comparisons carry 1e-9 s of slack (`frames.TIME_EPSILON`), so `0.1 + 0.2` against `0.3`
-  cannot flip a boundary or a tie. Empty input, a duplicate, reversed, negative or non-finite
-  time, and a non-positive rate raise `ValueError`. Rates need not be integers.
+  stays within the boundary or tie tolerance. A non-positive rate raises `ValueError`.
+  Rates need not be integers.
 
 Other helpers:
 
@@ -686,19 +733,14 @@ Other helpers:
   the last frame in the window, so a window of `k` frames at gap `g` has duration `(k - 1) * g`.
 - `frame_at(timestamps, seconds, *, side="before")` returns the index of the frame at or
   before (`"before"`), at or after (`"after"`) or nearest to (`"nearest"`) a log line or
-  recorded agent-state time; it raises when no frame qualifies. `"nearest"` uses the
-  `sample_frames` tie rule above for that one time: the frames within `TIME_EPSILON` of the
-  smallest distance are tied, however many, and the earliest is returned, so
-  `frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")` returns 1, the frame that rule
-  picks for that time. When every gap between frames is larger than `3 * TIME_EPSILON`
-  (3e-9 s) this is the closer of the `"before"` and `"after"` frames, a tie going to the
-  earlier of the two. That bound holds in exact arithmetic; float rounding of the slack
-  comparisons can still change the answer for a gap within rounding distance of 3e-9 s, which
-  timestamps of thousands of seconds reach. With a smaller gap a frame up to `2 * TIME_EPSILON` away can tie
-  with one at the time: `frame_at([0, 1, 1 + 2.5e-9, 2], 1 + 1.6e-9, side="nearest")`
-  returns 1. So with frames that close together `"nearest"` can be earlier
-  than the `"before"` frame, and a frame exactly at the time loses to an earlier frame within
-  the slack of it (`frame_at([0, 1, 1 + 5e-10, 2], 1 + 5e-10, side="nearest")` returns 1).
+  recorded agent-state time. A frame within `TIME_EPSILON` of the requested time qualifies
+  for either `"before"` or `"after"`. If no frame qualifies, the helper raises `ValueError`.
+  `"nearest"` uses the `sample_frames` tie rule above and returns an exact timestamp match
+  when present. In exact arithmetic, for adjacent gaps greater than `3 * TIME_EPSILON`,
+  applying the tie rule to the `"before"` and `"after"` candidates alone gives the same result.
+  Float rounding can affect that equivalence near the bound. With smaller valid gaps,
+  `"nearest"` can select a frame earlier than `"before"`. For example, at `1 + 1.6e-9` in
+  `[0, 1, 1 + 2.5e-9, 2]`, `"nearest"` returns 1 and `"before"` returns 2.
 - `frame_windows(timestamps, *, width_seconds, stride_seconds)` enumerates sliding windows
   (ranks 89 and 92) as `{"window_start_seconds", "window_end_seconds", "indices"}`, edges
   inclusive, only windows that fit by stride. If the last of those stops short of the end, one
@@ -865,3 +907,55 @@ no usage reported  recorded   jev-1.13.0    123         123         not measured
 A character count or a synthetic row does not demonstrate a measured long-context inference
 ([multimodal-track.md](multimodal-track.md#what-an-evaluation-must-show)). `run_record` takes
 `input_tokens` from the recorded response and gives a synthetic or scripted row none.
+
+### Comparing models
+
+A table whose arms differ by model is a model comparison only when each arm names one release
+and the arms were answered by different models. `model_comparison(rows, requested_models)`
+checks that before the rows reach `comparison_table`. `rows` are `run_record` rows with a
+`label`, one per arm, and `requested_models` maps each label to the model that arm asked for. It
+returns the rows as a new list, and raises `ValueError` when:
+
+- there are fewer than two arms, a label is missing or repeated, or the labels are not exactly
+  the keys of `requested_models`;
+- an arm is synthetic or scripted, because such a row has no returned model, so it checks the
+  pipeline rather than comparing models;
+- an arm's requested model is not pinned, for example a moving alias such as `jev-latest` or
+  `jev-preview`, which can answer from a different release on a later run
+  ([live](live.md#model));
+- an arm's returned model is not the model it requested, which means the responses files were
+  swapped or re-recorded against another release, or a moving alias answered, so the arm's
+  label would be false: `arm '1.13' requested 'jev-1.13.0' but was answered by 'jev-1.14.0'`;
+- two arms were answered by the same returned model, which compares a model with itself, for
+  example when both arms request the same pinned model.
+
+The helper checks the declaration you pass, not a recording: recorded results do not store what
+was requested, so give it the same constants the recipe hands `get_backend(model=...)` for each
+arm.
+
+Arms that compare something else on one model, such as two prompts or two context strategies,
+are not a model comparison and do not go through this check.
+
+```python
+from jev_cookbook.vision import comparison_table, model_comparison, run_record
+
+# `old_result` and `new_result` are recorded results replayed from one responses file per arm.
+rows = [
+    {"label": "1.13", **run_record(old_result, mode="recorded", n=1)},
+    {"label": "1.14", **run_record(new_result, mode="recorded", n=1)},
+]
+print(comparison_table(model_comparison(rows, {"1.13": "jev-1.13.0", "1.14": "jev-1.14.0"})))
+```
+
+With two invented results that each report 61 input tokens and 0 output tokens, it prints:
+
+```text
+label  mode      model       input_tokens  output_tokens  latency_seconds  cost_usd      n
+-----  --------  ----------  ------------  -------------  ---------------  ------------  -
+1.13   recorded  jev-1.13.0  61            0              not measured     not measured  1
+1.14   recorded  jev-1.14.0  61            0              not measured     not measured  1
+```
+
+Requesting `jev-latest` for the second arm instead raises `ValueError: arm '1.14' requested
+'jev-latest': a model comparison needs a pinned model such as jev-1.13.0, not a moving alias
+such as jev-latest or jev-preview`.

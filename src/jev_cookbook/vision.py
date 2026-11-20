@@ -57,6 +57,7 @@ __all__ = [
     "load_frames",
     "localization_metrics",
     "localization_report",
+    "model_comparison",
     "normalized_box",
     "normalized_to_pixels",
     "preflight_image_request",
@@ -133,6 +134,21 @@ def _image_format(data: bytes) -> str:
     return fmt
 
 
+def _decode_base64(encoded: str) -> bytes:
+    """Decode correctly padded base64, with the same rule on every supported Python version.
+
+    Require complete groups of four and allow ``=`` only in the final two positions, even when
+    Python's strict decoder permits excess padding. This lets :func:`_encoded_size` calculate
+    the decoded length of accepted strings. Unused trailing bits may be nonzero.
+    """
+    if len(encoded) % 4 or encoded.find("=", 0, -2) != -1:
+        raise ValueError("data_base64 must be standard base64 without whitespace")
+    try:
+        return base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("data_base64 must be standard base64 without whitespace") from exc
+
+
 def validate_image_asset(asset: Mapping[str, Any]) -> bytes:
     """Validate a raw image asset and return its original encoded bytes.
 
@@ -150,10 +166,7 @@ def validate_image_asset(asset: Mapping[str, Any]) -> bytes:
         raise ValueError("data_base64 must be a base64 string")
     if len(encoded) > 4 * ((_MAX_IMAGE_BYTES + 2) // 3):
         raise ValueError("image exceeds the 16 MiB file limit")
-    try:
-        data = base64.b64decode(encoded, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise ValueError("data_base64 must be standard base64 without whitespace") from exc
+    data = _decode_base64(encoded)
     detected = _image_format(data)
     if detected != declared:
         raise ValueError("declared image format does not match the image bytes")
@@ -276,6 +289,20 @@ class ImageRequestProfile:
     def __post_init__(self) -> None:
         object.__setattr__(self, "per_question", MappingProxyType(dict(self.per_question)))
 
+    def __hash__(self) -> int:
+        # The generated ``__hash__`` would hash the ``per_question`` proxy, which is unhashable.
+        # Equality compares that mapping without regard to order, so the hash must too.
+        return hash(
+            (
+                self.distinct_assets,
+                self.distinct_bytes,
+                self.copies,
+                self.expanded_bytes,
+                self.state_copies,
+                frozenset(self.per_question.items()),
+            )
+        )
+
 
 class ImageRequestTooLarge(ValueError):
     """A request's images exceed an aggregate cap; raised before anything is sent."""
@@ -287,9 +314,10 @@ def _encoded_size(asset: Mapping[str, Any]) -> int:
         encoded = asset["data_base64"]
     except (KeyError, TypeError):
         raise ValueError("image asset needs data_base64") from None
-    if not isinstance(encoded, str) or len(encoded) % 4:
+    padding = len(encoded) - len(encoded.rstrip("=")) if isinstance(encoded, str) else 0
+    if not isinstance(encoded, str) or len(encoded) % 4 or padding > 2:
         raise ValueError("data_base64 must be a padded base64 string")
-    return len(encoded) // 4 * 3 - (len(encoded) - len(encoded.rstrip("=")))
+    return len(encoded) // 4 * 3 - padding
 
 
 def image_request_profile(
@@ -356,21 +384,60 @@ def preflight_image_request(profile: ImageRequestProfile) -> None:
     not added here, and the request-body cap (JSON, base64 text and multipart framing) is not
     modelled at all.
     """
-    mib = 1024 * 1024
+    # With encoded file sizes every distinct asset counted here is also counted at least once in
+    # ``expanded_bytes``, so ``expanded_bytes >= distinct_bytes`` always holds and this first
+    # check can fire only when the expanded check below would fire too. It decides which message
+    # is shown; it is not independent coverage of the API's distinct-image cap, which the API
+    # measures after processing and this module cannot see.
     if profile.distinct_bytes > REQUEST_IMAGE_LIMITS["distinct_bytes"]:
         raise ImageRequestTooLarge(
             f"the request's {profile.distinct_assets} distinct image(s) are "
-            f"{profile.distinct_bytes / mib:.1f} MiB, over the 32 MiB cap on all images in a "
+            f"{_bytes_text(profile.distinct_bytes)}, over the "
+            f"{_cap_text(REQUEST_IMAGE_LIMITS['distinct_bytes'])} cap on all images in a "
             "request; use fewer or smaller images. Nothing was sent."
         )
     if profile.expanded_bytes > REQUEST_IMAGE_LIMITS["expanded_bytes"]:
         raise ImageRequestTooLarge(
             f"the request expands to {profile.copies} image copies of "
-            f"{profile.expanded_bytes / mib:.1f} MiB, over the 32 MiB cap on the expanded request "
+            f"{_bytes_text(profile.expanded_bytes)}, over the "
+            f"{_cap_text(REQUEST_IMAGE_LIMITS['expanded_bytes'])} cap on the expanded request "
             f"(each use of a reference adds the image again; {profile.state_copies} in the state, "
-            f"per question {dict(profile.per_question)}). Put a shared image in the state once "
-            "and refer to it by path, or use fewer references. Nothing was sent."
+            f"{_question_copies_text(profile.per_question)}). Put a shared image in the state "
+            "once and refer to it by path, or use fewer references. Nothing was sent."
         )
+
+
+def _cap_text(cap: int) -> str:
+    """A cap as exact bytes with its MiB size, both taken from the limit: "33,554,432-byte (32 MiB)"."""
+    return f"{cap:,}-byte ({cap / (1024 * 1024):g} MiB)"
+
+
+def _bytes_text(size: int) -> str:
+    """``size`` as exact bytes with an approximate MiB beside it.
+
+    The exact count is what tells a request one byte over the cap from one at it; a MiB figure
+    alone rounds both to "32.0 MiB".
+    """
+    return f"{size:,} bytes (about {size / (1024 * 1024):.1f} MiB)"
+
+
+_LISTED_QUESTIONS = 10
+
+
+def _question_copies_text(per_question: Mapping[str, int]) -> str:
+    """The questions that hold copies, at most ``_LISTED_QUESTIONS`` of them; zeros are left out.
+
+    The questions with the most copies come first (ties in the request's order), so the ones
+    that push a request over the cap are never the ones cut off into "and N more".
+    """
+    holding = {name: count for name, count in per_question.items() if count}
+    if not holding:
+        return "none in any question"
+    ranked = sorted(holding.items(), key=lambda item: -item[1])
+    shown = dict(ranked[:_LISTED_QUESTIONS])
+    more = len(holding) - len(shown)
+    tail = f" and {more} more question(s) with copies" if more else ""
+    return f"per question {shown}{tail}"
 
 
 def _number(value: Any, name: str, *, unit: bool = False) -> float:
@@ -1096,7 +1163,10 @@ class LocalizationReport:
     present targets with IoU >= ``iou_threshold``) over ``n_present``. A mean or rate with an
     empty denominator is NaN. ``ious`` has one entry per example: the IoU of a located present
     target, otherwise ``None``. Absent gold never contributes an IoU, and a review is never
-    counted as an absent prediction. ``str(report)`` names every denominator.
+    counted as an absent prediction. ``n_review`` is every example sent to review, present and
+    absent gold together, and ``review_rate`` is ``n_review / n_total`` (NaN only for a hand-built report with
+    ``n_total == 0``: ``localization_report`` never returns zero examples). ``str(report)`` names
+    every denominator.
     """
 
     n_total: int
@@ -1144,6 +1214,20 @@ class LocalizationReport:
         return _rate(self.correct_absents, self.n_absent)
 
     @property
+    def n_review(self) -> int:
+        """Examples sent to review, present and absent gold together: ``present_review +
+        absent_review``."""
+        return self.present_review + self.absent_review
+
+    @property
+    def review_rate(self) -> float:
+        """``n_review / n_total``: the share of all examples sent to review, one number for the
+        cost of the review branch. ``localization_report`` never returns a report with zero examples
+        (it raises ``ValueError`` on empty input), so NaN applies only to a report built by hand
+        with ``n_total == 0``."""
+        return _rate(self.n_review, self.n_total)
+
+    @property
     def denominators(self) -> dict[str, int]:
         """The denominator of every mean and rate in the report, by name."""
         return {
@@ -1152,6 +1236,7 @@ class LocalizationReport:
             "hit_rate": self.n_present,
             "false_positive_rate": self.n_absent,
             "correct_absent_rate": self.n_absent,
+            "review_rate": self.n_total,
         }
 
     def __str__(self) -> str:
@@ -1174,6 +1259,8 @@ class LocalizationReport:
                 + _share(self.false_positives, self.n_absent, "all absent targets"),
                 "  correct absent rate: "
                 + _share(self.correct_absents, self.n_absent, "all absent targets"),
+                "Sent to review, present and absent together: "
+                + _share(self.n_review, self.n_total, "all examples"),
             ]
         )
 
@@ -1514,3 +1601,76 @@ def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
         ).rstrip()
 
     return "\n".join([line(columns), line(["-" * width for width in widths]), *map(line, body)])
+
+
+# A pinned model ID names one release; ``jev-latest`` and ``jev-preview`` are moving aliases that
+# can answer from a different release on a later run (docs/live.md, "Model").
+_PINNED_MODEL = re.compile(r"jev-[0-9]+\.[0-9]+\.[0-9]+")
+
+
+def model_comparison(
+    rows: Iterable[Mapping[str, Any]], requested_models: Mapping[str, str]
+) -> list[dict[str, Any]]:
+    """Check rows labelled as a comparison of models and return them as a new list.
+
+    ``rows`` are :func:`run_record` rows with a ``label``, one per arm; ``requested_models``
+    maps each label to the model the arm asked for. The result is meant for
+    :func:`comparison_table`. A comparison of models needs, for every arm:
+
+    - a recorded or live row, because a synthetic or scripted row has no returned model and
+      compares the pipeline, not models;
+    - a pinned requested model (``jev-1.13.0``, never a moving alias such as ``jev-latest`` or
+      ``jev-preview``), so the arm names one release on every run;
+    - a returned model equal to the one the arm requested, because a pinned request is answered
+      by that versioned ID (docs/live.md, "Model"); a different one means a swapped or
+      re-recorded responses file, or a moving alias answering, so the arm's label is false;
+    - a returned model no other arm has: two arms that the API answered with the same model
+      (for example the same pinned model requested for both) compare a model with itself.
+
+    Raises ``ValueError`` for fewer than two rows, a missing or repeated label, labels that do
+    not match the keys of ``requested_models``, and any arm that breaks a rule above. Rows that
+    compare something other than models (prompts, context strategies) on one model do not go
+    through this check.
+    """
+    table = [dict(row) for row in rows]
+    if len(table) < 2:
+        raise ValueError("a model comparison needs at least two arms")
+    labels = [row.get("label") for row in table]
+    if any(not isinstance(label, str) or not label for label in labels):
+        raise ValueError("every arm needs a non-empty text label")
+    if len(set(labels)) != len(labels):
+        raise ValueError(f"arm labels must be unique, got {labels}")
+    if set(labels) != set(requested_models):
+        raise ValueError(
+            f"requested_models must name exactly the arms {sorted(labels)}, "
+            f"got {sorted(requested_models)}"
+        )
+    returned: dict[str, str] = {}
+    for row in table:
+        label = row["label"]
+        if row.get("mode") not in ("recorded", "live"):
+            raise ValueError(
+                f"arm {label!r} is {row.get('mode')!r}: a model comparison needs recorded or live "
+                "rows, because a synthetic or scripted row has no returned model"
+            )
+        requested = requested_models[label]
+        if not isinstance(requested, str) or not _PINNED_MODEL.fullmatch(requested):
+            raise ValueError(
+                f"arm {label!r} requested {requested!r}: a model comparison needs a pinned model "
+                "such as jev-1.13.0, not a moving alias such as jev-latest or jev-preview"
+            )
+        model = row.get("model")
+        if not isinstance(model, str) or not model:
+            raise ValueError(f"arm {label!r} has no returned model")
+        if model != requested:
+            raise ValueError(
+                f"arm {label!r} requested {requested!r} but was answered by {model!r}: "
+                "a model comparison needs each arm answered by the model it requested"
+            )
+        if model in returned:
+            raise ValueError(
+                f"arms {returned[model]!r} and {label!r} were both answered by {model!r}: "
+                "that compares a model with itself"
+            )
+        returned[model] = label
+    return table

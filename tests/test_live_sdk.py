@@ -12,23 +12,15 @@ collection.
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
-LIVE_EXTRA_MODULES = ("typesafe_sdk", "httpx2")
+from tests.conftest import LIVE_EXTRA_SKIP, import_live_modules
 
-try:
-    import httpx2
-    import typesafe_sdk as sdk
-except ModuleNotFoundError as exc:
-    # Skip only when a module of the optional `live` extra itself is missing: the exact
-    # top-level name, never a submodule of it. Any other import failure (an installed SDK that
-    # cannot import, a missing transitive dependency, or an installed SDK that has lost one of
-    # its own submodules, such as ``typesafe_sdk._core``) must stay a loud collection error
-    # rather than become a quiet skip of every test here.
-    if exc.name not in LIVE_EXTRA_MODULES:
-        raise
-    httpx2 = sdk = None
+_modules = import_live_modules()
+sdk = _modules["typesafe_sdk"]
+httpx2 = _modules["httpx2"]
 
 # One SKIPPED line per test (and per parametrized case) rather than one for the module, so the
 # skip count equals the number of tests not run; tests/conftest.py summarises them (#264).
@@ -36,7 +28,7 @@ pytestmark = [
     pytest.mark.live_sdk,
     pytest.mark.skipif(
         sdk is None or httpx2 is None,
-        reason='optional live extra not installed (typesafe_sdk, httpx2): pip install -e ".[live]"',
+        reason=LIVE_EXTRA_SKIP,
     ),
 ]
 
@@ -70,12 +62,12 @@ QUESTIONS = {
 }
 
 
-def client_with(handler):
+def client_with(handler, *, compression=False):
     return sdk.TypeSafeClient(
         api_key=KEY,
         transport=httpx2.MockTransport(handler),
         retry=sdk.RetryPolicy(max_retries=0),
-        compression=False,
+        **({} if compression is None else {"compression": compression}),
     )
 
 
@@ -498,3 +490,59 @@ def test_an_http_error_over_the_real_sdk_is_in_the_sidecar(env_backend, tmp_path
     (line,) = json.loads(ledger.read_text("utf-8")).values()
     assert (line["status"], line["http_status"], line["attempts"]) == ("error", 429, 2)
     assert line["request_id"] == "req-429"
+
+
+# docs/live.md ("Compression") says the backend builds its client without ``compression=``, so
+# the SDK default applies: zstd, for request bodies of 1 KiB or more. These pin that statement
+# to the installed SDK's own objects (#496); no request leaves the process.
+@pytest.fixture
+def zstd():
+    # Check the interpreter's capability independently of the SDK's compressor registry.
+    try:
+        if sys.version_info >= (3, 14):
+            from compression import zstd
+        else:
+            from backports import zstd
+    except ImportError:
+        return None
+    return zstd
+
+
+def test_sdk_compression_default_is_zstd_from_one_kib(zstd):
+    import inspect
+    import typing
+
+    from typesafe_sdk._core import compression as sdk_compression
+
+    for client_class in (sdk.TypeSafeClient, sdk.AsyncTypeSafeClient):
+        default = inspect.signature(client_class).parameters["compression"].default
+        assert default is None, client_class
+    assert typing.get_args(sdk_compression.Compression) == ("zstd", False)
+    assert sdk_compression.MIN_COMPRESSED_BODY_LENGTH == 1024
+    # `None` means "zstd when this interpreter can do it", the only encoding the SDK knows.
+    assert set(sdk_compression.COMPRESSORS) == ({"zstd"} if zstd is not None else set())
+    assert sdk_compression.resolve_compression(None) == ("zstd" if zstd is not None else None)
+
+
+def test_a_default_client_zstd_compresses_a_body_of_one_kib_or_more_only(zstd):
+    if zstd is None:
+        pytest.skip("zstd unavailable in the interpreter and its installed SDK extra")
+    seen = []
+
+    def handler(request):
+        seen.append(request)
+        return httpx2.Response(200, json=BODY)
+
+    with client_with(handler) as client:
+        LiveBackend("jev-latest", client=client).decide("", QUESTIONS)
+    overhead = len(seen.pop().content)
+
+    with client_with(handler, compression=None) as client:
+        backend = LiveBackend("jev-latest", client=client)
+        backend.decide("x" * (1023 - overhead), QUESTIONS)
+        backend.decide("x" * (1024 - overhead), QUESTIONS)
+    small, large = seen
+    assert len(small.content) == 1023
+    assert "content-encoding" not in small.headers
+    assert large.headers.get("content-encoding") == "zstd"
+    assert len(zstd.decompress(large.content)) == 1024

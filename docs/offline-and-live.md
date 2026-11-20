@@ -121,15 +121,16 @@ published recipe and the template, and its failure message points here.
 | `reported_provenance_matches_fixtures` | The mode the committed output reports (the `Mode:` header, a `Provenance:` line, the measured cell's offline disclosure, a `Captured:` line) is not the provenance the stored answers carry. All-synthetic fixtures must report `synthetic` and the disclosure. Recorded fixtures must report `recorded` and state exactly the model and the capture dates the fixtures carry, in both directions: the header says `on D` or `between FIRST and LAST`, every `Provenance: recorded` line names that model (and, per answer, one of those dates), the `Captured:` lines list exactly those dates, no other `jev-N.N.N` model string appears in the output, and no pipeline-check label does. A date or a model the output states beyond the fixtures', or a line of those forms the check cannot read, is a failure, as is a missing one. A header, a provenance line or a fixture the check cannot read is a failure, not a pass. |
 | `readme_states_fixture_provenance` | The README's `**Mode:**` line names another mode than the fixtures carry, a recipe with no live run never says "not measured live", or a recorded recipe's README omits its model or capture dates, or states a date or a `jev-N.N.N` model string the fixtures do not carry. The mode must be the first word after `**Mode:**` (`synthetic`, `scripted` or `recorded`); only the first `**Mode:**` is read. |
 | `metric_output_lines_carry_pipeline_check` | In a synthetic or scripted run, a committed output line names a metric (coverage, accuracy, risk, precision, recall, F1, nDCG, agreement, AUC, MRR, Brier, error rate, hit rate) and prints a decimal or a percentage without `(a pipeline check, not a Jev result)` on the same line. It reads the printed line, so `{x:.2f}` versus `{x:.4f}`, an aligned spec, or a format hoisted into a variable does not change the result, as long as a metric word is on the same line as the number: an aligned table whose header names the metrics and whose rows carry only numbers, a word on one line and its number on the next, and a metric named by none of the words above are not seen. |
-| `prose_quantities_are_printed` | The README or a notebook markdown cell quotes a percentage or decimal next to a metric word, a price, a latency or a throughput, and no committed output prints that number (or, for a metric, the recipe's own tests type it). A quote of `0.92` is backed by a printed `0.9167`; `97.4%` by `0.974`; `1,250` by `1250`. Risk and accuracy back each other, but only through a printed rate: a quoted risk or accuracy is also backed by one minus a decimal (two or more places, between 0 and 1) or by 100 minus a percentage that was printed on a line naming accuracy, risk or error rate, so a printed `accuracy 0.9474` backs a quoted risk of `0.0526`, and a printed confidence or a count does not. A printed percentage also backs its fraction. A price or a latency is backed only by a printed price or latency, so a printed sample size does not back "180 ms". A duration is read as a claim about Jev only when its sentence says latency or response time, or says slow, fast, speed or takes together with Jev, the model, the API, inference or a live run; "the notebook takes about 2 minutes" is not. A quote is read when it sits next to the metric word through only a connective ("is", "of", "at", "reaches", "about" and a few more). |
+| `prose_quantities_are_printed` | The README or a notebook markdown cell quotes a percentage or decimal next to a metric word, a price, a latency or a throughput, and no committed output prints that number (or, for a metric, the recipe's own tests type it). A quote of `0.92` is backed by a printed `0.9167`; `97.4%` by `0.974`; `1,250` by `1250`. Risk and accuracy back each other, but only through a printed rate: a quoted risk or accuracy is also backed by one minus a decimal (two or more places, between 0 and 1) or by 100 minus a percentage that was printed on a line naming accuracy, risk or error rate, so a printed `accuracy 0.9474` backs a quoted risk of `0.0526`, and a printed confidence or a count does not. A printed percentage also backs its fraction. A price or a latency is backed only by a printed price or latency, so a printed sample size does not back "180 ms". A price, latency, throughput or seconds figure, and a quoted fraction backed through a printed percentage, counts only when its number and unit are on the same committed output line, so `180` ending one line and `ms` opening the next back nothing; a quoted percentage is still backed by the bare printed number on any line, so `93%` is backed by a printed `93`. A duration is read as a claim about Jev only when its sentence says latency or response time, or says slow, fast, speed or takes together with Jev, the model, the API, inference or a live run; "the notebook takes about 2 minutes" is not. A quote is read when it sits next to the metric word through only a connective ("is", "of", "at", "reaches", "about" and a few more). |
 | `no_unhedged_quality_claim_about_jev` | In a synthetic or scripted recipe, a README or markdown sentence has Jev or the model as the subject of an evaluative adverb or adjective (correctly, reliably, well, accurate, fast, cheap, right) or says it outperforms something, and the sentence has no negation, hypothetical or attribution ("not measured live", "would", "according to", "TypeSafe's notes say"). Naming a source is not a hedge: "TypeSafe's Jev judges these correctly", a link to the docs and a cited `(S07)` do not excuse a sentence, only a verb of saying (`says`, `said`, `according`) does. The span from Jev to the adverb may cross a decimal point or a version number ("Jev handles 97.4% of these messages reliably" is flagged). A sentence here is a heading, a table row, a list item (with its wrapped lines) or one sentence of a paragraph: a hedge word in a neighbouring bullet, or in the heading above, does not excuse it. The failure message prints the sentence. |
+| `synthetic_output_prints_no_token_count` | In a synthetic or scripted run, a committed output line, in any cell (the measured cell included), prints a number as a token count: "262k tokens", "1,200 input tokens", "a 64k-token request", or a token field with a value such as `input_tokens: 1200`. Nothing an offline run computes is a token count, and a character or byte count is not one. A field printed as `None` or `not measured`, and prose about authentication tokens with no number in front of the word, pass. An in-fiction count printed as "3 tokens revoked" fails, so say "3 credentials revoked". It reads committed output only, and a count spelled in words passes. A recorded run is not checked here. Known limits. Not seen: a field named `token_count`, `tokens used: 1200`, `tokens (input): 1200` or `Tokens - 1200` (a number after the word needs `:` or `=` directly after `token(s)`); a qualifier other than input, output, prompt, completion, context or total (`1200 cached tokens`, `1200 reasoning tokens`); `1.5 million tokens`, `32_000 tokens` and `1e3 tokens`; a table whose header alone says tokens and whose cells are bare numbers. Also failed, though no token count is meant: a digit directly before `token(s)` in any sense (`step 2 token check`, `split into 12 tokens`), a credential value that starts with a digit after `token:`, `max_tokens=256`, `n_tokens: 12`, and a summed `input_tokens=0` over unreported requests (print `not measured`). A digit glued to a word (`sha256 tokens`) passes. |
 
 A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
 `prose_quantities_are_printed` in the README and in a notebook cell alike.
 
-`prose_quantities_are_printed` excludes exactly one thing from the pool of numbers a quote may be
-backed by: a line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited route's ledger line,
-#213, [backends.md](backends.md#actual-calls-and-distinct-requests)) -- from **both** of the
+`prose_quantities_are_printed` excludes two things from the pool of numbers a quote may be
+backed by: audit lines and hash-like tokens. The first is a line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited route's
+ledger line, #213, [backends.md](backends.md#actual-calls-and-distinct-requests)) -- from **both** of the
 pool's sources, not only the one. The direct source is committed output: any line a code cell
 prints starting with the prefix. The second is the recipe's own `tests/*.py` text (CONTRIBUTING.md
 section 6's "a test re-derives it" route is a second way a quoted figure enters the pool), where
@@ -155,18 +156,33 @@ runs at all lengths, 133 of them two or three digits (73 two-digit, 60 three-dig
 the integers 0-100 and 12 of their 21 multiples of five. A different, real line of the same
 length -- #375's migrated template, which is what #376 itself measured -- supplied a different
 count: 342 digit runs and 71 of 0-100 backed; the hex depends on the requests behind it, so the two
-lines' figures do not match and neither should be read as the other's. Nothing else a notebook
-prints is excluded by this rule: a hash, a UUID or any other hex token committed outside that one
-prefixed line still enters the pool as numbers (see the limits list below; #378 tracks excluding
-hash-like tokens generally).
+lines' figures do not match and neither should be read as the other's.
 
-The exclusion costs no other check: the ledger's own content is verified far more strictly by
+The second exclusion applies to both sources as well: every **hash-like token** is replaced by a
+placeholder that holds no digit before the digit scan (`_without_hash_like_tokens`). A hash-like
+token is a UUID (8-4-4-4-12 hexadecimal characters) or a run of at least 16 hexadecimal characters
+(`0-9`, `a-f`, either case), and in both cases it must contain at least one letter, and a UUID at
+least one digit as well: a replay key, a SHA-256 or SHA-1 content hash, a full git SHA, a cache
+key. The token is bounded by hexadecimal characters, not by word characters, so it is found
+wherever it sits on a line, including glued to `_`, a `.`, `0x` or a non-hex letter
+(`cache_<sha>.json`, `0x<sha>`, `model-v2_<sha>`). Only the token is replaced; the rest of its
+line stays in the pool. Two kinds of run are kept because they are quantities, not identifiers: a
+run of digits alone (a 16-digit count or a long decimal, and a pure-digit dashed id such as
+`20261114-0236-1000-0000-000000000042`), and the mantissa digits of a float printed in scientific
+notation (`1.0416666666666667e-05`: the digits plus the `e`, with a signed exponent after them).
+A run of letters only holds no digit, so it is replaced or kept with the same result for the
+pool. This also takes the replay keys of a ledger the line-prefix rule cannot reach (indented, or
+after a quote character) out of the pool. No published recipe's pool changes by it.
+
+Neither exclusion costs another check: the ledger's own content is verified far more strictly by
 `readme_budget_note_matches_request_audit`
 (see [backends.md](backends.md#actual-calls-and-distinct-requests)) -- every count recomputed from
 the ordered ledger and checked against `request_budget.json`, the key set against the declared
 fixture inventory, and the line itself against the shared canonical form -- though a `replay_key`'s
-own value is pinned only when the backend declares a fixture inventory; a backend with none
-declared does not have its keys checked (#379). That check also reads stdout only, and not every
+own value is pinned by this check only when the backend declares a fixture inventory; for a
+backend with none declared it checks each key's form and the counts its key list implies, and
+the key values are pinned by the fresh-kernel notebook check instead (see
+[backends.md](backends.md#actual-calls-and-distinct-requests)). That check also reads stdout only, and not every
 code cell's: it builds its scan from code cells whose source is non-blank, so a prefixed line
 parked in the committed output of a blank-source code cell is invisible to it, while this
 exclusion still finds and blanks that same line regardless of what the cell's source contains.
@@ -199,20 +215,18 @@ the README and every markdown cell for them:
   cost word nor a unit of work ("Jev at $0.0004 is affordable"), and no number spelled in words.
   A quoted parameter or target ("coverage stays at 0.70 by construction") is read as a quote, so
   it must be printed.
-- A hash, UUID or other hex token committed anywhere other than the one `JEV_REQUEST_AUDIT ` line:
-  only that one line's digit runs are excluded (above), so another high-entropy token a recipe
-  commits to output -- a replay-key table, a cache id column -- still enters the pool and can
-  coincidentally back a fabricated round figure, the same way the audit line itself did before
-  #376. Excluding hash-like tokens generally is #378. The match itself is also narrower than "the
-  line contains the prefix": `line.startswith(AUDIT_PREFIX)` requires the prefix at the line's
-  very first character, on both arms, so an indented occurrence (`    assert "<ledger line>" in
-  out`, the idiomatic Python shape) or a one-line assignment where a quote character precedes the
-  prefix (`EXPECTED = "<ledger line>"`) is unreached by either filter -- only the ledger
-  reproduced alone on its own physical line is caught. #378 now carries the measured table for
-  this and the design question of whether to widen the match (and, if so, on which arm: a
-  substring match is safe for `tests/*.py`, where the ledger is only ever a quoted string value,
-  but not obviously safe for committed output, where a notebook could legitimately print prose
-  that happens to mention the prefix).
+- A high-entropy token that is not hash-like by the definition above still enters the pool and can
+  coincidentally back a fabricated figure: a hex digest shorter than 16 characters (a 7-character
+  git short SHA), a digest that is only digits, a base64 or base32 identifier, an
+  uppercase-and-lowercase mixed id that is not hexadecimal. A digit run is also read when it sits
+  inside any such token, so a tokenizer-level fix (one that does not read digits embedded in
+  alphanumeric identifiers) would close these together; it is tracked in
+  [#542](https://github.com/Jev-Engineering/cookbook/issues/542). The line-prefix rule for the
+  `JEV_REQUEST_AUDIT ` line still matches only a line that starts with the prefix, so an indented or
+  mid-line ledger keeps its non-key fields (call counts and the like, small integers) in the pool;
+  its replay keys are removed by the hash-like rule. Widening the prefix match itself was not done,
+  because a "match anywhere and blank the line" rule removes genuine numbers that share the line
+  (measured in #378).
 - A stale or inflated N ("20 examples" printed where the fixtures hold 22), and a header line that
   claims real measurement while the mode word is unchanged: the mode and the disclosure are
   checked, N is only required to be printed.
@@ -227,7 +241,7 @@ the README and every markdown cell for them:
   of the rows counted as answered), reported with no split over the rows whose outcome the model's
   answer decided, no decision-level comparison with its baselines, or a baseline figure that cannot
   move and is not said to be fixed ([evaluation.md](evaluation.md#rules-with-a-deterministic-branch)).
-  The rule binds new recipes; recipes 41 and 43 are tracked by #366.
+  The rule binds new recipes. Issue #366 tracks the audit and fixes for published recipes.
 - A prose quantity about the committed structure written as a word ("nine leaves"). The prose check
   reads digits, so the reviewer reads the number words in the README and every markdown cell and
   checks each against the committed data: such a quantity is asserted by a test, whatever spelling
