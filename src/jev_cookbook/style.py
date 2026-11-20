@@ -149,12 +149,23 @@ _UNSHOWN: dict[int, Figure] = {}
 _DISPLAY_ACTIVE = False
 
 
+def _inline_backend_shows(root: Any) -> bool:
+    """True when matplotlib's inline backend itself displays ``root`` at the end of the cell.
+
+    A figure pyplot manages (``plt.subplots()``) has a canvas manager; under the inline backend
+    its own end-of-cell hook displays it, so showing it here as well would be a second image.
+    A helper's own ``Figure()`` has no manager, and the inline backend never sees it.
+    """
+    manager = getattr(getattr(root, "canvas", None), "manager", None)
+    return manager is not None and "inline" in str(mpl.get_backend()).lower()
+
+
 def _track(fig: Any) -> Any:
     """Note that a chart helper returned ``fig``, so the cell shows it even if it is not the
     cell's result (see :func:`_show_unshown`). Returns ``fig`` unchanged."""
     if _DISPLAY_ACTIVE:
         root = _root_figure_of(fig)
-        if isinstance(root, Figure):
+        if isinstance(root, Figure) and not _inline_backend_shows(root):
             _UNSHOWN[id(root)] = root
     return fig
 
@@ -168,22 +179,69 @@ def _root_figure_of(fig: Any) -> Any:
         return fig
 
 
-def _show_unshown() -> None:
-    """At the end of a cell, display every helper figure the cell made but did not display.
+def _forget_unshown() -> None:
+    """Start of a cell: drop figures left over from a call made outside a cell run, and make
+    sure :func:`_close_result_figure` runs before the inline backend's own end-of-cell hook."""
+    _UNSHOWN.clear()
+    shell = _shell()
+    callbacks = getattr(getattr(shell, "events", None), "callbacks", {}).get("post_execute")
+    if callbacks and _close_result_figure in callbacks and callbacks[0] is not _close_result_figure:
+        callbacks.remove(_close_result_figure)
+        callbacks.insert(0, _close_result_figure)
+
+
+def _shell() -> Any:
+    try:
+        from IPython import get_ipython
+    except ImportError:
+        return None
+    return get_ipython()
+
+
+def _close_result_figure() -> None:
+    """End of cell, before the inline backend's hook: a pyplot figure that is the cell's result
+    was already displayed by the formatter, and the inline backend would display it again (it
+    shows, then closes, every open pyplot figure). Close it first when that backend would."""
+    shell = _shell()
+    count = getattr(shell, "execution_count", 0) or 0
+    outputs = getattr(shell, "user_ns", {}).get("Out", {})  # this cell's result, if it had one
+    result = outputs.get(count - 1) if count > 1 else None  # the count is already advanced
+    if not isinstance(result, Figure):
+        return
+    root = _root_figure_of(result)
+    if not _inline_backend_shows(root):
+        return
+    try:
+        from matplotlib_inline.config import InlineBackend
+
+        if not InlineBackend.instance().close_figures:
+            return
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return
+    plt.close(root)
+
+
+def _show_unshown(result: Any = None) -> None:
+    """After a cell, display every helper figure the cell made but did not display.
 
     A figure reaches the notebook through the PNG formatter only when it is the cell's result,
     so a cell that ends with a ``print`` after its ``plot_*`` call used to commit no image at all,
     with every check green (#232). Running after the cell, this shows such a figure once, below
-    the cell's printed output; a figure that was the cell's result was already formatted and is
-    not shown again.
+    the cell's printed output. Whether a figure was the cell's result is decided here from the
+    result itself (``result.result``), not from the formatter, because ``%matplotlib inline``
+    replaces the formatter and a figure it formats would otherwise be shown a second time.
     """
-    figures = list(_UNSHOWN.values())
+    figures = dict(_UNSHOWN)
     _UNSHOWN.clear()
+    shown = getattr(result, "result", None)
+    if isinstance(shown, Figure):
+        figures.pop(id(_root_figure_of(shown)), None)
     if not figures:
         return
     from IPython.display import display
 
-    for fig in figures:
+    for fig in figures.values():
         display(fig)
 
 
@@ -218,11 +276,16 @@ def _register_notebook_display() -> None:
     shell.display_formatter.formatters["image/png"].for_type(Figure, _figure_png)
     events = getattr(shell, "events", None)
     if events is not None:
-        try:
-            events.unregister("post_execute", _show_unshown)
-        except ValueError:  # not registered yet
-            pass
-        events.register("post_execute", _show_unshown)
+        for name, hook in (
+            ("pre_execute", _forget_unshown),
+            ("post_execute", _close_result_figure),
+            ("post_run_cell", _show_unshown),
+        ):
+            try:
+                events.unregister(name, hook)
+            except ValueError:  # not registered yet
+                pass
+            events.register(name, hook)
         _DISPLAY_ACTIVE = True
 
 

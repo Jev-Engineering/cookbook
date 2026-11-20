@@ -203,4 +203,48 @@ def test_registering_twice_installs_one_end_of_cell_hook(monkeypatch):
     with matplotlib.rc_context():
         style.apply_style()
         style.apply_style()
-    assert events.callbacks["post_execute"].count(style._show_unshown) == 1
+    assert events.callbacks["post_run_cell"].count(style._show_unshown) == 1
+    assert events.callbacks["pre_execute"].count(style._forget_unshown) == 1
+    assert events.callbacks["post_execute"].count(style._close_result_figure) == 1
+
+
+# --- the inline backend also displays figures: still exactly one image per figure -------------
+
+PYPLOT_AX = (
+    "import matplotlib.pyplot as plt\nfig, ax = plt.subplots()\n"
+    'plot_answer_probabilities({"billing": 0.2, "bug": 0.7, "feature": 0.1}, ax=ax)'
+)
+
+
+def test_a_pyplot_figure_drawn_through_ax_is_shown_once_with_a_print(kernel_name, tmp_path):
+    # The inline backend displays a pyplot-managed figure itself; the end-of-cell hook must not.
+    outputs = _run(SETUP, PYPLOT_AX + '\nprint("done")', kernel_name, tmp_path)
+    assert len(_images(outputs)) == 1
+
+
+def test_a_pyplot_figure_drawn_through_ax_is_shown_once_when_the_cell_ends_with_it(
+    kernel_name, tmp_path
+):
+    outputs = _run(SETUP, PYPLOT_AX + "\nfig", kernel_name, tmp_path)
+    assert len(_images(outputs)) == 1
+
+
+def test_a_chart_that_is_the_cell_result_is_shown_once_after_matplotlib_inline(
+    kernel_name, tmp_path
+):
+    # %matplotlib inline replaces the Figure formatter; the skip must not live only in it.
+    outputs = _run(SETUP, "%matplotlib inline\n" + CHART, kernel_name, tmp_path)
+    assert [o.output_type for o in outputs] == ["execute_result"]
+    outputs = _run(SETUP, "%matplotlib inline\n" + PRINT_AFTER, kernel_name, tmp_path)
+    assert len(_images(outputs)) == 1
+
+
+def test_a_pyplot_figure_with_ax_is_shown_once_after_matplotlib_inline(kernel_name, tmp_path):
+    cell = "%matplotlib inline\n" + PYPLOT_AX
+    assert len(_images(_run(SETUP, cell + '\nprint("done")', kernel_name, tmp_path))) == 1
+    assert len(_images(_run(SETUP, cell + "\nfig", kernel_name, tmp_path))) == 1
+
+
+def test_a_trailing_semicolon_still_shows_the_chart(kernel_name, tmp_path):
+    outputs = _run(SETUP, CHART + ";", kernel_name, tmp_path)
+    assert [o.output_type for o in outputs] == ["display_data"]

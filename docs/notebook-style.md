@@ -156,7 +156,9 @@ After (the same level, default `width`):
 All helpers take plain arrays or mappings, return a matplotlib `Figure` (the one that owns
 `ax` when you pass `ax=`), never call `plt.show()`, and work on the `Agg` backend. The
 figures are not registered with pyplot, so a notebook does not show them twice: end the
-cell with the returned figure, or call `fig.savefig(...)`.
+cell with the returned figure, or let `apply_style()` show it at the end of the cell (see
+"Where a figure appears"). A figure you assign and save with `fig.savefig(...)` is still shown
+once in that cell.
 
 **Print what you plot.** CI's figure comparison is loose by design (it compares what a figure
 shows, not its exact pixels, so a moved line or marker still passes); the number that is actually
@@ -172,7 +174,12 @@ shows the figure once at the end of the cell, below the cell's printed output, s
 can no longer drop a committed figure. Put the `print` before the `plot_*` call anyway: the
 numbers then read above the figure that draws them, and the cell's output order matches its source.
 A figure is shown in the cell that drew it; to draw several panels into one figure, pass `ax=`
-and end the cell with that figure.
+and end the cell with that figure. Behaviour to know: a trailing semicolon (`plot_*(...);`) no
+longer hides the figure, because the figure is shown at the end of the cell whatever the cell
+returns; assigning a figure (`fig = plot_*(...)`) and ending a later cell with `fig` shows it in
+both cells; and a cell that raises after the call shows the figure below the traceback. A figure
+that pyplot manages (`fig, ax = plt.subplots()` with `ax=ax`) is left to matplotlib's inline
+backend and is shown once, as is a chart that is the cell's result after `%matplotlib inline`.
 
 **Title convention.** A figure's `title=` carries the pipeline-check disclosure, `{check}`, when
 it is plotted in a synthetic or scripted run, and no other disclosure label: a figure is read
