@@ -879,7 +879,15 @@ returns the rows as a new list, and raises `ValueError` when:
 - an arm's requested model is not pinned, for example a moving alias such as `jev-latest` or
   `jev-preview`, which can answer from a different release on a later run
   ([live](live.md#model));
-- two arms were answered by the same returned model, which compares a model with itself.
+- an arm's returned model is not the model it requested, which means the responses files were
+  swapped or re-recorded against another release, or a moving alias answered, so the arm's
+  label would be false: `arm '1.13' requested 'jev-1.13.0' but was answered by 'jev-1.14.0'`;
+- two arms were answered by the same returned model, which compares a model with itself, for
+  example when both arms request the same pinned model.
+
+The helper checks the declaration you pass, not a recording: recorded results do not store what
+was requested, so give it the same constants the recipe hands `get_backend(model=...)` for each
+arm.
 
 Arms that compare something else on one model, such as two prompts or two context strategies,
 are not a model comparison and do not go through this check.

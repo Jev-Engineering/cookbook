@@ -2577,11 +2577,47 @@ def test_a_model_comparison_of_two_pinned_arms_with_different_models_passes_unch
 
 def test_a_model_comparison_refuses_two_arms_answered_by_the_same_model():
     rows = [_arm("old", "jev-1.14.0"), _arm("new", "jev-1.14.0")]
+    same = {"old": "jev-1.14.0", "new": "jev-1.14.0"}
     with pytest.raises(ValueError, match="'old' and 'new' were both answered by 'jev-1.14.0'"):
+        vision.model_comparison(rows, same)
+
+
+def test_a_model_comparison_refuses_arms_whose_responses_were_swapped():
+    rows = [_arm("old", "jev-1.14.0"), _arm("new", "jev-1.13.0")]
+    with pytest.raises(
+        ValueError, match="arm 'old' requested 'jev-1.13.0' but was answered by 'jev-1.14.0'"
+    ):
         vision.model_comparison(rows, PINNED)
 
 
-@pytest.mark.parametrize("alias", ["jev-latest", "jev-preview", "jev-1.14", "Jev-1.14.0", "", None])
+def test_a_model_comparison_refuses_the_same_model_requested_for_both_arms_when_answers_differ():
+    rows = [_arm("old", "jev-1.13.0"), _arm("new", "jev-1.14.0")]
+    with pytest.raises(ValueError, match="arm 'old' requested 'jev-1.14.0' but was answered by"):
+        vision.model_comparison(rows, {"old": "jev-1.14.0", "new": "jev-1.14.0"})
+
+
+@pytest.mark.parametrize("returned", ["jev-latest", "jev-preview", "jev-1.14.0 ", "jev-9.9.9"])
+def test_a_model_comparison_refuses_an_arm_answered_by_other_than_its_pinned_request(returned):
+    rows = [_arm("old", "jev-1.13.0"), _arm("new", returned)]
+    with pytest.raises(
+        ValueError, match=f"arm 'new' requested 'jev-1.14.0' but was answered by '{returned}'"
+    ):
+        vision.model_comparison(rows, PINNED)
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [
+        "jev-latest",
+        "jev-preview",
+        "jev-1.14",
+        "Jev-1.14.0",
+        "jev-1.14.0-rc1",
+        "xjev-1.14.0",
+        "",
+        None,
+    ],
+)
 def test_a_model_comparison_refuses_a_moving_or_unpinned_requested_model(alias):
     rows = [_arm("old", "jev-1.13.0"), _arm("new", "jev-1.14.0")]
     with pytest.raises(ValueError, match="needs a pinned model"):
@@ -2622,7 +2658,10 @@ def test_a_model_comparison_refuses_a_synthetic_or_scripted_arm(mode):
             "must name exactly the arms",
         ),
         (
-            [{"label": "old", "mode": "recorded", "model": "a"}, {"label": "new", "mode": "live"}],
+            [
+                {"label": "old", "mode": "recorded", "model": "jev-1.13.0"},
+                {"label": "new", "mode": "live"},
+            ],
             PINNED,
             "'new' has no returned model",
         ),

@@ -1518,7 +1518,7 @@ def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
 
 
 # A pinned model ID names one release; ``jev-latest`` and ``jev-preview`` are moving aliases that
-# can answer from a different release on a later run (docs/live.md, "Models").
+# can answer from a different release on a later run (docs/live.md, "Model").
 _PINNED_MODEL = re.compile(r"jev-[0-9]+\.[0-9]+\.[0-9]+")
 
 
@@ -1535,8 +1535,11 @@ def model_comparison(
       compares the pipeline, not models;
     - a pinned requested model (``jev-1.13.0``, never a moving alias such as ``jev-latest`` or
       ``jev-preview``), so the arm names one release on every run;
+    - a returned model equal to the one the arm requested, because a pinned request is answered
+      by that versioned ID (docs/live.md, "Model"); a different one means a swapped or
+      re-recorded responses file, or a moving alias answering, so the arm's label is false;
     - a returned model no other arm has: two arms that the API answered with the same model
-      compare a model with itself.
+      (for example the same pinned model requested for both) compare a model with itself.
 
     Raises ``ValueError`` for fewer than two rows, a missing or repeated label, labels that do
     not match the keys of ``requested_models``, and any arm that breaks a rule above. Rows that
@@ -1573,6 +1576,11 @@ def model_comparison(
         model = row.get("model")
         if not isinstance(model, str) or not model:
             raise ValueError(f"arm {label!r} has no returned model")
+        if model != requested:
+            raise ValueError(
+                f"arm {label!r} requested {requested!r} but was answered by {model!r}: "
+                "a model comparison needs each arm answered by the model it requested"
+            )
         if model in returned:
             raise ValueError(
                 f"arms {returned[model]!r} and {label!r} were both answered by {model!r}: "
