@@ -573,10 +573,12 @@ invented sign-in window (`jev_cookbook.synthetic_images.login_screen`; 6 `valida
 The command writes the files of the replay scaffold, then runs the new folder's own
 `build_fixtures.py` once. That script draws the images, saves them under the byte policy of
 [synthetic-images.md](synthetic-images.md#byte-stability-and-regeneration), and writes
-`assets-manifest.json` and `fixtures/`. `tools/new_recipe.py` itself needs only the standard
-library; that one step needs the installed package and Pillow, which the scaffolded
-`build_fixtures.py` imports (`pip install -e ".[dev]"`). If it fails, the folder is removed and the
-command exits with status 1.
+`assets-manifest.json` and `fixtures/`. The scaffold core needs only the standard library;
+image generation and its encoder check need the installed package and Pillow
+(`pip install -e ".[dev]"`). After a successful image build, the command warns if the encoder
+is not canonical; regenerate new PNGs under the notebook constraints pin before committing.
+If the build fails, the folder is removed and the command exits with status 1. Its diagnostic
+retains complete stdout and stderr, including output captured before a timeout.
 
 | File | What the image scaffold adds to the replay scaffold |
 | - | - |
@@ -595,6 +597,19 @@ each request is encoded and keyed once. Calls without these arguments compute fr
 including the fixture test's `build_responses(ROWS)` call. `write_images` must add exactly one canvas per row of `ROWS`, in order (`main()` asserts it), because the other functions index `canvases` and `keys` by row. Put synthetic answer customizations
 in `answers_for` and preserve its optional `canvas` argument: both fixture writing and
 independent response generation call that function.
+
+`write_images` draws each row once and passes the whole batch to `synthetic_images.write_assets`.
+Paths, images, byte-policy comparisons and provenance are validated before any destination PNG
+changes; a late refused row leaves existing assets, manifest and fixtures unchanged. A later
+I/O failure or interruption during installation can still leave a partial batch: replacement
+is atomic per file, with no whole-batch rollback guarantee.
+
+The manifest redraw test never skips an all-custom scene set. Shared scenes are redrawn from
+their entries; custom entries must name a function defined in `build_fixtures.py`, whose
+fixture/image regeneration test checks saved bytes. Moving a custom generator to a different
+script requires extending both that test and the manifest coverage assertion. Notebook
+composition also refuses a missing replacement cell ID, so a renamed anchor cannot silently
+drop an image-specific cell.
 
 **Why `tests/test_build_fixtures.py` differs.** A PNG's bytes depend on the Pillow and zlib that
 wrote them, and the bytes are part of the replay key of each request that carries a picture. The
