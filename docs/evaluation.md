@@ -1042,6 +1042,9 @@ assert metrics.tolerance_accuracy == 1.0  # over the 3 resolved examples
 assert metrics.tolerance_accuracy_all == 0.75  # over all 4 examples
 assert metrics.outcomes == ("within", "exact", "exact", "review")
 assert metrics.mean_signed_error_seconds == 0.25  # (+0.5 and 0.0) over n_timed = 2
+assert metrics.tolerance_correct == metrics.outcomes.count("exact") + metrics.outcomes.count(
+    "within"
+)  # 3 = 2 + 1
 ```
 
 **Review outcomes.** A predicted label in `uncertain_labels` is a review outcome; pass several
@@ -1054,10 +1057,19 @@ by `n_resolved` (NaN if every example is a review), and `exact_accuracy_all` /
 be a review label.
 
 **Scoring.** A resolved example is *exact* when the label matches and the times are equal
-(both `None`, or within 1e-9 s of float slack); *within tolerance* when the label matches and
-the times are both `None` or differ by at most `tolerance_seconds` (inclusive, same slack).
+(both `None`, or within 1e-9 s of float slack); *within tolerance* (cumulative: exact results
+included, which is what `tolerance_correct` counts) when the label matches and the times are both
+`None` or differ by at most `tolerance_seconds` (inclusive, same slack).
 `outcomes` lists `"exact"`, `"within"`, `"wrong"` or `"review"` for every example in input
 order, so a README can name the sequences that went to review or missed.
+
+**Cumulative count, exclusive outcome.** `tolerance_correct` (and so `tolerance_accuracy`) counts
+every resolved example within tolerance, **including the exact ones**; the per-example outcome
+`"within"` means within tolerance **but not exact**. So `tolerance_correct` equals
+`outcomes.count("exact") + outcomes.count("within")`, not `outcomes.count("within")` (in the
+example above, 3 = 2 + 1). A README that quotes "within tolerance" says which one it means:
+the cumulative count beside `tolerance_accuracy`, or the exclusive `"within"` outcomes when it
+lists the late-but-accepted sequences.
 
 **Timing error.** The headline `mean_absolute_error_seconds` and `mean_signed_error_seconds`
 (predicted minus gold; positive means late) cover only the `n_timed` resolved examples whose
