@@ -34,20 +34,19 @@ Live calls are opt-in and change nothing but the backend. Install the SDK
 of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
 and always runs offline. The live backend's default request budget is 25
-(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
-against that budget, including each retry. This notebook decides each of its 74 examples exactly
-once (one request per (agent, subtask) pair, cached by example id so a pair shown more than once
-is never re-decided) and makes exactly **74** calls in live mode — above the default budget, so
-raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least 74 (more if you expect retries) before running
-this notebook live, or it stops partway through with `BudgetExceeded`. Never put a key in a
-notebook or a fixture.
+(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)). Every attempt counts
+against that budget, including each retry. Before retries, this notebook makes exactly **72**
+requests in live mode, one per validation or test (agent, subtask) pair. It caches each answer
+by example id and uses the demo rows for illustration only. Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS`
+to at least 72 (more if you expect retries) before running this notebook live, or it stops
+partway through with `BudgetExceeded`. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable while every answer is synthetic.
-- **N:** 36 validation and 36 test (agent, subtask) pairs are scored (72 total; the 2 `demo`
-  pairs, over a subtask no agent is capable of, are shown but never scored). The task-level
+- **N:** 36 validation and 36 test (agent, subtask) pairs are scored (72 total). The 2 `demo`
+  pairs illustrate a subtask for which no agent holds the required skill. The task-level
   "assignment quality against gold" figures in the notebook are over a different, smaller
   count: 6 validation subtasks and 6 test subtasks (one unit per subtask, not per pair).
 

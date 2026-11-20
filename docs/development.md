@@ -42,7 +42,7 @@ How a recipe's tests import its `helpers.py` is defined in #68 (every recipe has
 (61–100). In paths such as `recipes/NN-slug/`, the prefix is zero-padded through `99` and is
 three digits for `100`. `python tools/new_recipe.py NN` accepts ranks 1–100 and uses the catalog
 slug. A rank is not an issue number: the `issue` field records the assigned repository issue.
-The multimodal entries record their recipe issues #402–#441; for an entry with `issue: null` the
+The multimodal entries record their recipe issues ([multimodal-track.md](multimodal-track.md#before-a-recipe-is-ready)); for an entry with `issue: null` the
 scaffolder prints a notice and creates a local skeleton, but opening a recipe pull request must
 wait for a real issue assignment in the trusted base catalog. See [recipe-template.md](recipe-template.md) for the workflow.
 
@@ -88,19 +88,22 @@ skipped one by one: each test and each parametrized case counts as its own skip,
 for the module. The `-rs` short summary folds skips that share a location and reason into one
 line, so count the skips from the totals or the `skipped=` figure, not from that list. One more
 SDK-backed test, in `tests/test_notebook_ci_netguard.py`, carries the same `live_sdk` marker and
-is skipped the same way. The
-two `Tests` legs also differ by interpreter and by the resolved package versions, because other
-tests skip depending on those, so their totals are not a like-for-like pair; compare runs on the
-same interpreter.
+is skipped on the same condition. The two `Tests` legs also differ by interpreter and by the
+resolved package versions, because other tests skip depending on those. Compare runs on the same
+interpreter for a like-for-like pair.
 
 Both install the `ml` extra, because the test jobs import every recipe's `helpers.py` and
 `tests/`, and `ml` is the extra a recipe is told it may use. Neither applies
 `.github/constraints-notebooks.txt`, and no single pin could serve both legs: `numpy==2.5.3` and
 `scipy==1.18.1` need Python 3.12 or newer and `scikit-learn==1.9.1` needs 3.11 or newer, so none of
-them installs on the 3.10 floor. Each leg takes the newest release its interpreter supports. Today
-the 3.14 leg gets scikit-learn 1.9.1, the release the notebook job pins, but nothing holds it
-there, so it moves when a newer release is published (numpy already differs: 2.5.4 against the
-pin 2.5.3); the 3.10 leg gets 1.7.2, an older release than the other leg, and will always lag it.
+them installs on the 3.10 floor. Each leg takes the newest release its interpreter supports,
+within the `ml` extra's bound in `pyproject.toml`, `scikit-learn>=1.7.2,<2`: the lower bound is
+what the 3.10 leg resolves, and the upper bound is the next major after the notebook pin's.
+Today the 3.14 leg gets scikit-learn 1.9.1, the release the notebook job pins, but the bound only
+keeps it inside the pin's major version, so it moves when a newer 1.x release is published (numpy,
+which has no bound, already differs: 2.5.4 against the pin 2.5.3); the 3.10 leg gets 1.7.2, an
+older release than the other leg, and will always lag it. Raise the lower bound when the 3.10
+floor goes, and the upper bound when the notebook pin moves to a new major.
 A recipe test that exercises a trained model therefore asserts properties that hold on every
 version (the shape of the output, that it beats the baseline, determinism under a fixed seed) and
 never a trained number or a printed `repr` that depends on the scikit-learn version; those belong
@@ -151,13 +154,11 @@ added and with the SDK version, so none of them is frozen in the repository.
 
 The skip is per test. The `live_sdk` marker is applied by `pytestmark` in
 `tests/test_live_sdk.py` and on the one SDK-backed test in `tests/test_notebook_ci_netguard.py`,
-and registered in `tests/conftest.py`. Both skip before the test body runs, so each skip is one
-test, and the skip count equals the number of SDK-gated tests not run. Only a missing
-`typesafe_sdk` or `httpx2` skips (the netguard test reads that condition from
-`tests/conftest.py`'s module list; `tests/test_live_sdk.py` names the same two modules in its
-own `LIVE_EXTRA_MODULES`): an installed SDK that cannot import, including one missing a submodule of its own,
-fails collection of `tests/test_live_sdk.py` instead of skipping, and fails the netguard test,
-which imports both modules first, with the same import error.
+and registered in `tests/conftest.py`. Both files use the same module list and import check from
+`tests/conftest.py`. A genuinely missing `typesafe_sdk` or `httpx2` causes a per-test skip
+before the test body runs. An installed module with an import error, including a missing submodule
+of its own, stops collection when the run includes `tests/test_live_sdk.py`. When the
+SDK-backed netguard test runs without that file, its setup fails with the original import error.
 
 To compare two runs, run the same command, with the same paths and the same `-k` or `-m`, once
 with `pip install -e ".[dev,ml]"` and once with `pip install -e ".[dev,ml,live]"`. In a
@@ -463,7 +464,7 @@ with at most three of its update pull requests open at once for each.
   A new core dependency needs a reason in its pull request.
 - **Extras** (`optional-dependencies`): anything only some recipes or contributors need.
   - `live`: `typesafe-sdk`, for opt-in live inference (`JEV_COOKBOOK_LIVE=1`).
-  - `ml`: `scikit-learn`, for recipes that train baselines.
+  - `ml`: `scikit-learn` (bounded `scikit-learn>=1.7.2,<2`, see [Continuous integration](#continuous-integration)), for recipes that train baselines.
   - `dev`: `ruff` (pinned exactly, so new rules or formatter changes cannot break `main`
     without a code change; bump it deliberately in its own pull request) and `pytest`.
 - **No import-time side effects.** Importing `jev_cookbook` never touches the network,
@@ -473,7 +474,7 @@ with at most three of its update pull requests open at once for each.
 - Recipes run offline with the core dependencies and the `ml` extra. CI installs `.[ml]` in the
   notebook job (before the network is cut), with the plotting stack pinned by
   `.github/constraints-notebooks.txt`; the `live` extra is never installed there. The `Tests` jobs
-  install `ml` too (unpinned), so `helpers.py`, `build_fixtures.py` and a recipe's `tests/` may
+  install `ml` too (bounded, not pinned), so `helpers.py`, `build_fixtures.py` and a recipe's `tests/` may
   import scikit-learn, and `pytest` on a checkout needs `pip install -e ".[dev,ml]"` for the
   recipes that do. A recipe that needs any other extra needs the workflow's install line changed
   first (a foundation change; a
