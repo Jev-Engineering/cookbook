@@ -180,6 +180,10 @@ returns; assigning a figure (`fig = plot_*(...)`) and ending a later cell with `
 both cells; and a cell that raises after the call shows the figure below the traceback. A figure
 that pyplot manages (`fig, ax = plt.subplots()` with `ax=ax`) is left to matplotlib's inline
 backend and is shown once, as is a chart that is the cell's result after `%matplotlib inline`.
+After `apply_style()`, a pyplot figure that is a cell's result (`fig` ending the cell, not only a
+cookbook chart) is closed once it has been displayed, so the inline backend does not show it
+again. That is a global effect on any pyplot figure, and it applies only when the inline backend
+closes figures after display (its default).
 
 **Title convention.** A figure's `title=` carries the pipeline-check disclosure, `{check}`, when
 it is plotted in a synthetic or scripted run, and no other disclosure label: a figure is read

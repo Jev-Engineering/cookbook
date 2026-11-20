@@ -248,3 +248,23 @@ def test_a_pyplot_figure_with_ax_is_shown_once_after_matplotlib_inline(kernel_na
 def test_a_trailing_semicolon_still_shows_the_chart(kernel_name, tmp_path):
     outputs = _run(SETUP, CHART + ";", kernel_name, tmp_path)
     assert [o.output_type for o in outputs] == ["display_data"]
+
+
+DISPLAY_CHART = "from IPython.display import display\ndisplay(" + CHART + ")"
+
+
+def test_display_of_a_chart_is_shown_once_after_matplotlib_inline_in_an_earlier_cell(
+    kernel_name, tmp_path
+):
+    first = SETUP + "\n%matplotlib inline"
+    outputs = _run(first, DISPLAY_CHART + '\nprint("done")', kernel_name, tmp_path)
+    assert [o.output_type for o in outputs] == ["display_data", "stream"]
+    assert len(_images(_run(first, DISPLAY_CHART, kernel_name, tmp_path))) == 1
+
+
+def test_display_of_a_chart_is_shown_once_after_matplotlib_inline_in_the_same_cell(
+    kernel_name, tmp_path
+):
+    cell = "%matplotlib inline\n" + DISPLAY_CHART
+    assert len(_images(_run(SETUP, cell + '\nprint("done")', kernel_name, tmp_path))) == 1
+    assert len(_images(_run(SETUP, cell, kernel_name, tmp_path))) == 1

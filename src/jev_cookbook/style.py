@@ -160,10 +160,37 @@ def _inline_backend_shows(root: Any) -> bool:
     return manager is not None and "inline" in str(mpl.get_backend()).lower()
 
 
+def _keep_display_mark() -> None:
+    """Make sure whichever ``Figure`` PNG formatter is active also marks a figure as displayed.
+
+    ``%matplotlib inline`` replaces the formatter :func:`_register_notebook_display` installed
+    with matplotlib's own, so ``display(fig)`` would no longer clear the figure from ``_UNSHOWN``
+    and the end-of-cell display would show it a second time. Wrap the current formatter (once)
+    so it records "displayed" and then delegates, keeping matplotlib's own rendering.
+    """
+    shell = _shell()
+    formatter = getattr(getattr(shell, "display_formatter", None), "formatters", {}).get(
+        "image/png"
+    )
+    if formatter is None:
+        return
+    current = formatter.type_printers.get(Figure)
+    if current is None or current is _figure_png or getattr(current, "_marks_displayed", False):
+        return
+
+    def marking(fig: Figure, *args: Any, **kwargs: Any) -> Any:
+        _UNSHOWN.pop(id(fig), None)
+        return current(fig, *args, **kwargs)
+
+    marking._marks_displayed = True  # type: ignore[attr-defined]
+    formatter.for_type(Figure, marking)
+
+
 def _track(fig: Any) -> Any:
     """Note that a chart helper returned ``fig``, so the cell shows it even if it is not the
     cell's result (see :func:`_show_unshown`). Returns ``fig`` unchanged."""
     if _DISPLAY_ACTIVE:
+        _keep_display_mark()
         root = _root_figure_of(fig)
         if isinstance(root, Figure) and not _inline_backend_shows(root):
             _UNSHOWN[id(root)] = root
@@ -183,6 +210,7 @@ def _forget_unshown() -> None:
     """Start of a cell: drop figures left over from a call made outside a cell run, and make
     sure :func:`_close_result_figure` runs before the inline backend's own end-of-cell hook."""
     _UNSHOWN.clear()
+    _keep_display_mark()
     shell = _shell()
     callbacks = getattr(getattr(shell, "events", None), "callbacks", {}).get("post_execute")
     if callbacks and _close_result_figure in callbacks and callbacks[0] is not _close_result_figure:
@@ -204,8 +232,12 @@ def _close_result_figure() -> None:
     shows, then closes, every open pyplot figure). Close it first when that backend would."""
     shell = _shell()
     count = getattr(shell, "execution_count", 0) or 0
-    outputs = getattr(shell, "user_ns", {}).get("Out", {})  # this cell's result, if it had one
-    result = outputs.get(count - 1) if count > 1 else None  # the count is already advanced
+    # This cell's result, if it had one: IPython has already advanced the count by now. With
+    # history or the output cache off there is no such entry, and the lookup finds nothing.
+    outputs = getattr(shell, "user_ns", {}).get("Out")
+    result = None
+    if isinstance(outputs, dict) and count > 1:
+        result = outputs.get(count - 1)
     if not isinstance(result, Figure):
         return
     root = _root_figure_of(result)
