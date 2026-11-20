@@ -1570,7 +1570,7 @@ def draw(row):
     return si.login_screen(state=state, seed=seed)
 
 
-def write_images(rows, overwrite):
+def write_images(rows, overwrite, *, canvases=None):
     """Draw and save every image under the byte policy; return the manifest entries by path.
 
     Raises ``si.RegenerationMismatch`` (and saves nothing more) for a picture that differs from
@@ -1583,6 +1583,8 @@ def write_images(rows, overwrite):
         print(f"{status}: {path}")
         description = f"An invented sign-in window in the {row[3]!r} state (seed {row[4]})."
         entries.append(canvas.manifest_entry(HERE, path, description))
+        if canvases is not None:
+            canvases.append(canvas)
     return sorted(entries, key=lambda entry: entry["path"])
 
 
@@ -1590,29 +1592,33 @@ def _fields(row):
     return {"capture": row[2], "image": image_path(row[0])}
 
 
-def build_inputs_and_labels(rows):
+def build_inputs_and_labels(rows, *, canvases=None, keys=None):
     """``(inputs, labels)`` from ``rows``, with the images already saved. Neither ever holds a
     model's answer, so both are always safe to regenerate, even after ``responses.json`` has
     been recorded. A gold Box label is derived from what was drawn."""
     inputs, labels = [], []
-    for row in rows:
+    for index, row in enumerate(rows):
         ident, split = row[0], row[1]
         fields = _fields(row)
         state, assets = helpers.build_request(fields)
         key = replay_key(state, QUESTIONS, assets=assets)
+        if keys is not None:
+            keys.append(key)
         inputs.append({"id": ident, "split": split, "fields": fields, "replay_keys": [key]})
         if split != "demo":
-            drawn = draw(row).objects.get(TARGET)
+            canvas = draw(row) if canvases is None else canvases[index]
+            drawn = canvas.objects.get(TARGET)
             labels.append({"id": ident, "label": drawn.label() if drawn else si.absent_label()})
     return inputs, labels
 
 
-def answers_for(row, provenance: Provenance):
+def answers_for(row, provenance: Provenance, *, canvas=None):
     """{question name: answer} for one row: the presence probability and a rectangle around the
     object ``row`` names, moved by its offsets (the rectangle a model returns even when the
     target is absent)."""
     _ident, _split, _capture, _state, _seed, p_yes, shown, offsets, confidence = row
-    canvas = draw(row)
+    if canvas is None:
+        canvas = draw(row)
     width, height = canvas.size
     left, top, right, bottom = (
         edge + offset for edge, offset in zip(canvas.objects[shown].pixels, offsets, strict=True)
@@ -1629,14 +1635,20 @@ def answers_for(row, provenance: Provenance):
     }
 
 
-def build_responses(rows):
+def build_responses(rows, *, canvases=None, keys=None):
     """``{replay_key: stored response}`` from ``rows``, with the images already saved. Always
     synthetic: this script never calls Jev, so it can never produce a recorded response."""
     responses = {}
-    for row in rows:
-        state, assets = helpers.build_request(_fields(row))
-        key = replay_key(state, QUESTIONS, assets=assets)
-        answers = answers_for(row, Provenance.synthetic())
+    for index, row in enumerate(rows):
+        if keys is None:
+            state, assets = helpers.build_request(_fields(row))
+            key = replay_key(state, QUESTIONS, assets=assets)
+        else:
+            key = keys[index]
+        if canvases is None:
+            answers = answers_for(row, Provenance.synthetic())
+        else:
+            answers = answers_for(row, Provenance.synthetic(), canvas=canvases[index])
         responses[key] = DecisionResult(answers, "synthetic").to_dict()
     return responses
 
@@ -1668,8 +1680,10 @@ def main() -> None:
             "changed picture changes its replay keys (pass --force too to rewrite both); "
             "nothing was written"
         )
+    # Retain only this run's canvases and keys; independent helper calls recompute them.
+    canvases = []
     try:
-        entries = write_images(ROWS, args.overwrite_assets)
+        entries = write_images(ROWS, args.overwrite_assets, canvases=canvases)
     except si.RegenerationMismatch as error:
         raise SystemExit(
             f"refused: {error}\nnothing else was written; to accept the redrawn picture, run "
@@ -1677,19 +1691,22 @@ def main() -> None:
             "recorded response, that is refused too unless you pass --force as well: "
             "python build_fixtures.py --overwrite-assets --force)"
         ) from None
+    # Later steps index canvases[index] by row, so write_images must add one per row, in order.
+    assert len(canvases) == len(ROWS), "write_images must add exactly one canvas per row, in order"
     manifest = {"schema": 1, "assets": entries}
     (HERE / "assets-manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n"
     )
     folder = HERE / "fixtures"
     folder.mkdir(exist_ok=True)
-    inputs, labels = build_inputs_and_labels(ROWS)
+    keys = []
+    inputs, labels = build_inputs_and_labels(ROWS, canvases=canvases, keys=keys)
     for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
         text = "".join(json.dumps(row) + "\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\n")
     responses_file = folder / "responses.json"
 @BUILDER_FORCE_REFUSAL@
-    responses = build_responses(ROWS)
+    responses = build_responses(ROWS, canvases=canvases, keys=keys)
     # dump_responses is the serialization the recorder writes with (top-level keys sorted, each
     # response keeping the field order DecisionResult.to_dict() emits), so a recording's diff
     # stays limited to the values that actually changed.
