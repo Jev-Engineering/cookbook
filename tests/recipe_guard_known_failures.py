@@ -1,4 +1,4 @@
-"""The allowlist of known `tests/test_recipe_guard.py` failures, one entry per (slug, check_id).
+"""The allowlist of known recipe guard failures, one entry per (slug, check_id).
 
 #165's guard mechanises the Wave 2 consistency review (issue #76 comment 6079429778) and the
 PR #186 review's additions (issue #165 comments) over every published recipe at once. Running it

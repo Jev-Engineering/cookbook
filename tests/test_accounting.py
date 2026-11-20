@@ -342,6 +342,12 @@ def test_the_rendered_note_is_deterministic_and_states_the_cap_not_the_total():
     assert "of which 7 are distinct (the other 3 repeat a request on purpose)" in repeated
 
 
+def test_the_rendered_note_uses_singular_for_one_request():
+    note = render_budget_note(parse_budget(_with(requests=1)))
+    assert "makes exactly **1** request," in note
+    assert "JEV_COOKBOOK_LIVE_MAX_REQUESTS=1`" in note
+
+
 def test_render_recipe_note_reads_the_declaration_in_the_folder(tmp_path):
     (tmp_path / "request_budget.json").write_text(json.dumps(GOOD))
     assert render_recipe_note(tmp_path) == render_budget_note(parse_budget(GOOD))

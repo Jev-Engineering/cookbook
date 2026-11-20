@@ -138,3 +138,133 @@ def test_apply_style_registers_one_png_formatter_and_twice_is_harmless(monkeypat
     assert list(display.formatters["image/png"].type_printers) == [Figure]
     data, _ = display.format(style.plot_answer_probabilities({"a": 0.4, "b": 0.6}))
     assert data["image/png"][:4] == b"\x89PNG"
+
+
+# --- #232: a figure that is not the cell's result is still shown, exactly once ---------------
+
+PRINT_AFTER = CHART + '\nprint("printed after the chart")'
+
+
+def _images(outputs):
+    return [o for o in outputs if "image/png" in getattr(o, "data", {})]
+
+
+def test_a_print_after_the_chart_no_longer_drops_the_figure(kernel_name, tmp_path):
+    # The recipe 32 instance: the figure vanished because a print followed the plot call.
+    outputs = _run(SETUP, PRINT_AFTER, kernel_name, tmp_path)
+    assert [o.output_type for o in outputs] == ["stream", "display_data"]
+    assert outputs[0].text == "printed after the chart\n"
+    assert outputs[1].data["image/png"].startswith("iVBORw0KGgo")
+
+
+def test_a_chart_that_is_the_cell_result_is_not_shown_twice(kernel_name, tmp_path):
+    outputs = _run(SETUP, CHART + "\n" + CHART, kernel_name, tmp_path)
+    # two charts: the first shown at the end of the cell, the second as the cell's result
+    assert len(_images(outputs)) == 2
+    outputs = _run(SETUP, "x = 1\n" + CHART, kernel_name, tmp_path)
+    assert len(_images(outputs)) == 1
+
+
+def test_an_unassigned_chart_survives_garbage_collection_before_the_end_of_the_cell(
+    kernel_name, tmp_path
+):
+    cell = CHART + '\nimport gc\ngc.collect()\nprint("done")'
+    outputs = _run(SETUP, cell, kernel_name, tmp_path)
+    assert len(_images(outputs)) == 1
+
+
+def test_an_explicitly_displayed_chart_is_not_shown_again(kernel_name, tmp_path):
+    cell = "from IPython.display import display\ndisplay(" + CHART + ')\nprint("done")'
+    outputs = _run(SETUP, cell, kernel_name, tmp_path)
+    assert [o.output_type for o in outputs] == ["display_data", "stream"]
+
+
+def test_negative_control_without_apply_style_a_print_after_still_drops_it(kernel_name, tmp_path):
+    outputs = _run(WITHOUT_SETUP, PRINT_AFTER, kernel_name, tmp_path)
+    assert _images(outputs) == []
+
+
+def test_a_chart_from_an_earlier_cell_is_not_shown_in_a_later_one(kernel_name, tmp_path):
+    outputs = _run(
+        SETUP + "\nfig = " + CHART + "\nprint('setup')", "print('next')", kernel_name, tmp_path
+    )
+    assert [o.output_type for o in outputs] == ["stream"]
+
+
+def test_registering_twice_installs_one_end_of_cell_hook(monkeypatch):
+    import IPython
+    from IPython.core.events import EventManager, available_events
+    from IPython.core.formatters import DisplayFormatter
+
+    events = EventManager(None, available_events)
+    shell = type("Shell", (), {"display_formatter": DisplayFormatter(), "events": events})()
+    monkeypatch.setattr(IPython, "get_ipython", lambda: shell)
+    monkeypatch.setattr(style, "_DISPLAY_ACTIVE", False)
+    with matplotlib.rc_context():
+        style.apply_style()
+        style.apply_style()
+    assert events.callbacks["post_run_cell"].count(style._show_unshown) == 1
+    assert events.callbacks["pre_execute"].count(style._forget_unshown) == 1
+    assert events.callbacks["post_execute"].count(style._close_result_figure) == 1
+
+
+# --- the inline backend also displays figures: still exactly one image per figure -------------
+
+PYPLOT_AX = (
+    "import matplotlib.pyplot as plt\nfig, ax = plt.subplots()\n"
+    'plot_answer_probabilities({"billing": 0.2, "bug": 0.7, "feature": 0.1}, ax=ax)'
+)
+
+
+def test_a_pyplot_figure_drawn_through_ax_is_shown_once_with_a_print(kernel_name, tmp_path):
+    # The inline backend displays a pyplot-managed figure itself; the end-of-cell hook must not.
+    outputs = _run(SETUP, PYPLOT_AX + '\nprint("done")', kernel_name, tmp_path)
+    assert len(_images(outputs)) == 1
+
+
+def test_a_pyplot_figure_drawn_through_ax_is_shown_once_when_the_cell_ends_with_it(
+    kernel_name, tmp_path
+):
+    outputs = _run(SETUP, PYPLOT_AX + "\nfig", kernel_name, tmp_path)
+    assert len(_images(outputs)) == 1
+
+
+def test_a_chart_that_is_the_cell_result_is_shown_once_after_matplotlib_inline(
+    kernel_name, tmp_path
+):
+    # %matplotlib inline replaces the Figure formatter; the skip must not live only in it.
+    outputs = _run(SETUP, "%matplotlib inline\n" + CHART, kernel_name, tmp_path)
+    assert [o.output_type for o in outputs] == ["execute_result"]
+    outputs = _run(SETUP, "%matplotlib inline\n" + PRINT_AFTER, kernel_name, tmp_path)
+    assert len(_images(outputs)) == 1
+
+
+def test_a_pyplot_figure_with_ax_is_shown_once_after_matplotlib_inline(kernel_name, tmp_path):
+    cell = "%matplotlib inline\n" + PYPLOT_AX
+    assert len(_images(_run(SETUP, cell + '\nprint("done")', kernel_name, tmp_path))) == 1
+    assert len(_images(_run(SETUP, cell + "\nfig", kernel_name, tmp_path))) == 1
+
+
+def test_a_trailing_semicolon_still_shows_the_chart(kernel_name, tmp_path):
+    outputs = _run(SETUP, CHART + ";", kernel_name, tmp_path)
+    assert [o.output_type for o in outputs] == ["display_data"]
+
+
+DISPLAY_CHART = "from IPython.display import display\ndisplay(" + CHART + ")"
+
+
+def test_display_of_a_chart_is_shown_once_after_matplotlib_inline_in_an_earlier_cell(
+    kernel_name, tmp_path
+):
+    first = SETUP + "\n%matplotlib inline"
+    outputs = _run(first, DISPLAY_CHART + '\nprint("done")', kernel_name, tmp_path)
+    assert [o.output_type for o in outputs] == ["display_data", "stream"]
+    assert len(_images(_run(first, DISPLAY_CHART, kernel_name, tmp_path))) == 1
+
+
+def test_display_of_a_chart_is_shown_once_after_matplotlib_inline_in_the_same_cell(
+    kernel_name, tmp_path
+):
+    cell = "%matplotlib inline\n" + DISPLAY_CHART
+    assert len(_images(_run(SETUP, cell + '\nprint("done")', kernel_name, tmp_path))) == 1
+    assert len(_images(_run(SETUP, cell, kernel_name, tmp_path))) == 1
