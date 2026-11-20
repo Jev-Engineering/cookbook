@@ -12,6 +12,7 @@
     }
   },
   "images": {
+    "captured_with": "Linux, Pillow 12.3.0 (classic zlib), .github/constraints-notebooks.txt",
     "canonical_files": 18,
     "canonical_sha256": "08a9c7fe4ea5ac3f2aaf4a5843888a5cde3b7982518b4eba296660eabce63eec",
     "semantic_sha256": "2dcf53dc7f04fa528fa9ec2a5edf3b666af7cd5a0a23ad077c225c23d267d0c5"

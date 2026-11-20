@@ -1691,6 +1691,8 @@ def main() -> None:
             "recorded response, that is refused too unless you pass --force as well: "
             "python build_fixtures.py --overwrite-assets --force)"
         ) from None
+    # Later steps index canvases[index] by row, so write_images must add one per row, in order.
+    assert len(canvases) == len(ROWS), "write_images must add exactly one canvas per row, in order"
     manifest = {"schema": 1, "assets": entries}
     (HERE / "assets-manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n"

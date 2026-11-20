@@ -1,9 +1,31 @@
 """Issue 499: preserve scaffold output while bounding real image-build work.
 
-The goldens were captured from the composed parent tree named in the fixture before
-implementation, using files_for() for every text recipe and main() for image recipe 77.
-Only the generated source is allowed to change for images. Shared-template architecture
-is reviewed separately; these tests deliberately know no template-constant names.
+The goldens in fixtures/image_scaffold_text_digests.json were captured from main commit
+47904535641f30b447877830e32450dfa6946321 (tree bb07ffa2769175244206927d308dabfe9b26a696),
+recorded as parent_commit and parent_tree in that file, using files_for() for every text recipe
+and main() for image recipe 77. Only the generated source is allowed to change for images.
+Shared-template architecture is reviewed separately; these tests deliberately know no
+template-constant names.
+
+Recapturing the goldens. A recapture belongs only in a pull request whose stated purpose is to
+change scaffold output, and that pull request must say so and record the new parent_commit and
+parent_tree (git rev-parse HEAD and HEAD^{tree} of the tree the digests came from). Never
+recapture to make an unexplained mismatch pass.
+
+* Text digests ("text.replay" and "text.scripted") do not depend on the platform. From a clean
+  checkout with the package importable (PYTHONPATH=src), run:
+
+      python -c "import importlib.util as u, json; s = u.spec_from_file_location('t',
+      'tests/test_image_scaffold_efficiency.py'); m = u.module_from_spec(s); s.loader.exec_module(m);
+      print(json.dumps({k: m._text_fingerprint(k) for k in ('replay', 'scripted')}, indent=2))"
+
+* Image digests ("images"): "semantic_sha256" is platform independent; "canonical_files" and
+  "canonical_sha256" must be captured on Linux with the notebook pin (pip install -c
+  .github/constraints-notebooks.txt), Pillow 12.3.0 with classic zlib, where
+  si.bytes_are_canonical() is True. Run the image_build fixture's build for recipe 77, then
+  print _image_fingerprints(folder) (for example from a temporary test). Hosted Tests jobs do not
+  install the pin on every leg, so a canonical digest captured elsewhere is not caught until
+  someone runs under the pin. Off the pin the canonical assertion is skipped explicitly.
 """
 
 import hashlib
@@ -185,8 +207,12 @@ def test_the_image_build_preserves_parent_fixtures_manifest_and_pixels(image_bui
     expected = GOLDEN["images"]
     assert actual["semantic_sha256"] == expected["semantic_sha256"]
     assert actual["canonical_files"] == expected["canonical_files"]
-    if si.bytes_are_canonical():
-        assert actual["canonical_sha256"] == expected["canonical_sha256"]
+    if not si.bytes_are_canonical():
+        pytest.skip(
+            "semantic digest checked; canonical PNG byte digest needs the Linux notebook pin "
+            "(Pillow 12.3.0, classic zlib)"
+        )
+    assert actual["canonical_sha256"] == expected["canonical_sha256"]
 
 
 @pytest.mark.parametrize("kind", ["label", "answer", "manifest"])

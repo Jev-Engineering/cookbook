@@ -592,7 +592,7 @@ command exits with status 1.
 The image builder's public functions accept optional keyword-only `canvases`, `keys`, or
 `canvas` arguments. `main()` passes these within one build so each image is drawn once and
 each request is encoded and keyed once. Calls without these arguments compute fresh values,
-including the fixture test's `build_responses(ROWS)` call. Put synthetic answer customizations
+including the fixture test's `build_responses(ROWS)` call. `write_images` must add exactly one canvas per row of `ROWS`, in order (`main()` asserts it), because the other functions index `canvases` and `keys` by row. Put synthetic answer customizations
 in `answers_for` and preserve its optional `canvas` argument: both fixture writing and
 independent response generation call that function.
 
