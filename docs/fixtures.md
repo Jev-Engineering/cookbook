@@ -168,15 +168,20 @@ A recipe that scores a transition over an ordered frame sequence ([vision](visio
 ```
 
 - `transition` is a non-empty string naming the transition. A prediction is the right transition when its name equals this one. It is a resolved label: `evaluation.transition_metrics` raises `ValueError` on a gold label that is one of its review labels (`uncertain` by default).
-- `seconds` is a finite number, 0 or more: **elapsed seconds since the start of the sequence** (never Unix time), the `timestamp_seconds` of the first frame of the full-rate sequence in which the new state is visible, the convention of `frames.transition_time`. A label that has no time, such as `unchanged`, has no `seconds` key. It does not carry a `null` one.
+- `seconds` is a nonnegative number that converts to a finite float. It records **elapsed seconds since the start of the sequence**, using the `timestamp_seconds` of the first frame of the full-rate sequence in which the new state is visible, the convention of `frames.transition_time`. A label that has no time, such as `unchanged`, omits `seconds`.
 - The object has no other key. In particular it has no `present` key, which is reserved for Box labels (above).
 - One transition per example. A sequence with several transitions becomes several examples, each with its own label ([evaluation](evaluation.md#transitions)).
 
 `(label["transition"], label.get("seconds"))` is the `(label, seconds_or_None)` pair that `evaluation.transition_metrics` takes for gold ([evaluation](evaluation.md#transitions)).
 
-**What the validator checks.** Nothing that is specific to this format. A transition label gets the checks every label gets (for example, the line must be valid JSON, so a line with `NaN` is an error, and every example in a labelled split needs a label). A negative, non-finite (`1e400`, which JSON reads as `inf`), string, boolean or `null` `seconds`, a missing or empty `transition`, an extra key and a review label all pass `python -m jev_cookbook.fixtures validate`. The one interaction is the `present` key: a label object that has one at its top, or a nested object whose only keys are `present` and `box`, is checked as a Box label, and once any label in the file is a Box label at the top, a label that is not one is an error, so a file that mixes top-level Box labels and transition labels fails. Transition labels beside labels that nest a Box label under a key pass. Extending the validator to check this format is tracked in #396.
+**What the validator checks.** A label object with a top-level `transition` key and no `present` key declares the transition format. When both `inputs.jsonl` and `labels.jsonl` are readable and a loaded label declares the format, `python -m jev_cookbook.fixtures validate` checks each loaded label and reports these problems.
 
-The recipe's own test therefore decodes every split it ships (`train` included) and checks the key set exactly. Scoring the decoded pairs with `transition_metrics` already raises `ValueError` for a negative, non-finite, string or boolean `seconds` and for a review label; it does not notice an empty or non-string `transition`, a `null` `seconds` (read as "no time") or an extra key.
+- a label that is not a transition label (a string, a list, or an object without `transition`, such as `{"seconds": 2.5}`), naming the first label that declares the format;
+- a key other than `transition` and `seconds`;
+- a `transition` that is not a non-empty string, or that is `uncertain`, the review label `evaluation.transition_metrics` refuses as gold by default;
+- a `seconds` value that is anything other than a JSON number, such as a string, a boolean, or `null`. The validator also rejects a decoded number that is negative or cannot convert to a finite float, such as `1e400` (which JSON reads as `inf`) or an integer outside the float range. Since `seconds` measures elapsed time from the start of the sequence, its minimum is 0.
+
+A top-level `present` key assigns a label to the Box check, even if the label also has a `transition` key. In a file with a top-level Box label, the Box check reports any transition labels. In a file that declares the transition format, the transition check reports a label such as `{"target": {"present": false}}` because it lacks a top-level `transition` key. When a recipe supplies its own `uncertain_labels`, `transition_metrics` raises `ValueError` if any of them appears as a gold label.
 
 ## Nesting limit
 

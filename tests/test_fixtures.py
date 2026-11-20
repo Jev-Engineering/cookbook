@@ -502,10 +502,42 @@ def test_box_label_paths_keep_keys_as_written(recipe, key, where):
     expect(recipe, f"labels.jsonl:1 (id 't0'): malformed Box label at {where}: ")
 
 
-def test_transition_labels_beside_nested_box_labels_are_valid(recipe):
+def test_transition_labels_and_other_labels_do_not_mix(recipe):
+    """Once a label is a transition label, every label of the file must be one."""
     transition = {"transition": "opened", "seconds": 2.5}
     write(recipe, box_set({"target": BOX_LABEL}, transition, {"transition": "unchanged"}, "z"))
-    assert messages(recipe) == []
+    expect(
+        recipe,
+        "labels.jsonl:1 (id 't0'): label is not a transition label",
+        "labels.jsonl:4 (id 't3'): label is not a transition label ({'transition': ...}) but "
+        "other labels in this file are (for example id 't1')",
+    )
+    assert len(messages(recipe)) == 2
+
+
+@pytest.mark.parametrize(
+    ("second_label", "transition_messages"),
+    [
+        pytest.param({"present": False}, [], id="only-box"),
+        pytest.param(
+            {"transition": "closed"},
+            [
+                "label is not a transition label ({'transition': ...}) but other labels "
+                "in this file are (for example id 't1')"
+            ],
+            id="genuine-transition",
+        ),
+    ],
+)
+def test_box_label_with_transition_key_does_not_declare_transition_format(
+    recipe, second_label, transition_messages
+):
+    both_keys = {"present": False, "transition": "opened"}
+    write(recipe, box_set(both_keys, second_label, {"present": False}, "z"))
+    found = validate_recipe(recipe)
+    assert any(p.ident == "t0" and p.message.startswith("malformed Box label") for p in found)
+    reported = [p.message for p in found if p.message.startswith("label is not a transition label")]
+    assert reported == transition_messages
 
 
 def test_the_box_label_search_is_iterative():
