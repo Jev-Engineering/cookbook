@@ -13,7 +13,7 @@ import io
 import math
 import re
 import struct
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 from numbers import Integral, Real
@@ -1478,19 +1478,6 @@ def run_record(
     return row
 
 
-def _strings(value: Any) -> Iterator[str]:
-    """Every ``str`` in ``value`` at any depth: a bare string, list items, object keys and values."""
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, Mapping):
-        for key, part in value.items():
-            yield from _strings(key)
-            yield from _strings(part)
-    elif isinstance(value, (list, tuple)):
-        for part in value:
-            yield from _strings(part)
-
-
 def context_size(state: Any, questions: Mapping[str, Any]) -> dict[str, int]:
     """Count the text of a request in characters and in UTF-8 bytes. These are not tokens.
 
@@ -1523,11 +1510,11 @@ def context_size(state: Any, questions: Mapping[str, Any]) -> dict[str, int]:
         parts = criteria.items() if isinstance(criteria, dict) else enumerate(criteria or ())
         for label, part in parts:
             check_depth(part, f"question {name!r} criteria[{label!r}]", MAX_DEPTH)
-    parts = list(_strings(state))
+    parts = list(_string_values(state, include_keys=True))
     for name, question in questions.items():
-        parts.extend(_strings(name))
-        parts.extend(_strings(getattr(question, "instructions", None)))
-        parts.extend(_strings(getattr(question, "criteria", None)))
+        parts.extend(_string_values(name, include_keys=True))
+        parts.extend(_string_values(getattr(question, "instructions", None), include_keys=True))
+        parts.extend(_string_values(getattr(question, "criteria", None), include_keys=True))
     try:
         utf8_bytes = sum(len(part.encode("utf-8")) for part in parts)
     except UnicodeEncodeError:
