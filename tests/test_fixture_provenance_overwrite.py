@@ -241,7 +241,7 @@ CASES = (
 CORE_CASES = ("duplicate-response", "recorded-answer")
 
 
-def _assert_refusal(result, path, planted):
+def _assert_refusal(result, path, planted, names_path=True):
     diagnostic = result.stdout + result.stderr
     preserved = path.read_bytes() == planted
     explicit = result.returncode != 0 and "refus" in diagnostic.lower() and "--force" in diagnostic
@@ -249,7 +249,8 @@ def _assert_refusal(result, path, planted):
         f"{path.name}: original_bytes_preserved={preserved}, explicit_refusal={explicit}, "
         f"builder_exit={result.returncode}"
     )
-    assert str(path) in diagnostic
+    if names_path:
+        assert str(path) in diagnostic
     assert "Traceback" not in diagnostic
     assert SENTINEL not in diagnostic, "response contents or parser details leaked to the CLI"
 
@@ -266,6 +267,27 @@ def provenance_copy(provenance_source, tmp_path):
     folder = tmp_path / provenance_source.name
     shutil.copytree(provenance_source, folder, ignore=shutil.ignore_patterns("__pycache__"))
     return folder
+
+
+@pytest.mark.parametrize("source", _SUPPORT.PUBLISHED_REPLAY_BUILDERS, ids=lambda path: path.name)
+@pytest.mark.parametrize("case", CORE_CASES)
+def test_every_published_builder_preserves_ambiguous_provenance(tmp_path, source, case):
+    """Every published replay builder must preserve each of the issue's two repros.
+
+    Recipe 77's own image builder refuses without naming the store path (the shared
+    STORE_PATH_NOT_NAMED exemption of the overwrite contract test), so only that one
+    assertion is skipped for it; refusal, unchanged bytes, no traceback and no leaked
+    response content are still asserted.
+    """
+    script = _SUPPORT._copy_builder(source, tmp_path / source.name)
+    path = script.parent / "fixtures" / "responses.json"
+    path.parent.mkdir()
+    planted = _payload((source / "fixtures" / "responses.json").read_bytes(), case)
+    path.write_bytes(planted)
+    result = _SUPPORT._run(script)
+    _assert_refusal(
+        result, path, planted, names_path=not source.name.startswith(_SUPPORT.STORE_PATH_NOT_NAMED)
+    )
 
 
 @pytest.mark.parametrize("case", CASES)
