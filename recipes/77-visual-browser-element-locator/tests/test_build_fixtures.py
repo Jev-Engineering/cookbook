@@ -77,6 +77,7 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     assert first.returncode == 0, first.stderr
 
     responses = copy / "fixtures" / "responses.json"
+    synthetic_bytes = responses.read_bytes()
     data = json.loads(responses.read_text("utf-8"))
     for value in data.values():
         value["model"] = "jev-1.13.0"
@@ -103,6 +104,7 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
         [sys.executable, str(script), "--force"], capture_output=True, text=True
     )
     assert forced.returncode == 0, forced.stderr
+    assert responses.read_bytes() == synthetic_bytes
     after = json.loads(responses.read_text("utf-8"))
     assert all(v["model"] == "synthetic" for v in after.values())
 
