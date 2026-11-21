@@ -26,7 +26,6 @@ import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import MappingProxyType
 from typing import Any
 
 from ._canonical import plain_json
@@ -149,6 +148,19 @@ class RecordConflict(ValueError):
     saved_to: Path | None = None
 
 
+class _FrozenHeaders(dict):  # type: ignore[type-arg]
+    """A read-only ``dict`` snapshot that still copies, pickles and converts like a dict."""
+
+    def _read_only(self, *args: Any, **kwargs: Any) -> None:
+        raise TypeError("experimental_headers is a read-only snapshot")
+
+    __setitem__ = __delitem__ = __ior__ = _read_only  # type: ignore[assignment]
+    clear = pop = popitem = setdefault = update = _read_only  # type: ignore[assignment]
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (type(self), (dict(self),))
+
+
 @dataclass(frozen=True)
 class CallRecord:
     """Ledger line for one successful call (no key, no state, no answers).
@@ -175,7 +187,7 @@ class CallRecord:
     def __post_init__(self) -> None:
         if self.experimental_headers is not None:
             object.__setattr__(
-                self, "experimental_headers", MappingProxyType(dict(self.experimental_headers))
+                self, "experimental_headers", _FrozenHeaders(self.experimental_headers)
             )
 
 

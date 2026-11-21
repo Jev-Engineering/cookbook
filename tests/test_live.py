@@ -1619,7 +1619,7 @@ def test_recorded_experimental_headers_are_read_only_and_detached_from_the_calle
     assert rec.experimental_headers == LONG_HEADERS
     with pytest.raises(TypeError):
         rec.experimental_headers["X"] = "y"  # type: ignore[index]
-    with pytest.raises(AttributeError):
+    with pytest.raises(TypeError):
         rec.experimental_headers.clear()  # type: ignore[union-attr]
     assert rec.experimental_headers == LONG_HEADERS
 
@@ -1633,6 +1633,49 @@ def test_backend_record_headers_cannot_be_rewritten_through_the_public_records(t
         rec.experimental_headers["X"] = "y"  # type: ignore[index]
     assert backend.records[0].experimental_headers == LONG_HEADERS
     assert backend.last_retried[0]["experimental_headers"] == LONG_HEADERS
+
+
+def _frozen_with_every_mutator(headers):
+    for mutate in (
+        lambda h: h.__setitem__("X", "y"),
+        lambda h: h.__delitem__(next(iter(h))),
+        lambda h: h.clear(),
+        lambda h: h.pop(next(iter(h))),
+        lambda h: h.popitem(),
+        lambda h: h.setdefault("X", "y"),
+        lambda h: h.update({"X": "y"}),
+        lambda h: h.__ior__({"X": "y"}),
+    ):
+        with pytest.raises(TypeError):
+            mutate(headers)
+        assert headers == LONG_HEADERS
+
+
+def test_backend_record_converts_copies_and_pickles_like_a_plain_record(tmp_path):
+    import copy
+    import dataclasses
+    import pickle
+
+    backend, _ = make(long_context=True)
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json")
+    rec = backend.records[0]
+    _frozen_with_every_mutator(rec.experimental_headers)
+    assert dataclasses.asdict(rec)["experimental_headers"] == LONG_HEADERS
+    assert LONG_HEADERS in dataclasses.astuple(rec)
+    for clone in (copy.deepcopy(rec), copy.copy(rec), pickle.loads(pickle.dumps(rec))):
+        assert clone == rec and hash(clone) == hash(rec)
+        assert clone.experimental_headers == LONG_HEADERS
+        _frozen_with_every_mutator(clone.experimental_headers)
+    assert json.dumps(rec.experimental_headers) == json.dumps(LONG_HEADERS)
+
+
+def test_call_record_equality_includes_experimental_headers():
+    base = ("k", MODEL, None, Usage(), DAY)
+    long = live_module.CallRecord(*base, experimental_headers=LONG_HEADERS)
+    assert long == live_module.CallRecord(*base, experimental_headers=dict(LONG_HEADERS))
+    assert long != live_module.CallRecord(*base, experimental_headers={})
+    assert live_module.CallRecord(*base, experimental_headers={}) != live_module.CallRecord(*base)
+    assert hash(long) == hash(live_module.CallRecord(*base, experimental_headers={}))
 
 
 def test_retry_then_success_attempt_snapshots_are_independent(tmp_path):
