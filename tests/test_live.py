@@ -1597,6 +1597,74 @@ def test_failed_attempts_keep_experimental_headers_on_the_exception_and_sidecar(
     assert list(json.loads(ledger.read_text()).values())[0]["experimental_headers"] == expected
 
 
+LONG_HEADERS = {"TypeSafe-Danger-Zone-Long-Context": "true"}
+
+
+def test_call_record_stays_hashable_with_experimental_headers(tmp_path):
+    backend, _ = make(long_context=True)
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json")
+    rec = backend.records[0]
+    assert rec.experimental_headers == LONG_HEADERS
+    assert isinstance(hash(rec), int)
+    assert len({rec, rec}) == 1
+    unknown = live_module.CallRecord("k", MODEL, None, Usage(), DAY)
+    assert isinstance(hash(unknown), int)
+
+
+def test_recorded_experimental_headers_are_read_only_and_detached_from_the_caller():
+    source = dict(LONG_HEADERS)
+    rec = live_module.CallRecord("k", MODEL, None, Usage(), DAY, experimental_headers=source)
+    source["X"] = "y"
+    source.clear()
+    assert rec.experimental_headers == LONG_HEADERS
+    with pytest.raises(TypeError):
+        rec.experimental_headers["X"] = "y"  # type: ignore[index]
+    with pytest.raises(AttributeError):
+        rec.experimental_headers.clear()  # type: ignore[union-attr]
+    assert rec.experimental_headers == LONG_HEADERS
+
+
+def test_backend_record_headers_cannot_be_rewritten_through_the_public_records(tmp_path):
+    backend, _ = make(ApiError(503), long_context=True)
+    ledger = tmp_path / "ledger.json"
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    rec = backend.records[0]
+    with pytest.raises(TypeError):
+        rec.experimental_headers["X"] = "y"  # type: ignore[index]
+    assert backend.records[0].experimental_headers == LONG_HEADERS
+    assert backend.last_retried[0]["experimental_headers"] == LONG_HEADERS
+
+
+def test_retry_then_success_attempt_snapshots_are_independent(tmp_path):
+    backend, _ = make(ApiError(503), ApiError(503), long_context=True)
+    ledger = tmp_path / "ledger.json"
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    assert len(backend.last_retried) == 2
+    first, second = backend.last_retried
+    assert first["experimental_headers"] is not second["experimental_headers"]
+    first["experimental_headers"]["X"] = "first"
+    assert backend.last_retried[1]["experimental_headers"] == LONG_HEADERS
+    assert backend.last_retried[0]["experimental_headers"] == LONG_HEADERS
+    assert backend.records[0].experimental_headers == LONG_HEADERS
+    line = json.loads(ledger.read_text())[replay_key(STATE, QUESTIONS)]
+    assert line["experimental_headers"] == LONG_HEADERS
+    assert [r["experimental_headers"] for r in line["retried"]] == [LONG_HEADERS] * 2
+
+
+def test_retry_then_failure_exception_headers_do_not_alias_earlier_attempts(tmp_path):
+    backend, _ = make(ApiError(503), ApiError(400), long_context=True)
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(LiveCallError) as error:
+        record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    assert error.value.experimental_headers == LONG_HEADERS
+    error.value.experimental_headers["X"] = "mutated"
+    error.value.experimental_headers.clear()
+    assert backend.last_retried[0]["experimental_headers"] == LONG_HEADERS
+    line = list(json.loads(ledger.read_text()).values())[0]
+    assert line["experimental_headers"] == LONG_HEADERS
+    assert line["retried"][0]["experimental_headers"] == LONG_HEADERS
+
+
 def test_experimental_headers_are_empty_when_budget_prevents_the_final_attempt(tmp_path):
     backend, client = make(ApiError(503), long_context=True, max_requests=1)
     ledger = tmp_path / "ledger.json"

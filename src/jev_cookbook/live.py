@@ -24,8 +24,9 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from ._canonical import plain_json
@@ -157,6 +158,8 @@ class CallRecord:
     or ``None`` when the clock gave no usable reading. It is never part of a stored response or
     a replay key. ``experimental_headers`` snapshots the experimental header names and values
     passed to the client on the answering attempt; ``None`` means unknown for older callers.
+    The mapping is stored as a read-only copy and left out of the hash, so a record stays
+    hashable and a caller's dict (or a later change to it) cannot rewrite the snapshot.
     """
 
     replay_key: str
@@ -167,7 +170,13 @@ class CallRecord:
     images: int = 0
     distinct_images: int = 0
     latency_seconds: float | None = None
-    experimental_headers: Mapping[str, str] | None = None
+    experimental_headers: Mapping[str, str] | None = field(default=None, hash=False)
+
+    def __post_init__(self) -> None:
+        if self.experimental_headers is not None:
+            object.__setattr__(
+                self, "experimental_headers", MappingProxyType(dict(self.experimental_headers))
+            )
 
 
 def _secret_variants(*raw: str | None) -> tuple[str, ...]:
@@ -889,7 +898,7 @@ class LiveBackend:
                     self._last_latency = latency
                 break
             if failure is not None:
-                failure.experimental_headers = experimental_headers
+                failure.experimental_headers = dict(experimental_headers)
                 raise failure
             self._sleep(delay)
         date = self._today()
