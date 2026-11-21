@@ -1037,6 +1037,24 @@ def test_context_size_has_exactly_two_keys_and_none_names_tokens():
     assert all(type(value) is int for value in size.values())
 
 
+def test_context_size_reuses_the_key_including_walker(monkeypatch):
+    walked = []
+    real_walker = vision._string_values
+
+    def walk(value, *, include_keys=False):
+        walked.append(include_keys)
+        yield from real_walker(value, include_keys=include_keys)
+
+    monkeypatch.setattr(vision, "_string_values", walk)
+    state = {"é": ["x", {"k": "x"}]}
+    assert vision.context_size(state, {"q": Noul(instructions={"i": "€"})}) == {
+        "characters": 7,
+        "utf8_bytes": 10,
+    }
+    assert walked == [True, True, True, True]
+    assert state == {"é": ["x", {"k": "x"}]}
+
+
 def test_context_size_of_one_question_plus_the_state_is_the_per_question_count():
     state = "abc"
     both = {"a": Noul(instructions="xx"), "b": Noul(instructions="yyyy")}

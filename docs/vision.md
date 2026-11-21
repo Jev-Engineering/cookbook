@@ -810,6 +810,12 @@ must provide provenance; a missing provenance raises a clear `TypeError`. Record
 must contain a real `YYYY-MM-DD` date. The same checks apply when passing `result=` to
 `load_ledger_latency`, whether or not the ledger contains a latency measurement.
 
+When building rows for several replay keys from one sidecar, read it once with
+`jev_cookbook.live.load_ledger_latencies(ledger, keys, results=results_by_key)`. It returns the
+selected keys in caller order, with the same single-key checks and unmeasured/failed distinction.
+See [reading captured latencies](live.md#reading-a-captured-latency-back) for snapshot and error
+behavior. Each entry still describes one arm's model and capture date.
+
 Provide `measured_latency_seconds` only for actual inference timing, and
 `measured_cost_usd` only for an actual measured charge. Replay execution time is
 not inference latency. Token-derived price calculations are estimates and do not

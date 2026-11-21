@@ -218,6 +218,13 @@ returning an SDK-style response. The backend requires no opt-in or key for it (i
 requests; a client without that parameter that retries inside itself is invisible to the budget,
 so build it with retries off.
 
+`request_kwargs` are copied when the backend is built. Each logical `decide` call snapshots
+its state, questions and options, and normalizes the state for transport once, before the first
+attempt is timed. Retries use that same request snapshot. The client receives an independent
+mutable copy per attempt, with fresh experimental headers, so mutating a payload cannot change
+the next retry or the caller's inputs. Injected clients should treat request payloads as
+read-only; values passed in `request_kwargs` must support deep copying.
+
 ## Latency
 
 Each HTTP attempt is timed with the backend's `clock` (default `time.perf_counter`, a monotonic
@@ -292,6 +299,30 @@ model or on another day, and one ledger shared by arms that differ in model or d
 apart two recordings of the same request with the same model on the same day, which share a replay
 key, so keep one ledger per arm.
 [vision.md](vision.md#honest-accounting) shows the result feeding `run_record`.
+
+For several replay keys, use `load_ledger_latencies(ledger_path, replay_keys, *, results=None)`
+from `jev_cookbook.live`. It parses one file snapshot and returns a dictionary in the requested
+key order. Pass a mapping of selected keys to replayed results for the same model/date/provenance
+cross-check; missing results or `None` skip that check. Duplicate requested keys, non-string
+keys and results keys outside the selection are refused.
+
+```python
+from jev_cookbook.live import load_ledger_latencies
+
+captured = load_ledger_latencies(ledger, [key_a, key_b], results={key_a: result_a, key_b: result_b})
+# captured[key_a] is LedgerLatency, or None if that key has only failed/non-recorded entries.
+```
+
+Semantic checks apply only to selected current entries; an unrelated malformed recorded entry
+does not block a valid selected key. A selected malformed recorded entry raises, and an unknown
+key raises `KeyError`; no partial dictionary is returned after an error. JSON decoding errors,
+duplicate keys anywhere in the file and a non-object top level are refused even with an empty
+selection. Python's decoder accepts non-standard `NaN`/`Infinity` constants; numeric validation
+rejects them only in selected current entries, not in unselected or historical values.
+Missing/null latency preserves the selected entry's date/model;
+superseded and retried timings cannot replace it. No data is cached between calls: invoke the
+helper again to read an updated file. The single-key `load_ledger_latency` uses this same parser
+and validator.
 
 ## Recorder
 

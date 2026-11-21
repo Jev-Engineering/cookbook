@@ -95,16 +95,21 @@ def _check_request(
     return plain_json(state, "state", max_depth=MAX_DEPTH), checked
 
 
-def _string_values(value: Any):
-    """Only values can carry image references; object keys stay text."""
+def _string_values(value: Any, *, include_keys: bool = False):
+    """Yield strings in traversal order, optionally including object keys before their values.
+
+    Only values can carry image references, so keys stay excluded by default.
+    """
     if isinstance(value, str):
         yield value
     elif isinstance(value, Mapping):
-        for part in value.values():
-            yield from _string_values(part)
+        for key, part in value.items():
+            if include_keys:
+                yield from _string_values(key, include_keys=True)
+            yield from _string_values(part, include_keys=include_keys)
     elif isinstance(value, (list, tuple)):
         for part in value:
-            yield from _string_values(part)
+            yield from _string_values(part, include_keys=include_keys)
 
 
 def _check_assets(

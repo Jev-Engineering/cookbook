@@ -12,6 +12,7 @@ import threading
 import traceback
 import types
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 
 import pytest
 
@@ -21,6 +22,7 @@ from jev_cookbook import (
     Choice,
     ChoiceAnswer,
     DecisionResult,
+    FixtureError,
     LiveBackend,
     LiveBackendUnavailable,
     LiveCallError,
@@ -1249,6 +1251,89 @@ def test_a_keyword_given_twice_to_the_client_call_is_still_an_error():
     assert client.calls == []
 
 
+@pytest.mark.parametrize("part", ["instructions", "criteria"])
+@pytest.mark.parametrize("shape", ["deep", "cyclic"])
+def test_mutated_deep_or_cyclic_questions_fail_before_copying_or_spending(part, shape):
+    question = Noul(instructions={"rule": "shallow"}, criteria={"true": "shallow"})
+    if shape == "deep":
+        nested = "leaf"
+        for _ in range(5000):
+            nested = [nested]
+    else:
+        nested = []
+        nested.append(nested)
+    if part == "instructions":
+        question.instructions["rule"] = nested
+    else:
+        question.criteria["true"] = nested
+    backend, client = make()
+    with pytest.raises(ValueError, match="nested deeper than 64 levels") as error:
+        backend.decide("state", {"q": question})
+    assert "question 'q'" in str(error.value)
+    assert client.calls == [] and backend.requests_made == 0
+    assert backend.ledger()["failed_attempts"] == 0 and backend.records == ()
+    assert backend.last_retried == () and backend.last_latency_seconds is None
+
+
+def test_retries_normalize_once_and_isolate_mutable_payloads_options_and_headers(monkeypatch):
+    snapshots, builds = [], []
+    state = {"document": {"parts": ["original"]}}
+    questions = {**deepcopy(QUESTIONS), "billing": Noul(instructions={"rule": ["billing"]})}
+    options = {"timeout": {"connect": 5.0}, "provider": "offline-provider"}
+    original_state, original_questions = deepcopy(state), deepcopy(questions)
+    real_plain = live_module.plain_json
+
+    def plain(value, *args, **kwargs):
+        builds.append(deepcopy(value))
+        return real_plain(value, *args, **kwargs)
+
+    monkeypatch.setattr(live_module, "plain_json", plain)
+
+    class MutatingClient:
+        def system_one(self, **kwargs):
+            snapshots.append(deepcopy(kwargs))
+            kwargs["state"]["document"]["parts"].append("transport")
+            kwargs["questions"]["billing"]["instructions"]["rule"].append("transport")
+            kwargs["timeout"]["connect"] = 99.0
+            kwargs["extra_headers"].clear()
+            kwargs["extra_headers"]["Authorization"] = "offline-placeholder"
+            if len(snapshots) == 1:
+                assert state == original_state and questions == original_questions
+                # Simulate caller edits while the first attempt is in flight.
+                state["document"]["parts"].append("caller")
+                questions["billing"].instructions["rule"].append("caller")
+                questions["tone"].criteria["caller-option"] = None
+                options["timeout"]["connect"] = 77.0
+                raise ApiError(503)
+            return Resp(api_body())
+
+    backend = LiveBackend(
+        "jev-latest",
+        client=MutatingClient(),
+        request_kwargs=options,
+        long_context=True,
+        today=lambda: DAY,
+        sleep=lambda _: None,
+        clock=clock_of(0.0, 0.25, 1.0, 1.5),
+    )
+    options["timeout"]["connect"] = 6.0  # constructor keeps its own options snapshot
+    key = replay_key(state, questions)
+    result = backend.decide(state, questions)
+    assert result.model == MODEL
+    assert snapshots[0] == snapshots[1]
+    assert snapshots[1]["state"] == original_state
+    assert snapshots[1]["questions"]["billing"]["instructions"] == {"rule": ["billing"]}
+    assert snapshots[1]["timeout"] == {"connect": 5.0}
+    assert snapshots[1]["extra_headers"] == {"TypeSafe-Danger-Zone-Long-Context": "true"}
+    assert builds == [original_state]
+    assert state == {"document": {"parts": ["original", "caller"]}}
+    assert questions["billing"].instructions == {"rule": ["billing", "caller"]}
+    assert backend.records[0].replay_key == key
+    assert backend.requests_made == 2 and backend.last_latency_seconds == 0.5
+    assert backend.last_retried[0]["latency_seconds"] == 0.25
+    assert backend.last_retried[0]["experimental_headers"] == snapshots[1]["extra_headers"]
+
+
 def test_each_attempt_is_timed_and_the_backoff_sleep_is_outside_every_window():
     events = []
     readings = iter([0.0, 0.5, 1.0, 3.0])
@@ -1527,6 +1612,151 @@ def test_load_ledger_latency_refuses_a_missing_file_and_a_non_text_key(tmp_path)
         live_module.load_ledger_latency(tmp_path / "nope.json", "k")
     with pytest.raises(TypeError):
         live_module.load_ledger_latency(write_ledger(tmp_path, {}), 5)
+
+
+def _batch_latency(path, key, *, result=None):
+    return live_module.load_ledger_latencies(path, [key], results={key: result})[key]
+
+
+def test_batch_ledger_loader_parses_once_in_requested_order_and_does_not_cache(
+    tmp_path, monkeypatch
+):
+    path = write_ledger(
+        tmp_path,
+        {
+            "a": {**LEDGER_LINE, "latency_seconds": 0.25},
+            "b": dict(LEDGER_LINE),
+            "c": {**LEDGER_LINE, "latency_seconds": 0},
+            "failed!failed-1": {"status": "timeout", "latency_seconds": 99},
+            "unselected": {"status": "recorded", "date": "bad", "latency_seconds": -1},
+        },
+    )
+    parses = []
+    real_load = live_module.json.load
+
+    def load(*args, **kwargs):
+        parses.append(1)
+        return real_load(*args, **kwargs)
+
+    monkeypatch.setattr(live_module.json, "load", load)
+    keys = ["c", "a", "failed", "b"]
+    found = live_module.load_ledger_latencies(path, iter(keys), results={"a": _recorded()})
+    assert list(found) == keys and parses == [1]
+    assert found == {
+        "c": live_module.LedgerLatency(0.0, DAY, MODEL),
+        "a": live_module.LedgerLatency(0.25, DAY, MODEL),
+        "failed": None,
+        "b": live_module.LedgerLatency(None, DAY, MODEL),
+    }
+    assert "load_ledger_latencies" in live_module.__all__
+    path.write_text(json.dumps({"a": {**LEDGER_LINE, "latency_seconds": 0.75}}))
+    assert live_module.load_ledger_latencies(path, ["a"])["a"].latency_seconds == 0.75
+    assert parses == [1, 1] and found["a"].latency_seconds == 0.25
+
+
+@pytest.mark.parametrize("loader", [live_module.load_ledger_latency, _batch_latency])
+@pytest.mark.parametrize("seconds", [None, 0, 0.25])
+def test_single_and_batch_loaders_share_current_line_and_result_checks(tmp_path, loader, seconds):
+    line = {
+        **LEDGER_LINE,
+        "latency_seconds": seconds,
+        "superseded": [{"latency_seconds": 99}],
+        "retried": [{"latency_seconds": -1}],
+    }
+    path = write_ledger(tmp_path, {"k": line, "k!failed-1": {"latency_seconds": 88}})
+    expected = live_module.LedgerLatency(None if seconds is None else float(seconds), DAY, MODEL)
+    assert loader(path, "k", result=_recorded()) == expected
+    with pytest.raises(ValueError, match="recorded with"):
+        loader(path, "k", result=_recorded(model="jev-1.14.0"))
+    with pytest.raises(ValueError, match="dated"):
+        loader(path, "k", result=_recorded(date="2026-11-01"))
+    with pytest.raises(ValueError, match="at least one recorded answer"):
+        loader(path, "k", result=types.SimpleNamespace(model=MODEL, answers={}))
+    with pytest.raises(ValueError, match="at least one recorded answer"):
+        loader(
+            path,
+            "k",
+            result=types.SimpleNamespace(model=MODEL, answers={"q": NoulAnswer(0.5, SYN)}),
+        )
+    with pytest.raises(TypeError, match="provenance"):
+        loader(path, "k", result=types.SimpleNamespace(model=MODEL, answers={"q": object()}))
+
+
+@pytest.mark.parametrize("loader", [live_module.load_ledger_latency, _batch_latency])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"latency_seconds": True},
+        {"latency_seconds": -1},
+        {"latency_seconds": "1"},
+        {"latency_seconds": float("nan")},
+        {"latency_seconds": float("inf")},
+        {"latency_seconds": 10**400},
+        {"date": "2026-02-30"},
+        {"date": "20261031"},
+        {"model": ""},
+        {"model": None},
+    ],
+)
+def test_single_and_batch_loaders_refuse_malformed_selected_recordings(tmp_path, loader, change):
+    path = write_ledger(tmp_path, {"k": {**LEDGER_LINE, **change}})
+    with pytest.raises(ValueError):
+        loader(path, "k")
+
+
+@pytest.mark.parametrize("loader", [live_module.load_ledger_latency, _batch_latency])
+def test_single_and_batch_loaders_keep_unknown_failed_and_unmeasured_distinct(tmp_path, loader):
+    path = write_ledger(tmp_path, {"k!failed-1": {"status": "error"}, "other": dict(LEDGER_LINE)})
+    assert loader(path, "k") is None
+    assert loader(path, "other") == live_module.LedgerLatency(None, DAY, MODEL)
+    with pytest.raises(KeyError):
+        loader(path, "unknown")
+    with pytest.raises(FileNotFoundError):
+        loader(tmp_path / "absent.json", "k")
+    for line in (5, {"status": "error"}, {"status": "unknown"}):
+        assert loader(write_ledger(tmp_path, {"k": line}), "k") is None
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        '{"k": {}, "k": {}}',
+        '{"k": {"date": "one", "date": "two"}}',
+        '{"unselected": {"x": 1, "x": 2}, "k": {}}',
+        "[]",
+    ],
+)
+def test_batch_ledger_rejects_global_duplicate_json_keys_and_non_object_root(tmp_path, source):
+    path = tmp_path / "ledger.json"
+    path.write_text(source)
+    with pytest.raises(FixtureError):
+        live_module.load_ledger_latencies(path, ["k"])
+
+
+@pytest.mark.parametrize(
+    "keys,results,error",
+    [
+        (["k", "k"], None, ValueError),
+        ("k", None, TypeError),
+        ([True], None, TypeError),
+        (["k"], [], TypeError),
+        (["k"], {"other": _recorded()}, ValueError),
+        (["k"], {1: _recorded()}, TypeError),
+    ],
+)
+def test_batch_ledger_validates_key_selection_and_result_mapping(tmp_path, keys, results, error):
+    with pytest.raises(error):
+        live_module.load_ledger_latencies(
+            write_ledger(tmp_path, {"k": LEDGER_LINE}), keys, results=results
+        )
+
+
+def test_batch_ledger_empty_selection_still_checks_the_snapshot(tmp_path):
+    path = write_ledger(tmp_path, {"unselected": {"status": "recorded", "date": "bad"}})
+    assert live_module.load_ledger_latencies(path, []) == {}
+    path.write_text("[]")
+    with pytest.raises(FixtureError):
+        live_module.load_ledger_latencies(path, [])
 
 
 # -- experimental-header provenance: fake clients only, with no optional SDK ----------------

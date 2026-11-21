@@ -39,6 +39,7 @@ from jev_cookbook.answers import (
     score_confidence_bound,
     sum_bound,
 )
+from jev_cookbook.backends import _string_values
 from jev_cookbook.questions import SINGLE_OPTION_MESSAGE
 
 STATE = {"document": "I was charged twice.\nPlease fix this."}
@@ -68,6 +69,20 @@ def script(state, qs, rng):
 
 
 # ---------------------------------------------------------------- hashing
+
+
+def test_string_values_optionally_includes_nested_keys_in_order_without_deduplication():
+    value = {"é": ["same", {"inner": ("same", None, 4)}], "tail": "€"}
+    assert list(_string_values(value)) == ["same", "same", "€"]
+    assert list(_string_values(value, include_keys=True)) == [
+        "é",
+        "same",
+        "inner",
+        "same",
+        "tail",
+        "€",
+    ]
+    assert value == {"é": ["same", {"inner": ("same", None, 4)}], "tail": "€"}
 
 
 def test_key_is_pinned():

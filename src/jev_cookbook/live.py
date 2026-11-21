@@ -24,6 +24,7 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,7 @@ __all__ = [
     "RecordReport",
     "dump_responses",
     "live_backend_from_env",
+    "load_ledger_latencies",
     "load_ledger_latency",
     "merge_responses",
     "record",
@@ -587,6 +589,11 @@ class LiveBackend:
     ...) could change what is sent or how many times. The backend always passes its own no-retry
     policy per call when the client's ``system_one`` takes ``retry=``.
 
+    Request options are deep-copied at construction and must support copying. One logical
+    call snapshots its questions/state and constructs stable transport kwargs once, lazily in
+    its first counted attempt. Every attempt gets an independent deep copy and fresh headers,
+    so caller or transport mutations cannot rewrite a retry or response-validation snapshot.
+
     The budget: at most ``max_requests`` attempts (each retry counts; a timeout counts as
     spent). A request over the budget raises ``BudgetExceeded`` before anything is sent.
     ``max_retries`` retries (default 2) apply to HTTP 408/429/5xx, connection errors and
@@ -653,7 +660,7 @@ class LiveBackend:
                 "many requests are made, which the budget cannot see. Allowed: "
                 f"{sorted(ALLOWED_REQUEST_KWARGS)}."
             )
-        self._request_kwargs = dict(request_kwargs or {})
+        self._request_kwargs = deepcopy(dict(request_kwargs or {}))
         self._sleep = sleep
         self._today = today
         self._clock = clock
@@ -832,6 +839,10 @@ class LiveBackend:
             self._last_latency = None
         plain_state, checked = _check_request(state, questions)
         key = replay_key(plain_state, checked, assets=assets)
+        # Questions contain mutable JSON even though their dataclasses are frozen. Keep the
+        # retry payload and response validation on a snapshot after replay_key's iterative
+        # depth check, so a mutated deep/cyclic question fails before recursive copying.
+        checked = deepcopy(checked)
         checked_assets = _check_assets(plain_state, checked, assets)
         has_box = any(isinstance(q, Box) for q in checked.values())
         needs_images = bool(checked_assets) or has_box
@@ -868,6 +879,7 @@ class LiveBackend:
             headers["TypeSafe-Danger-Zone-Long-Context"] = "true"
         call_extra = self._call_extra.copy()
         payload = {name: _question_payload(q) for name, q in checked.items()}
+        call_kwargs: dict[str, Any] | None = None
         attempt = 0
         # Errors are raised after their `except` block has ended, so neither `__cause__` nor
         # `__context__` carries the SDK exception (its message may echo the key).
@@ -879,23 +891,30 @@ class LiveBackend:
             delay = 0.0
             started: Any = None
             experimental_headers: dict[str, str] = {}
-            if headers:
-                # Each attempt gets its own mapping, independent of client mutations.
-                call_extra["extra_headers"] = headers.copy()
             try:
                 # ``dict(...)`` keyword form, not a ``{**a, **b}`` literal: a keyword given twice
                 # still raises ``TypeError`` instead of one value silently replacing the other.
-                call_kwargs = dict(
-                    state=plain_json(plain_state, "state"),
-                    questions=payload,
-                    model=self.requested_model,
-                    **asset_kwargs,
-                    **self._request_kwargs,
-                    **call_extra,
-                )
+                # Build lazily inside the counted attempt so a construction error keeps the
+                # same wrapped failure/accounting contract. Normalize the state only once.
+                if call_kwargs is None:
+                    call_kwargs = deepcopy(
+                        dict(
+                            state=plain_json(plain_state, "state"),
+                            questions=payload,
+                            model=self.requested_model,
+                            **asset_kwargs,
+                            **self._request_kwargs,
+                            **call_extra,
+                        )
+                    )
+                # The transport gets its own mutable copy, so it cannot alter the snapshot
+                # used by a retry or the caller's questions/options. Headers are per attempt.
+                attempt_kwargs = deepcopy(call_kwargs)
+                if headers:
+                    attempt_kwargs["extra_headers"] = headers.copy()
                 experimental_headers = headers.copy()
                 started = self._read_clock()
-                response = self._client.system_one(**call_kwargs)
+                response = self._client.system_one(**attempt_kwargs)
             except Exception as exc:
                 latency = None
                 if started is not None:
@@ -1370,10 +1389,60 @@ def load_ledger_latency(
     """
     if type(replay_key) is not str:
         raise TypeError("replay_key must be a str")
+    return load_ledger_latencies(ledger_path, (replay_key,), results={replay_key: result})[
+        replay_key
+    ]
+
+
+def load_ledger_latencies(
+    ledger_path: str | os.PathLike[str],
+    replay_keys: Iterable[str],
+    *,
+    results: Mapping[str, Any] | None = None,
+) -> dict[str, LedgerLatency | None]:
+    """Read selected keys from one parsed ledger snapshot, in caller order.
+
+    ``replay_keys`` is an iterable of unique strings, not a single string. Duplicate requested
+    keys raise ``ValueError``. ``results`` is an optional mapping from selected keys to the
+    results to cross-check, with the same model/date/provenance rules as
+    :func:`load_ledger_latency`. Missing results or explicit ``None`` skip that cross-check;
+    a results key outside the selection raises ``ValueError``.
+
+    The whole file is parsed exactly once per invocation, even for an empty selection. JSON
+    decoding errors, duplicate keys anywhere in the file, and a non-object top level are
+    refused. Python's decoder accepts non-standard NaN/Infinity constants; numeric validation
+    rejects them only in selected current entries, not in unselected or historical values.
+    Semantic validation applies only to selected current entries: an unknown key raises
+    ``KeyError``; failed-only/non-recorded entries return ``None``; a malformed recorded entry
+    raises rather than supplying a partial return value. Null/missing latency retains the
+    recorded date/model. Superseded and retried timings never substitute for the current line.
+    No parsed data is cached between invocations; call again to read a newer snapshot.
+    """
+    if isinstance(replay_keys, (str, bytes)):
+        raise TypeError("replay_keys must be an iterable of strings, not a single string")
+    keys = tuple(replay_keys)
+    if any(type(key) is not str for key in keys):
+        raise TypeError("each replay key must be a str")
+    if len(set(keys)) != len(keys):
+        raise ValueError("replay_keys must not contain duplicate keys")
+    if results is not None and not isinstance(results, Mapping):
+        raise TypeError("results must be a mapping of selected replay keys to results")
+    checked_results = dict(results) if results is not None else {}
+    if any(type(key) is not str for key in checked_results):
+        raise TypeError("each results key must be a str")
+    if checked_results.keys() - set(keys):
+        raise ValueError("results keys must be selected replay keys")
     path = Path(ledger_path)
     if not path.exists():
         raise FileNotFoundError(f"no ledger file at {path}")
     ledger = _load_responses(path)
+    return {key: _ledger_latency(path, ledger, key, checked_results.get(key)) for key in keys}
+
+
+def _ledger_latency(
+    path: Path, ledger: Mapping[str, Any], replay_key: str, result: Any
+) -> LedgerLatency | None:
+    """Apply the single-key contract to an already parsed snapshot."""
     line = ledger.get(replay_key)
     if line is None and not any(key.startswith(replay_key + "!failed-") for key in ledger):
         raise KeyError(f"{path} has no line for replay key {replay_key}")
