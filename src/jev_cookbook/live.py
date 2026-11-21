@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ._canonical import plain_json
+from ._canonical import finite_number, is_iso_date, plain_json, recorded_answer_dates
 from .answers import DecisionResult, Provenance, Usage, answer_from_dict
 from .backends import (
     LIVE_ENV,
@@ -331,8 +331,11 @@ def _elapsed_seconds(start: Any, end: Any) -> float | None:
         return None
     if not (math.isfinite(start) and math.isfinite(end)):
         return None
-    seconds = end - start
-    return round(seconds, 9) if math.isfinite(seconds) and seconds >= 0 else None
+    try:
+        seconds = finite_number(end - start, "latency_seconds")
+    except ValueError:
+        return None
+    return round(seconds, 9)
 
 
 def _import_sdk() -> Any:
@@ -1448,24 +1451,25 @@ def _ledger_latency(
         raise KeyError(f"{path} has no line for replay key {replay_key}")
     if not isinstance(line, dict) or line.get("status") != "recorded":
         return None
-    # Imported here: jev_cookbook.style loads matplotlib, and importing live must stay light.
-    from .style import _is_iso_date
-
     date, model = line.get("date"), line.get("model")
-    if not (_is_iso_date(date) and isinstance(model, str) and model):
+    if not (is_iso_date(date) and isinstance(model, str) and model):
         raise ValueError(
             f"{path}: the recorded line for {replay_key} needs a YYYY-MM-DD date and a text model"
         )
     if result is not None:
-        from .vision import _recorded_dates
-
         if getattr(result, "model", None) != model:
             raise ValueError(
                 f"{path}: the ledger line for {replay_key} was recorded with {model!r}, but the "
                 f"result is from {getattr(result, 'model', None)!r}; the ledger does not describe "
                 "this response"
             )
-        dates = _recorded_dates(result)
+        if type(result) is DecisionResult:
+            recorded_date = result.recorded_date
+            if recorded_date is None:
+                raise ValueError("result must contain at least one recorded answer with provenance")
+            dates = {recorded_date}
+        else:
+            dates = recorded_answer_dates(result)
         if dates != {date}:
             raise ValueError(
                 f"{path}: the ledger line for {replay_key} is dated {date}, but the result's "
@@ -1476,14 +1480,14 @@ def _ledger_latency(
     if seconds is None:
         return LedgerLatency(None, date, model)
     try:
-        usable = type(seconds) in (int, float) and math.isfinite(seconds) and seconds >= 0
-    except OverflowError:  # an integer too large for a float
-        usable = False
-    if not usable:
+        if type(seconds) not in (int, float):
+            raise ValueError("not a JSON number")
+        seconds = finite_number(seconds, "latency_seconds")
+    except ValueError:
         raise ValueError(
             f"{path}: latency_seconds for {replay_key} must be a finite, non-negative number"
-        )
-    return LedgerLatency(float(seconds), date, model)
+        ) from None
+    return LedgerLatency(seconds, date, model)
 
 
 def live_backend_from_env(

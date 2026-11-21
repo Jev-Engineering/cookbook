@@ -1,7 +1,8 @@
 """Local images, rectangle geometry and small, explicit vision evaluation helpers.
 
 Images are raw HTTP asset dictionaries, never SDK objects. Geometry accepts normalized
-edge mappings or objects with a ``box`` attribute; no answer classes are imported.
+edge mappings or objects with a ``box`` attribute. Accounting accepts typed results or
+compatible objects with answer provenance.
 """
 
 from __future__ import annotations
@@ -23,10 +24,17 @@ from typing import Any
 
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
-from ._canonical import MAX_DEPTH, canonical_image_format, check_depth
+from ._canonical import (
+    canonical_image_format,
+    check_question_depth,
+    is_iso_date,
+    recorded_answer_dates,
+)
+from ._canonical import finite_number as _number
+from .answers import DecisionResult
 from .backends import _check_request, _string_values
 from .evaluation import sum_usage
-from .style import INK, PAPER, PINK, _is_iso_date
+from .style import INK, PAPER, PINK
 
 __all__ = [
     "DEFAULT_MAX_TILES",
@@ -438,20 +446,6 @@ def _question_copies_text(per_question: Mapping[str, int]) -> str:
     more = len(holding) - len(shown)
     tail = f" and {more} more question(s) with copies" if more else ""
     return f"per question {shown}{tail}"
-
-
-def _number(value: Any, name: str, *, unit: bool = False) -> float:
-    if isinstance(value, bool) or not isinstance(value, Real):
-        raise ValueError(f"{name} must be a finite number")
-    try:
-        number = float(value)
-    except OverflowError as exc:
-        raise ValueError(f"{name} must be a finite number") from exc
-    if not math.isfinite(number):
-        raise ValueError(f"{name} must be a finite number")
-    if number < 0 or (unit and number > 1):
-        raise ValueError(f"{name} must be {'in [0, 1]' if unit else 'non-negative'}")
-    return number
 
 
 def _positive_int(value: Any, name: str) -> int:
@@ -1373,28 +1367,18 @@ _MODES = ("synthetic", "scripted", "recorded", "live")
 
 
 def _recorded_dates(result: Any) -> set[str]:
-    """Recorded answer dates; refuse a result with no recorded answer to check against."""
-    answers = getattr(result, "answers", {})
-    if not isinstance(answers, Mapping):
-        raise TypeError("result.answers must be a mapping of answers with provenance")
-    dates = set()
-    for answer in answers.values():
-        provenance = getattr(answer, "provenance", None)
-        if provenance is None or not hasattr(provenance, "source"):
-            raise TypeError("each answer must provide provenance with a source and date")
-        if provenance.source == "recorded":
-            date = getattr(provenance, "date", None)
-            if not _is_iso_date(date):
-                raise ValueError("recorded answer provenance requires a YYYY-MM-DD date")
-            dates.add(date)
-    if not dates:
-        raise ValueError("result must contain at least one recorded answer with provenance")
-    return dates
+    """Use the typed result accessor or the shared compatibility-object validation."""
+    if type(result) is DecisionResult:
+        recorded_date = result.recorded_date
+        if recorded_date is None:
+            raise ValueError("result must contain at least one recorded answer with provenance")
+        return {recorded_date}
+    return recorded_answer_dates(result)
 
 
 def _capture_date(value: Any) -> str:
     # The same rule as ``run_header``'s date: a real calendar date written exactly YYYY-MM-DD.
-    if not _is_iso_date(value):
+    if not is_iso_date(value):
         raise ValueError("capture_date must be a real calendar date written YYYY-MM-DD")
     return value
 
@@ -1503,13 +1487,8 @@ def context_size(state: Any, questions: Mapping[str, Any]) -> dict[str, int]:
     # here too, rather than counted as fewer characters than it has.
     state, questions = _check_request(state, questions)
     for name, question in questions.items():
-        # The per-part depth limit replay_key applies, so an over-deep part raises here too.
         content = question.to_dict()
-        check_depth(content.get("instructions"), f"question {name!r} instructions", MAX_DEPTH)
-        criteria = content.get("criteria")
-        parts = criteria.items() if isinstance(criteria, dict) else enumerate(criteria or ())
-        for label, part in parts:
-            check_depth(part, f"question {name!r} criteria[{label!r}]", MAX_DEPTH)
+        check_question_depth(content, name)
     parts = list(_string_values(state, include_keys=True))
     for name, question in questions.items():
         parts.extend(_string_values(name, include_keys=True))

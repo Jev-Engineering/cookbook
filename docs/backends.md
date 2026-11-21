@@ -288,6 +288,9 @@ A result never mixes synthetic and recorded answers; a synthetic
 result's model is always `"synthetic"`; for a recorded result every answer's provenance model
 equals the result's model. Each class has `to_dict()` / `from_dict()` (`answer_from_dict` for
 answers).
+`result.recorded_date` is the common capture date of its recorded answers, or `None` for a
+synthetic result. Recorded answers in one result must share one date. This accessor adds no
+field to the stored-response format.
 
 Provenance: `Provenance.synthetic()` (no model, no date) or `Provenance.recorded(model, "YYYY-MM-DD")`
 (the model string the API returned, and the date; both required; the model cannot be

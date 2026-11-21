@@ -17,8 +17,8 @@ Answers are read by duck typing, with the attribute names of the typed answers i
 TypeSafe SDK: a Choice has ``choice``, ``probabilities`` and ``confidence``; a Score has
 ``score``, ``probabilities``, ``confidence`` and ``legend``; a Noul has ``noul`` only;
 a Box has a ``box`` mapping of normalized edges and optional ``confidence``.
-Every answer also has a ``provenance``. This module imports no SDK and no other part of
-``jev_cookbook``.
+Every answer also has a ``provenance``. This module imports no SDK; its only cookbook dependency is
+lightweight shared validation in ``_canonical``.
 """
 
 from __future__ import annotations
@@ -31,7 +31,6 @@ import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import date
 from typing import Any
 
 import matplotlib as mpl
@@ -42,6 +41,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from matplotlib.figure import Figure
 from matplotlib.text import Text
+
+from ._canonical import is_iso_date
 
 __all__ = [
     "CATEGORICAL",
@@ -364,13 +365,6 @@ SYNTHETIC_NOTICE = (
 _MODES = ("synthetic", "scripted", "recorded", "live")
 
 
-def _is_iso_date(value: Any) -> bool:
-    try:
-        return isinstance(value, str) and date.fromisoformat(value).isoformat() == value
-    except ValueError:
-        return False
-
-
 @dataclass(frozen=True)
 class RunInfo:
     """The situation a notebook ran in.
@@ -414,7 +408,7 @@ class RunInfo:
                 raise ValueError("a recorded run needs both model and recorded_on")
             for name in ("recorded_on", "recorded_until"):
                 value = getattr(self, name)
-                if value is not None and not _is_iso_date(value):
+                if value is not None and not is_iso_date(value):
                     raise ValueError(f"{name} must be a date as YYYY-MM-DD, got {value!r}")
             if self.recorded_until and self.recorded_until < self.recorded_on:
                 raise ValueError("recorded_until must not be earlier than recorded_on")
