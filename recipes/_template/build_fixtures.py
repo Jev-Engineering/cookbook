@@ -1,7 +1,7 @@
 """Write fixtures/inputs.jsonl, labels.jsonl and responses.json for the template recipe.
 
     python build_fixtures.py          # from anywhere; it writes next to this file
-    python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
+    python build_fixtures.py --force  # also overwrite recorded or unreadable responses.json
 
 Every response here is synthetic: written by hand as probabilities, not produced by a model.
 Some are deliberately wrong, so the evaluation in the notebook has something to find. The
@@ -12,7 +12,8 @@ responses.json holds even one recorded answer (provenance "recorded", captured f
 call), running this script again must not silently replace it with a synthetic probability.
 inputs.jsonl and labels.jsonl are always rewritten from ROWS, because neither ever holds a
 model's answer; responses.json is rewritten only when it does not yet exist, holds only
-synthetic answers, or --force is given.
+synthetic answers, or --force is given. An unreadable or unparsable existing responses.json
+is preserved unless --force is given, because its provenance cannot be checked.
 """
 
 import argparse
@@ -116,19 +117,23 @@ def build_responses(rows):
 
 def _is_recorded(path: Path) -> bool:
     """True if ``path`` exists and holds at least one response whose model is not
-    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that fails to parse, or
-    whose top level is not a JSON object, cannot hold a valid synthetic response either, so it
-    is treated as not recorded rather than raising; inside an object, an entry that is itself
-    not an object is treated as if it were recorded, so it blocks an overwrite instead of being
-    silently skipped."""
+    ``"synthetic"`` (a recorded, or otherwise real, answer). Refuse an overwrite if an
+    existing file cannot be read as a JSON object: its provenance cannot be checked. Inside
+    an object, an entry that is itself not an object blocks an overwrite too."""
     if not path.exists():
         return False
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return False
+    except (json.JSONDecodeError, OSError, UnicodeError):
+        raise SystemExit(
+            f"refusing to overwrite {path}: cannot read responses.json to check for recorded "
+            "responses (pass --force to overwrite it anyway)"
+        ) from None
     if not isinstance(data, dict):
-        return False
+        raise SystemExit(
+            f"refusing to overwrite {path}: responses.json is not a JSON object, so its "
+            "provenance cannot be checked (pass --force to overwrite it anyway)"
+        )
     return any(
         not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
     )
@@ -153,7 +158,7 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="overwrite responses.json even if it holds a recorded (non-synthetic) answer",
+        help="overwrite responses.json even if recorded or its provenance cannot be checked",
     )
     args = parser.parse_args()
     folder = HERE / "fixtures"
@@ -163,7 +168,7 @@ def main() -> None:
         text = "".join(json.dumps(row) + "\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\n")
     responses_file = folder / "responses.json"
-    if _is_recorded(responses_file) and not args.force:
+    if not args.force and _is_recorded(responses_file):
         message = (
             f"refusing to overwrite {responses_file}: it holds a recorded response "
             "(pass --force to overwrite it anyway)"

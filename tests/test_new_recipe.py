@@ -1731,7 +1731,7 @@ def test_build_fixtures_refusal_warns_when_rows_desynchronised_the_fixtures(cata
     assert "--force" in refused.stderr and "record" in refused.stderr
 
 
-def test_is_recorded_does_not_crash_on_a_non_object_responses_file(catalog, recipes):
+def test_is_recorded_refuses_a_non_object_responses_file_without_a_traceback(catalog, recipes):
     folder = scaffold_replay_with_build_script(catalog, recipes, number=7)
     script = folder / "build_fixtures.py"
     subprocess.run([sys.executable, str(script)], check=True, cwd=recipes)
@@ -1742,7 +1742,10 @@ def test_is_recorded_does_not_crash_on_a_non_object_responses_file(catalog, reci
         result = subprocess.run(
             [sys.executable, str(script)], capture_output=True, text=True, cwd=recipes
         )
+        assert result.returncode != 0, (bad, result.stdout)
+        assert "refusing to overwrite" in result.stderr and "--force" in result.stderr
         assert "Traceback" not in result.stderr, (bad, result.stderr)
+        assert responses.read_bytes() == bad.encode("utf-8")
 
 
 def test_build_fixtures_rewrites_inputs_and_labels_even_when_responses_is_refused(catalog, recipes):
