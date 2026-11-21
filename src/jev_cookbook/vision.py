@@ -13,6 +13,7 @@ import io
 import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from fractions import Fraction
 from numbers import Integral, Real
 from pathlib import Path
 from typing import Any
@@ -28,8 +29,12 @@ __all__ = [
     "IMAGE_LIMITS",
     "AssetPathError",
     "ImageTile",
+    "ImageTransform",
     "LocalizationMetrics",
+    "TileStep",
     "box_confidence",
+    "box_from_original",
+    "box_to_original",
     "box_iou",
     "crop_box",
     "draw_boxes",
@@ -38,10 +43,14 @@ __all__ = [
     "image_asset",
     "image_assets",
     "image_reference",
+    "image_to_tile",
     "load_frames",
     "localization_metrics",
     "normalized_box",
     "normalized_to_pixels",
+    "point_from_original",
+    "point_to_original",
+    "prepare_image",
     "resolve_asset_path",
     "run_record",
     "tile_to_image",
@@ -328,9 +337,28 @@ def expand_box(box: Any, fraction: float = 0.0) -> dict[str, float]:
     }
 
 
-def crop_box(image: Image.Image, box: Any, *, expand: float = 0.0) -> Image.Image:
-    """Copy the enclosed crop, with optional proportional expansion and clipping."""
-    return image.crop(normalized_to_pixels(expand_box(box, expand), *image.size))
+def _min_side(value: Any) -> int | None:
+    return None if value is None else _positive_int(value, "min_side")
+
+
+def crop_box(
+    image: Image.Image, box: Any, *, expand: float = 0.0, min_side: int | None = None
+) -> Image.Image:
+    """Copy the enclosed crop, with optional proportional expansion and clipping.
+
+    ``min_side`` (default ``None``: no check) refuses a crop with either side under that many
+    pixels by raising ``ValueError``. Pass ``min_side=IMAGE_LIMITS["min_side"]`` for a crop
+    that will be sent to the API, which rejects anything under 280 px; or crop without it and
+    pad or scale the result with :func:`prepare_image`.
+    """
+    minimum = _min_side(min_side)
+    bounds = normalized_to_pixels(expand_box(box, expand), *image.size)
+    if minimum is not None and min(bounds[2] - bounds[0], bounds[3] - bounds[1]) < minimum:
+        raise ValueError(
+            f"crop of {bounds[2] - bounds[0]} x {bounds[3] - bounds[1]} pixels is under "
+            f"min_side={minimum}; expand the box or pad/scale the crop with prepare_image"
+        )
+    return image.crop(bounds)
 
 
 def _pixel_bounds(bounds: Any, width: int, height: int) -> PixelBounds:
@@ -376,6 +404,7 @@ def generate_tiles(
     tile_size: tuple[int, int] = (512, 512),
     overlap: int = 0,
     max_tiles: int = DEFAULT_MAX_TILES,
+    min_side: int | None = None,
 ) -> list[ImageTile]:
     """Cover an image in row-major order with tiles of at most ``(width, height)``.
 
@@ -389,8 +418,15 @@ def generate_tiles(
     ``max_tiles`` (default 256) raises ``ValueError`` before any tile is cropped. Each tile
     is usually one API call, so the cap bounds cost as well as memory. Raise ``max_tiles``
     deliberately.
+
+    ``min_side`` (default ``None``: no check) refuses, before any tile is cropped, a tile with
+    either side under that many pixels. Every tile has the same size, ``min(tile, image)`` per
+    axis, so this fires when the requested tile or the whole image is that small. Pass
+    ``min_side=IMAGE_LIMITS["min_side"]`` for tiles that will be sent to the API, or pad or
+    scale each tile with :func:`prepare_image`.
     """
     max_tiles = _positive_int(max_tiles, "max_tiles")
+    minimum = _min_side(min_side)
     try:
         tile_width, tile_height = tile_size
     except (TypeError, ValueError) as exc:
@@ -415,6 +451,12 @@ def generate_tiles(
             positions.append(length - window)
         return positions
 
+    if minimum is not None and min(min(tile_width, width), min(tile_height, height)) < minimum:
+        raise ValueError(
+            f"tiles of {min(tile_width, width)} x {min(tile_height, height)} pixels are under "
+            f"min_side={minimum}; use a larger tile_size or pad/scale each tile with "
+            "prepare_image"
+        )
     rows, columns = starts(height, tile_height), starts(width, tile_width)
     if len(rows) * len(columns) > max_tiles:
         raise ValueError(
@@ -592,3 +634,314 @@ def run_record(
         ),
     )
     return row
+
+
+# --- Image preparation and multi-level coordinate transforms (#310) -------------------------
+#
+# Everything below is exact rational arithmetic (fractions.Fraction) converted to float once,
+# at the end, so a long chain of crops, pads and resizes does not accumulate rounding error.
+# Python owns this arithmetic: the model only ever sees the image it was sent and answers in
+# that image's normalized coordinates.
+
+_ZERO, _ONE = Fraction(0), Fraction(1)
+_Axes = tuple[tuple[Fraction, Fraction], tuple[Fraction, Fraction]]
+
+
+class _AffineStep:
+    """One child-image to parent-image coordinate map: per axis ``parent = a * child + b``.
+
+    Both maps are expressed on normalized coordinates in [0, 1] of the image they belong to.
+    The child's whole [0, 1] square lands inside the parent for a tile, and the parent's whole
+    square lands inside the child for a padded transform; mapping the other way is clipped.
+    """
+
+    def _axes(self) -> _Axes:
+        raise NotImplementedError
+
+    def to_parent(self, box: Any) -> dict[str, float] | None:
+        """Map a child-image box to the parent image, clipped; ``None`` if nothing is left."""
+        return box_to_original(box, self)
+
+    def from_parent(self, box: Any) -> dict[str, float] | None:
+        """Map a parent-image box into the child image, clipped; ``None`` if nothing is left."""
+        return box_from_original(box, self)
+
+    def point_to_parent(self, point: Any) -> dict[str, float] | None:
+        """Map a child-image point to the parent image; ``None`` if it falls outside."""
+        return point_to_original(point, self)
+
+    def point_from_parent(self, point: Any) -> dict[str, float] | None:
+        """Map a parent-image point into the child image; ``None`` if it falls outside."""
+        return point_from_original(point, self)
+
+
+@dataclass(frozen=True)
+class TileStep(_AffineStep):
+    """A crop of ``bounds`` (exclusive right/bottom pixels) out of a ``parent_size`` image.
+
+    Use one step per level of a progressive search: the tile cut from the full image, the
+    crop cut from that tile, and so on. ``bounds`` are in the pixels of the image that was cut,
+    so ``parent_size`` must be the size of *that* image (the full image for the first level,
+    the previous level's image for the next). Resizing a whole level uniformly before asking
+    does not change its normalized coordinates, so it needs no step; padding does, and has
+    :class:`ImageTransform`.
+    """
+
+    bounds: PixelBounds
+    parent_size: tuple[int, int]
+
+    def __post_init__(self) -> None:
+        try:
+            width, height = self.parent_size
+        except (TypeError, ValueError) as exc:
+            raise ValueError("parent_size must contain width and height") from exc
+        width, height = _positive_int(width, "width"), _positive_int(height, "height")
+        object.__setattr__(self, "bounds", _pixel_bounds(self.bounds, width, height))
+        object.__setattr__(self, "parent_size", (width, height))
+
+    def _axes(self) -> _Axes:
+        (left, top, right, bottom), (width, height) = self.bounds, self.parent_size
+        return (
+            (Fraction(right - left, width), Fraction(left, width)),
+            (Fraction(bottom - top, height), Fraction(top, height)),
+        )
+
+
+@dataclass(frozen=True)
+class ImageTransform(_AffineStep):
+    """How :func:`prepare_image` placed an image: scaled to ``content_size``, then padded.
+
+    The original image, resized to ``content_size``, sits at pixel ``offset`` (left, top) inside
+    the ``prepared_size`` canvas; everything else is padding. ``to_original`` maps a box or
+    point found on the prepared image back to the original image and ``to_prepared`` maps the
+    other way (for example to draw a gold box on the prepared image). Normalized coordinates
+    are used throughout, so a box that overlaps the padding is clipped to the original image's
+    area and a box lying wholly in the padding maps to ``None``.
+    """
+
+    original_size: tuple[int, int]
+    prepared_size: tuple[int, int]
+    content_size: tuple[int, int]
+    offset: tuple[int, int]
+
+    def __post_init__(self) -> None:
+        sizes = {}
+        for name in ("original_size", "prepared_size", "content_size", "offset"):
+            try:
+                first, second = getattr(self, name)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{name} must contain two integers") from exc
+            if name == "offset":
+                for value in (first, second):
+                    if isinstance(value, bool) or not isinstance(value, Integral) or value < 0:
+                        raise ValueError("offset must contain two non-negative integers")
+                sizes[name] = (int(first), int(second))
+            else:
+                sizes[name] = (_positive_int(first, name), _positive_int(second, name))
+        content, offset, prepared = sizes["content_size"], sizes["offset"], sizes["prepared_size"]
+        if any(offset[i] + content[i] > prepared[i] for i in (0, 1)):
+            raise ValueError("the content must fit inside the prepared image")
+        for name, value in sizes.items():
+            object.__setattr__(self, name, value)
+
+    def _axes(self) -> _Axes:
+        (width, height), (cw, ch) = self.prepared_size, self.content_size
+        ox, oy = self.offset
+        # original = (prepared * size - offset) / content: parent = child * a + b.
+        return (
+            (Fraction(width, cw), Fraction(-ox, cw)),
+            (Fraction(height, ch), Fraction(-oy, ch)),
+        )
+
+    def to_original(self, box: Any) -> dict[str, float] | None:
+        """Prepared-image box to original-image box (clipped to the content; may be ``None``)."""
+        return self.to_parent(box)
+
+    def to_prepared(self, box: Any) -> dict[str, float] | None:
+        """Original-image box to prepared-image box (always inside; never ``None``)."""
+        return self.from_parent(box)
+
+    def point_to_original(self, point: Any) -> dict[str, float] | None:
+        """Prepared-image point to original-image point (``None`` if it lies in the padding)."""
+        return self.point_to_parent(point)
+
+    def point_to_prepared(self, point: Any) -> dict[str, float] | None:
+        """Original-image point to prepared-image point."""
+        return self.point_from_parent(point)
+
+
+def _steps(steps: Any) -> list[_AffineStep]:
+    if isinstance(steps, _AffineStep):
+        return [steps]
+    try:
+        found = list(steps)
+    except TypeError as exc:
+        raise ValueError("steps must be a TileStep, an ImageTransform or a sequence") from exc
+    if not all(isinstance(step, _AffineStep) for step in found):
+        raise ValueError("every step must be a TileStep or an ImageTransform")
+    return found
+
+
+def _map_interval(
+    low: Fraction, high: Fraction, axis: tuple[Fraction, Fraction], *, up: bool
+) -> tuple[Fraction, Fraction]:
+    scale, offset = axis
+    if up:
+        low, high = scale * low + offset, scale * high + offset
+    else:
+        low, high = (low - offset) / scale, (high - offset) / scale
+    return max(low, _ZERO), min(high, _ONE)
+
+
+def _map_box(box: Any, steps: Any, *, up: bool) -> dict[str, float] | None:
+    edges = normalized_box(box)
+    x0, x1 = Fraction(edges["left"]), Fraction(edges["right"])
+    y0, y1 = Fraction(edges["top"]), Fraction(edges["bottom"])
+    found = _steps(steps)
+    for step in reversed(found) if up else found:
+        x_axis, y_axis = step._axes()
+        (x0, x1), (y0, y1) = (
+            _map_interval(x0, x1, x_axis, up=up),
+            _map_interval(y0, y1, y_axis, up=up),
+        )
+        if x0 >= x1 or y0 >= y1:
+            return None
+    result = {"top": float(y0), "bottom": float(y1), "left": float(x0), "right": float(x1)}
+    if result["left"] >= result["right"] or result["top"] >= result["bottom"]:
+        return None  # a sliver thinner than one float increment is no rectangle
+    return result
+
+
+def _point(value: Any) -> tuple[Fraction, Fraction]:
+    try:
+        x, y = (value["x"], value["y"]) if isinstance(value, Mapping) else tuple(value)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("a point needs x and y, as a mapping or a pair") from exc
+    return Fraction(_number(x, "x", unit=True)), Fraction(_number(y, "y", unit=True))
+
+
+def _map_point(point: Any, steps: Any, *, up: bool) -> dict[str, float] | None:
+    x, y = _point(point)
+    found = _steps(steps)
+    for step in reversed(found) if up else found:
+        (xa, xb), (ya, yb) = step._axes()
+        x, y = (xa * x + xb, ya * y + yb) if up else ((x - xb) / xa, (y - yb) / ya)
+        if not (_ZERO <= x <= _ONE and _ZERO <= y <= _ONE):
+            return None
+    return {"x": float(x), "y": float(y)}
+
+
+def box_to_original(box: Any, steps: Any) -> dict[str, float] | None:
+    """Map a box found on the deepest image back through ``steps`` to the outermost one.
+
+    ``steps`` lists the levels outermost first, in the order the images were derived: for
+    example ``[TileStep(tile_bounds, full_size), TileStep(crop_bounds, tile_size), transform]``
+    for a tile, a crop of that tile and a :func:`prepare_image` of the crop. The box is in the
+    last level's normalized coordinates; the result is in the first level's (the original
+    image), computed exactly and rounded to a float once. A level whose region does not
+    contain the whole box (only a padded transform can do that) clips it; if nothing is left
+    the result is ``None``. An empty ``steps`` returns a validated copy of ``box``.
+    """
+    return _map_box(box, steps, up=True)
+
+
+def box_from_original(box: Any, steps: Any) -> dict[str, float] | None:
+    """Inverse of :func:`box_to_original`: a box on the outermost image, in the deepest image.
+
+    The result is clipped to the deepest image, and is ``None`` as soon as the box no longer
+    overlaps a level (touching only along an edge is no overlap). This labels gold boxes per
+    tile or per crop to evaluate a tile-selection step.
+    """
+    return _map_box(box, steps, up=False)
+
+
+def point_to_original(point: Any, steps: Any) -> dict[str, float] | None:
+    """:func:`box_to_original` for a point ``{"x": ..., "y": ...}`` (or ``(x, y)``).
+
+    A point is not clipped: it returns ``None`` when it lies in padding.
+    """
+    return _map_point(point, steps, up=True)
+
+
+def point_from_original(point: Any, steps: Any) -> dict[str, float] | None:
+    """:func:`box_from_original` for a point; ``None`` when it is outside a level."""
+    return _map_point(point, steps, up=False)
+
+
+def image_to_tile(
+    box: Any, tile_bounds: PixelBounds, width: int, height: int
+) -> dict[str, float] | None:
+    """Inverse of :func:`tile_to_image`: a whole-image box as seen inside one tile.
+
+    ``tile_bounds`` are the exact pixel bounds of the tile in the ``width`` x ``height`` image.
+    Returns the tile-local normalized box clipped to the tile, or ``None`` when the box does
+    not intersect the tile with positive area (touching along an edge does not count).
+    Use it to label a gold box for every tile.
+    """
+    return TileStep(tile_bounds, (width, height)).from_parent(box)
+
+
+def _pad_color(value: Any) -> tuple[int, int, int]:
+    try:
+        red, green, blue = value
+    except (TypeError, ValueError) as exc:
+        raise ValueError("pad_color must be an (r, g, b) tuple of integers 0-255") from exc
+    if any(isinstance(c, bool) or not isinstance(c, Integral) or not 0 <= c <= 255 for c in value):
+        raise ValueError("pad_color must be an (r, g, b) tuple of integers 0-255")
+    return int(red), int(green), int(blue)
+
+
+def prepare_image(
+    image: Image.Image,
+    *,
+    min_side: int = _MIN_SIDE,
+    max_side: int = _MAX_SIDE,
+    pad_color: tuple[int, int, int] = (255, 255, 255),
+    upscale: bool = True,
+) -> tuple[Image.Image, ImageTransform]:
+    """Resize and/or pad ``image`` so both sides are in ``[min_side, max_side]``.
+
+    The defaults are the API limits (``IMAGE_LIMITS``: 280 to 1568 pixels per side; the area
+    limits follow from them). Returns ``(prepared_image, transform)``; ``transform`` maps boxes
+    and points between the prepared and the original image. The steps, all deterministic:
+
+    1. If the longest side exceeds ``max_side``, scale down uniformly so it equals ``max_side``.
+    2. Otherwise, if ``upscale`` and the shortest side is under ``min_side``, scale up
+       uniformly to ``min_side``, but no further than the longest side reaching ``max_side``.
+    3. Pad any side still under ``min_side`` with ``pad_color``, centered (the extra pixel of
+       an odd margin goes to the right or bottom).
+
+    Scaled sizes are rounded half up to whole pixels and the transform records the sizes
+    actually produced, so rounding never skews a mapped box. Resampling is Lanczos, which is
+    reproducible for a given Pillow version but not a promise across versions. A very elongated
+    image (for example 5000 x 100) is padded on its short axis: it becomes valid, but the
+    content may be a thin strip, and ``upscale=False`` pads instead of scaling up a small one.
+    The output is RGB, or RGBA when the input has an alpha channel or transparency; the input
+    is not modified. An image already within the limits comes back as an identical copy with
+    an identity transform. This does not apply EXIF orientation: transpose first.
+    """
+    min_side, max_side = _positive_int(min_side, "min_side"), _positive_int(max_side, "max_side")
+    if min_side > max_side:
+        raise ValueError("min_side must not exceed max_side")
+    red, green, blue = _pad_color(pad_color)
+    width, height = image.size
+    longest, shortest = max(width, height), min(width, height)
+    scale = _ONE
+    if longest > max_side:
+        scale = Fraction(max_side, longest)
+    elif upscale and shortest < min_side:
+        scale = min(Fraction(min_side, shortest), Fraction(max_side, longest))
+
+    def scaled(length: int) -> int:
+        return max(1, min(max_side, math.floor(length * scale + Fraction(1, 2))))
+
+    content = (scaled(width), scaled(height))
+    prepared = (max(content[0], min_side), max(content[1], min_side))
+    offset = ((prepared[0] - content[0]) // 2, (prepared[1] - content[1]) // 2)
+    alpha = "A" in image.getbands() or "transparency" in image.info
+    base = image.convert("RGBA" if alpha else "RGB")
+    if content != (width, height):
+        base = base.resize(content, Image.Resampling.LANCZOS)
+    canvas = Image.new(base.mode, prepared, (red, green, blue, 255)[: len(base.getbands())])
+    canvas.paste(base, offset)
+    return canvas, ImageTransform((width, height), prepared, content, offset)
