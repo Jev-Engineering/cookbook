@@ -319,15 +319,17 @@ def _today_utc() -> str:
 def _elapsed_seconds(start: Any, end: Any) -> float | None:
     """Seconds from one clock reading to the next, or ``None`` when that is not a measurement.
 
-    A difference that is not a finite number, or is negative, is reported as missing and never
-    clamped or guessed, so a broken or injected clock cannot put an invented latency on disk.
+    Readings must be finite floats in seconds, as returned by ``time.perf_counter``. Integer
+    clocks such as ``time.perf_counter_ns`` are refused, rather than treated as seconds.
+    An unusable or negative difference is reported as missing and never clamped or guessed.
     A valid difference is rounded to nine decimal places (a nanosecond), which removes
     floating-point subtraction noise such as ``0.20000000000000018``.
     """
-    try:
-        seconds = float(end - start)
-    except Exception:  # any clock failure, e.g. decimal.InvalidOperation: never lose the response
+    if type(start) is not float or type(end) is not float:
         return None
+    if not (math.isfinite(start) and math.isfinite(end)):
+        return None
+    seconds = end - start
     return round(seconds, 9) if math.isfinite(seconds) and seconds >= 0 else None
 
 
@@ -591,16 +593,22 @@ class LiveBackend:
     timeouts, with exponential backoff (``sleep`` is injectable).
 
     Latency: every HTTP attempt is timed with ``clock`` (default ``time.perf_counter``, a
-    monotonic clock; injectable for tests). The clock is read once immediately before
+    monotonic clock returning float seconds; injectable for tests). Integer readings, including
+    ``time.perf_counter_ns``, are refused as measurements. The clock is read once immediately before
     ``client.system_one`` is called and once immediately after it returns or raises, so the
     window holds what the client does inside that one call. It starts after the budget check
     and the request has been built, and it ends before the cookbook validates the response,
     before the backoff sleep and before any ledger write. The answering attempt's seconds are on
     its ``CallRecord`` and in ``last_latency_seconds``; each failed attempt that was retried
-    carries its own in ``last_retried``. Seconds are rounded to a nanosecond. A reading that is
-    not a finite, non-negative number of seconds is stored as ``None``, and so is the latency of
-    an attempt when the clock raises.
+    carries its own in ``last_retried``. Seconds are rounded to a nanosecond. Non-float or
+    non-finite readings, negative or non-finite differences, and a clock that raises leave the
+    attempt's latency as ``None`` without losing the response.
     Latency is never part of a stored response or a replay key.
+
+    ``last_retried``, ``last_request_id`` and ``last_latency_seconds`` are shared convenience
+    views, meaningful only with serialized use of this backend. Finish a call and read its
+    views before starting another. The recorder also requires exclusive use of its backend
+    during recording; its attempt counts and retry list use backend-wide state.
     """
 
     mode = "live"
@@ -622,7 +630,7 @@ class LiveBackend:
         if type(model) is not str or not model.strip():
             raise ValueError("model must be a non-empty string such as 'jev-latest'")
         if not callable(clock):
-            raise TypeError("clock must be a callable returning seconds")
+            raise TypeError("clock must be a callable returning float seconds")
         for name, value in (("images", images), ("long_context", long_context)):
             if type(value) is not bool:
                 raise TypeError(f"{name} must be a bool")
@@ -734,6 +742,7 @@ class LiveBackend:
         ``experimental_headers`` (scrubbed; seconds are that attempt's wall-clock time, or
         ``None``). Reset at the start of
         every call, so it describes that call whether it then succeeded or raised.
+        Meaningful only with serialized backend use; another call can reset or overwrite it.
         """
         return tuple(
             {**r, "experimental_headers": dict(r["experimental_headers"])} for r in self._retried
@@ -741,6 +750,7 @@ class LiveBackend:
 
     @property
     def last_request_id(self) -> str | None:
+        """Latest successful request's ID; meaningful only with serialized backend use."""
         return self._records[-1].request_id if self._records else None
 
     @property
@@ -753,6 +763,7 @@ class LiveBackend:
         value is reset at the start of every ``decide`` call and again before each attempt, so a
         call stopped by the budget after earlier attempts reports ``None``, as its ledger line
         does; those earlier attempts keep their seconds in ``last_retried``.
+        Meaningful only with serialized backend use; another call can reset or overwrite it.
         """
         return self._last_latency
 
@@ -1347,10 +1358,12 @@ def load_ledger_latency(
     holds a latency that is not a finite, non-negative number.
 
     Pass the ``DecisionResult`` replayed for the key as ``result`` to check that the ledger line
-    describes that response: its ``model`` must equal ``result.model`` and its ``date`` the date
-    of the result's recorded answers, otherwise ``ValueError`` (an old ledger kept after the
-    response was recorded again). The check runs whether or not the line holds a latency. Two
-    recordings of one request with the same model on the same day share a replay key and cannot be
+    describes that response: the result must contain at least one recorded answer, the line's
+    ``model`` must equal ``result.model`` and its ``date`` the date of the result's recorded
+    answers, otherwise ``ValueError`` (an old ledger kept after the response was recorded again).
+    An answer missing provenance raises ``TypeError``. The check runs whether or not the line
+    holds a latency. Two recordings of one request with the same model on the same day share a
+    replay key and cannot be
     told apart, so keep one ledger per arm. Pass
     the latency to ``vision.run_record`` as ``measured_latency_seconds`` with ``capture_date=``
     the returned ``date``.
@@ -1384,7 +1397,7 @@ def load_ledger_latency(
                 "this response"
             )
         dates = _recorded_dates(result)
-        if dates and dates != {date}:
+        if dates != {date}:
             raise ValueError(
                 f"{path}: the ledger line for {replay_key} is dated {date}, but the result's "
                 f"recorded answers are dated {sorted(dates)}; the ledger does not describe this "

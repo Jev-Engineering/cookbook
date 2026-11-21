@@ -803,8 +803,12 @@ from jev_cookbook.vision import run_record
 
 Synthetic and scripted rows contain `None` for model, tokens, latency and cost,
 even when the fixtures contain illustrative token counts. Supplying measured
-latency/cost in those modes raises. Recorded/live modes require a recorded result
-and retain the API's usage fields; unreported usage remains `None`.
+latency/cost in those modes raises. Recorded/live modes require a recorded result with at least
+one recorded answer and retain the API's usage fields; unreported usage remains `None`.
+A result with no recorded answer raises `ValueError`, even without `capture_date`. Every answer
+must provide provenance; a missing provenance raises a clear `TypeError`. Recorded provenance
+must contain a real `YYYY-MM-DD` date. The same checks apply when passing `result=` to
+`load_ledger_latency`, whether or not the ledger contains a latency measurement.
 
 Provide `measured_latency_seconds` only for actual inference timing, and
 `measured_cost_usd` only for an actual measured charge. Replay execution time is

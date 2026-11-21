@@ -221,7 +221,10 @@ so build it with retries off.
 ## Latency
 
 Each HTTP attempt is timed with the backend's `clock` (default `time.perf_counter`, a monotonic
-clock; pass `clock=` to inject one in a test). The clock is read once immediately before
+clock; pass `clock=` to inject one in a test). An injected clock must return finite Python
+`float` readings in **seconds**, just as `time.perf_counter` does. Integer readings, including
+those from `time.perf_counter_ns`, are refused as measurements; convert nanoseconds to float
+seconds in your clock callable if needed. The clock is read once immediately before
 `client.system_one(...)` is called and once immediately after that call returns or raises. The
 difference, rounded to a nanosecond, is the attempt's `latency_seconds`.
 
@@ -252,16 +255,21 @@ Where it is kept:
   different clocks writes byte-identical response files.
 - `backend.ledger()`, the in-memory summary, has no latency field.
 
-A latency is null when the clock gave no usable reading: a difference that is negative or not
-finite, a clock that raises, or readings that cannot be subtracted. A call that took several
+A latency is null when either reading is not a finite `float`, the difference is negative or not
+finite, or the clock raises. Invalid timing does not discard the response or invent a duration.
+The caller supplies the unit: float readings in another unit cannot be identified by their type.
+A call that took several
 attempts has one latency for its answering attempt; the failed attempts' latencies are in
 `retried`, and the backoff between attempts is in none of them, so their sum is not the call's
 elapsed time.
 
-`last_latency_seconds` is a shared convenience view of the latest attempt. Use the success
-record or the raised exception for a particular call's latency when calls interleave. This does
-not make concurrent recording safe: the recorder still requires one writer per responses file,
-and its attempt counts and retry list use backend-wide state.
+`last_latency_seconds`, `last_retried` and `last_request_id` are shared convenience views,
+meaningful only for serialized use of one backend: finish a call and read its views before
+starting another. `last_request_id` is the latest successful request's ID; it can still name an
+earlier success after a failed call. For a particular call's latency, the success record or
+raised exception retains its own measurement. Recording also requires exclusive use of the
+backend for the duration of `record`, as well as one writer per responses file: its attempt
+counts and retry list use backend-wide state.
 
 ### Reading a captured latency back
 
@@ -277,7 +285,9 @@ call; and `ValueError` for a latency that is not a finite, non-negative number, 
 YYYY-MM-DD date or a text model. The replay key does not include the model, so pass the replayed
 `DecisionResult` as `result`: the call raises `ValueError` unless the line's model equals
 `result.model` and its date is the date of the result's recorded answers, whether or not the line
-holds a latency. That catches an old ledger kept after the response was recorded again with another
+holds a latency. A result with no recorded answer raises `ValueError`, and an answer missing
+provenance raises `TypeError`, so a missing cross-check cannot count as a match.
+That catches an old ledger kept after the response was recorded again with another
 model or on another day, and one ledger shared by arms that differ in model or date. It cannot tell
 apart two recordings of the same request with the same model on the same day, which share a replay
 key, so keep one ledger per arm.
@@ -336,8 +346,8 @@ report = record(
   record again with a pinned model). Pin the model to avoid this. The drift file lands next to the
   responses file, so the fixture validator will flag it as a stray file; that is intended, because
   it makes sure nobody commits it unnoticed.
-- One recorder per responses file: the merge is read-modify-write, and two recorders on one file
-  race.
+- One recorder per responses file, with exclusive use of its backend throughout `record`: the
+  merge is read-modify-write, and attempt counts and retry lists are shared backend state.
 - `RecordReport` lists `written`, `skipped` and `unchanged` keys, the number of attempts the
   backend made, and the returned model.
 - `ledger_path`: a JSON sidecar with one line for each call `record` makes to `decide` in this

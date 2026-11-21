@@ -1287,7 +1287,12 @@ def _raising_clock():
     "make_clock, expected",
     [
         (lambda: clock_of(1.0, 3.5), 2.5),
-        (lambda: clock_of(5, 7), 2.0),
+        (lambda: clock_of(5.0, 7.0), 2.0),
+        (lambda: clock_of(5, 7), None),
+        (lambda: clock_of(0, 250_000_000), None),  # perf_counter_ns-style readings
+        (lambda: clock_of(1.0, 2), None),
+        (lambda: clock_of(False, True), None),
+        (lambda: clock_of(decimal.Decimal("1.0"), decimal.Decimal("1.25")), None),
         (lambda: clock_of(2.0, 2.0), 0.0),
         (lambda: clock_of(0.1, 0.3), 0.2),  # 0.3 - 0.1 is 0.19999999999999998 before rounding
         (lambda: clock_of(5.0, 4.0), None),
@@ -1314,6 +1319,25 @@ def test_latency_is_none_unless_the_clock_gives_a_finite_non_negative_difference
 def test_the_clock_must_be_callable():
     with pytest.raises(TypeError, match="callable"):
         LiveBackend("jev-latest", client=FakeClient(), clock=5)
+
+
+@pytest.mark.parametrize("readings", [(0, 250_000_000), (1.0, 2), (float("inf"), 1.0)])
+def test_invalid_clock_readings_preserve_recorded_responses_without_claiming_timing(
+    tmp_path, readings
+):
+    backend, _ = make(Resp(api_body()), clock=clock_of(*readings))
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    report = record(backend, [(STATE, QUESTIONS)], path, ledger_path=ledger)
+    key = replay_key(STATE, QUESTIONS)
+    result = ReplayBackend.from_json(path).decide(STATE, QUESTIONS)
+    assert report.written == (key,)
+    assert result.model == MODEL and result["billing"].noul == 0.97
+    assert result.usage == Usage(120, 0)
+    assert all(a.provenance == Provenance.recorded(MODEL, DAY) for a in result.answers.values())
+    assert backend.requests_made == 1 and len(backend.records) == 1
+    assert backend.last_latency_seconds is None
+    assert backend.records[0].latency_seconds is None
+    assert json.loads(ledger.read_text())[key]["latency_seconds"] is None
 
 
 def test_a_call_record_built_without_a_latency_has_none():
@@ -1424,8 +1448,26 @@ def test_a_key_the_ledger_has_never_seen_is_an_error_not_unmeasured(tmp_path):
 
 
 def _recorded(model=MODEL, date=DAY):
-    answer = types.SimpleNamespace(provenance=types.SimpleNamespace(date=date))
-    return types.SimpleNamespace(model=model, answers={"q": answer})
+    return DecisionResult({"q": NoulAnswer(0.5, Provenance.recorded(model, date))}, model)
+
+
+@pytest.mark.parametrize("latency", [None, 0.5])
+@pytest.mark.parametrize(
+    "answers", [{}, {"q": NoulAnswer(0.5, SYN)}], ids=["empty", "synthetic-only"]
+)
+def test_load_ledger_latency_requires_a_recorded_answer_to_cross_check(tmp_path, latency, answers):
+    path = write_ledger(tmp_path, {"k": {**LEDGER_LINE, "latency_seconds": latency}})
+    result = types.SimpleNamespace(model=MODEL, answers=answers)
+    with pytest.raises(ValueError, match="at least one recorded answer"):
+        live_module.load_ledger_latency(path, "k", result=result)
+
+
+@pytest.mark.parametrize("latency", [None, 0.5])
+def test_load_ledger_latency_explains_missing_answer_provenance(tmp_path, latency):
+    path = write_ledger(tmp_path, {"k": {**LEDGER_LINE, "latency_seconds": latency}})
+    result = types.SimpleNamespace(model=MODEL, answers={"q": types.SimpleNamespace()})
+    with pytest.raises(TypeError, match="answer must provide provenance"):
+        live_module.load_ledger_latency(path, "k", result=result)
 
 
 def test_the_result_must_be_the_response_the_ledger_line_describes(tmp_path):
@@ -1985,7 +2027,7 @@ def test_manually_constructed_live_errors_default_to_unknown_latency(error_type)
     assert error_type("offline error").latency_seconds is None
 
 
-@pytest.mark.parametrize("readings", [(1.0, float("nan")), (5.0, 4.0)])
+@pytest.mark.parametrize("readings", [(1.0, float("nan")), (5.0, 4.0), (0, 250_000_000), (1.0, 2)])
 def test_failed_attempt_exception_keeps_an_unmeasurable_latency_as_none(tmp_path, readings):
     backend, _ = make(ApiError(400), clock=clock_of(*readings))
     ledger = tmp_path / "ledger.json"
