@@ -22,7 +22,7 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
-from jev_cookbook import Choice, Noul, Score, live, vision
+from jev_cookbook import Choice, Noul, NoulAnswer, Provenance, Score, live, vision
 from jev_cookbook._canonical import MAX_DEPTH, canonical_image_format
 from jev_cookbook.fixtures._scan import scan_text
 
@@ -706,6 +706,10 @@ def test_load_frames_rejects_empty_invalid_or_nonascending_times(image_path, tim
         vision.load_frames((timestamp, image_path) for timestamp in timestamps)
 
 
+def _accounting_answers(model="jev-test-model", date="2026-10-31"):
+    return {"q": NoulAnswer(0.5, Provenance.recorded(model, date))}
+
+
 @pytest.mark.parametrize("mode", ["synthetic", "scripted"])
 def test_run_record_does_not_turn_fixture_usage_into_measurements(mode):
     result = SimpleNamespace(
@@ -742,6 +746,7 @@ def test_run_record_reports_real_model_usage_and_only_explicit_measurements(mode
         usage=SimpleNamespace(input_tokens=50, output_tokens=8),
         latency_seconds=999,
         cost_usd=999,
+        answers=_accounting_answers(),
     )
     record = vision.run_record(result, mode=mode)
     assert record == {
@@ -760,7 +765,9 @@ def test_run_record_reports_real_model_usage_and_only_explicit_measurements(mode
 
 @pytest.mark.parametrize("usage", [None, {}, {"input_tokens": None, "output_tokens": None}])
 def test_run_record_preserves_unreported_token_counts_as_none(usage):
-    result = SimpleNamespace(source="recorded", model="jev-test-model", usage=usage)
+    result = SimpleNamespace(
+        source="recorded", model="jev-test-model", usage=usage, answers=_accounting_answers()
+    )
     record = vision.run_record(result, mode="recorded")
     assert record["input_tokens"] is None
     assert record["output_tokens"] is None
@@ -796,6 +803,7 @@ def test_run_record_validates_reported_token_counts(value):
         source="recorded",
         model="jev-test-model",
         usage={"input_tokens": value, "output_tokens": 8},
+        answers=_accounting_answers(),
     )
     with pytest.raises(ValueError):
         vision.run_record(result, mode="recorded")
@@ -804,7 +812,9 @@ def test_run_record_validates_reported_token_counts(value):
 @pytest.mark.parametrize("value", [True, -0.1, math.nan, math.inf])
 @pytest.mark.parametrize("field", ["measured_latency_seconds", "measured_cost_usd"])
 def test_run_record_rejects_invalid_explicit_measurements(value, field):
-    result = SimpleNamespace(source="recorded", model="jev-test-model", usage=None)
+    result = SimpleNamespace(
+        source="recorded", model="jev-test-model", usage=None, answers=_accounting_answers()
+    )
     with pytest.raises(ValueError):
         vision.run_record(result, mode="recorded", **{field: value})
 
@@ -820,6 +830,7 @@ RECORDED = SimpleNamespace(
     source="recorded",
     model="jev-1.13.0",
     usage=SimpleNamespace(input_tokens=50, output_tokens=8),
+    answers=_accounting_answers(model="jev-1.13.0"),
 )
 SIX_KEYS = {"mode", "model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd"}
 
@@ -927,8 +938,9 @@ def test_measured_latency_flows_from_the_ledger_into_a_recorded_row(tmp_path):
 
 
 def _dated(date):
-    answer = SimpleNamespace(provenance=SimpleNamespace(date=date))
-    return SimpleNamespace(**vars(RECORDED), answers={"q": answer})
+    return SimpleNamespace(
+        **{**vars(RECORDED), "answers": _accounting_answers(model=RECORDED.model, date=date)}
+    )
 
 
 @pytest.mark.parametrize("mode", ["recorded", "live"])
@@ -940,6 +952,42 @@ def test_a_capture_date_must_be_the_date_on_the_recorded_answers(mode):
         vision.run_record(result, mode=mode, capture_date="2026-11-01")
     # Without a capture date nothing is compared.
     assert "capture_date" not in vision.run_record(result, mode=mode)
+
+
+@pytest.mark.parametrize("mode", ["recorded", "live"])
+@pytest.mark.parametrize("capture_date", [None, "1999-01-01"])
+@pytest.mark.parametrize(
+    "answers",
+    [{}, {"q": NoulAnswer(0.5, Provenance.synthetic())}],
+    ids=["empty", "synthetic-only"],
+)
+def test_run_record_requires_an_actual_recorded_answer(mode, capture_date, answers):
+    result = SimpleNamespace(**{**vars(RECORDED), "answers": answers})
+    with pytest.raises(ValueError, match="at least one recorded answer"):
+        vision.run_record(result, mode=mode, capture_date=capture_date)
+
+
+@pytest.mark.parametrize("mode", ["recorded", "live"])
+@pytest.mark.parametrize("capture_date", [None, "2026-10-31"])
+def test_run_record_explains_missing_answer_provenance(mode, capture_date):
+    result = SimpleNamespace(**{**vars(RECORDED), "answers": {"q": SimpleNamespace()}})
+    with pytest.raises(TypeError, match="answer must provide provenance"):
+        vision.run_record(result, mode=mode, capture_date=capture_date)
+
+
+@pytest.mark.parametrize("mode", ["recorded", "live"])
+@pytest.mark.parametrize("date", [None, "", "2026-13-01", "20261031", 20261031])
+def test_run_record_refuses_recorded_provenance_without_a_real_date(mode, date):
+    provenance = SimpleNamespace(source="recorded", model=RECORDED.model, date=date)
+    answers = {"q": SimpleNamespace(provenance=provenance)}
+    result = SimpleNamespace(**{**vars(RECORDED), "answers": answers})
+    with pytest.raises(ValueError, match="requires a YYYY-MM-DD date"):
+        vision.run_record(result, mode=mode)
+
+
+def test_run_record_refuses_a_result_without_answers():
+    with pytest.raises(ValueError, match="at least one recorded answer"):
+        vision.run_record(SimpleNamespace(source="recorded", model=RECORDED.model), mode="recorded")
 
 
 def _deep(levels):
@@ -1062,7 +1110,9 @@ def test_comparison_table_refuses_none_in_a_column_computed_locally(column):
 
 
 def test_comparison_table_prints_not_measured_wherever_a_value_is_none():
-    unreported = SimpleNamespace(source="recorded", model="jev-1.13.0", usage=None)
+    unreported = SimpleNamespace(
+        source="recorded", model="jev-1.13.0", usage=None, answers=RECORDED.answers
+    )
     rows = [
         {
             **_row(SimpleNamespace(source="synthetic"), "full", mode="synthetic", n=4),
@@ -2592,7 +2642,12 @@ def test_prepare_image_reports_damaged_exif_as_a_value_error():
 def _arm(label, model, mode="recorded"):
     if mode in ("synthetic", "scripted"):
         return {**vision.run_record(SimpleNamespace(source="synthetic"), mode=mode), "label": label}
-    result = SimpleNamespace(source="recorded", model=model, usage=RECORDED.usage)
+    result = SimpleNamespace(
+        source="recorded",
+        model=model,
+        usage=RECORDED.usage,
+        answers=_accounting_answers(model=model),
+    )
     return {**vision.run_record(result, mode=mode), "label": label}
 
 
@@ -2713,8 +2768,18 @@ def test_the_documented_model_comparison_prints_what_the_docs_show_and_refuses_a
     printed = printed[: printed.index("```")]
     usage = SimpleNamespace(input_tokens=61, output_tokens=0)
     namespace = {
-        "old_result": SimpleNamespace(source="recorded", model="jev-1.13.0", usage=usage),
-        "new_result": SimpleNamespace(source="recorded", model="jev-1.14.0", usage=usage),
+        "old_result": SimpleNamespace(
+            source="recorded",
+            model="jev-1.13.0",
+            usage=usage,
+            answers=_accounting_answers(model="jev-1.13.0"),
+        ),
+        "new_result": SimpleNamespace(
+            source="recorded",
+            model="jev-1.14.0",
+            usage=usage,
+            answers=_accounting_answers(model="jev-1.14.0"),
+        ),
     }
     out = io.StringIO()
     with contextlib.redirect_stdout(out):

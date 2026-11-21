@@ -1373,12 +1373,23 @@ _MODES = ("synthetic", "scripted", "recorded", "live")
 
 
 def _recorded_dates(result: Any) -> set[str]:
-    """The provenance dates on a result's answers (empty for a result without dated answers)."""
-    return {
-        answer.provenance.date
-        for answer in getattr(result, "answers", {}).values()
-        if answer.provenance.date
-    }
+    """Recorded answer dates; refuse a result with no recorded answer to check against."""
+    answers = getattr(result, "answers", {})
+    if not isinstance(answers, Mapping):
+        raise TypeError("result.answers must be a mapping of answers with provenance")
+    dates = set()
+    for answer in answers.values():
+        provenance = getattr(answer, "provenance", None)
+        if provenance is None or not hasattr(provenance, "source"):
+            raise TypeError("each answer must provide provenance with a source and date")
+        if provenance.source == "recorded":
+            date = getattr(provenance, "date", None)
+            if not _is_iso_date(date):
+                raise ValueError("recorded answer provenance requires a YYYY-MM-DD date")
+            dates.add(date)
+    if not dates:
+        raise ValueError("result must contain at least one recorded answer with provenance")
+    return dates
 
 
 def _capture_date(value: Any) -> str:
@@ -1401,7 +1412,9 @@ def run_record(
 
     ``result`` has the ``source``, ``model`` and ``usage`` attributes of DecisionResult.
     Synthetic/scripted records always contain null usage, latency, cost and model.
-    Recorded/live rows take reported tokens and only explicitly supplied measurements.
+    Recorded/live rows require at least one recorded answer with provenance, and take reported
+    tokens and only explicitly supplied measurements. An answer missing provenance raises
+    ``TypeError``; a result with no recorded answer raises ``ValueError``.
     Recorded latency must come from capture, never the elapsed time of replay: read it from
     the recorder's ledger with ``jev_cookbook.live.load_ledger_latency``.
 
@@ -1440,9 +1453,9 @@ def run_record(
         or model == "synthetic"
     ):
         raise ValueError("recorded/live mode requires a recorded result with its returned model")
+    dates = _recorded_dates(result)
     if "capture_date" in extra:
-        dates = _recorded_dates(result)
-        if dates and dates != {extra["capture_date"]}:
+        if dates != {extra["capture_date"]}:
             raise ValueError(
                 f"capture_date {extra['capture_date']} contradicts the result's recorded answers, "
                 f"dated {sorted(dates)}"
