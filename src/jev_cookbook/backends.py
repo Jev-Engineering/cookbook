@@ -19,9 +19,14 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from ._canonical import MAX_DEPTH, canonical_image_format, canonical_json, check_depth, plain_json
+from ._canonical import (
+    MAX_DEPTH,
+    canonical_image_format,
+    canonical_json,
+    check_question_depth,
+    plain_json,
+)
 from .answers import (
-    RECORDED_SOURCE,
     SYNTHETIC_MODEL,
     SYNTHETIC_SOURCE,
     Answer,
@@ -177,11 +182,7 @@ def replay_key(
         content = checked[name].to_dict()
         # Each part of a question is limited on its own, outermost container = level 1, like
         # the state; the {"type", "instructions", "criteria"} wrapper is not the caller's level.
-        check_depth(content.get("instructions"), f"question {name!r} instructions", MAX_DEPTH)
-        criteria = content.get("criteria")
-        parts = criteria.items() if isinstance(criteria, dict) else enumerate(criteria or ())
-        for label, part in parts:
-            check_depth(part, f"question {name!r} criteria[{label!r}]", MAX_DEPTH)
+        check_question_depth(content, name)
         questions_json[name] = content
     checked_assets = _check_assets(plain_state, checked, assets)
     payload = {"v": KEY_VERSION, "state": plain_state, "questions": questions_json}
@@ -278,12 +279,9 @@ class ReplayBackend:
         self.model: str = models.pop()
         self.recorded_dates: tuple[str, ...] = tuple(
             sorted(
-                {
-                    a.provenance.date
-                    for r in self._results.values()
-                    for a in r.answers.values()
-                    if a.provenance.source == RECORDED_SOURCE and a.provenance.date
-                }
+                recorded_date
+                for recorded_date in {r.recorded_date for r in self._results.values()}
+                if recorded_date is not None
             )
         )
 

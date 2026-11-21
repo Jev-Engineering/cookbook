@@ -10,14 +10,13 @@ question: text, a JSON object or a JSON array, each held as given.
 
 from __future__ import annotations
 
-import datetime
 import math
 from collections.abc import Iterator, KeysView, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, ClassVar
 
-from ._canonical import plain_json
+from ._canonical import is_iso_date, plain_json, recorded_answer_dates
 from .questions import SINGLE_OPTION_MESSAGE
 
 __all__ = [
@@ -200,11 +199,7 @@ class Provenance:
                 raise ValueError(f"a recorded model cannot be named {SYNTHETIC_MODEL!r}")
             if type(self.date) is not str:
                 raise ValueError("recorded provenance requires a date as YYYY-MM-DD")
-            try:
-                parsed = datetime.date.fromisoformat(self.date)
-            except ValueError:
-                raise ValueError(f"date must be YYYY-MM-DD, got {self.date!r}") from None
-            if parsed.isoformat() != self.date:
+            if not is_iso_date(self.date):
                 raise ValueError(f"date must be YYYY-MM-DD, got {self.date!r}")
         else:
             raise ValueError(
@@ -524,8 +519,7 @@ class DecisionResult:
             for name, answer in self.answers.items():
                 if answer.provenance.model != self.model:
                     raise ValueError(f"answer {name!r} was recorded by a different model")
-        dates = {a.provenance.date for a in self.answers.values() if a.provenance.date}
-        if len(dates) > 1:
+        if sources != {SYNTHETIC_SOURCE} and len(recorded_answer_dates(self)) > 1:
             raise ValueError("recorded answers of one result must share one date")
         if not isinstance(self.usage, Usage):
             raise TypeError("usage must be a Usage")
@@ -535,6 +529,12 @@ class DecisionResult:
     def source(self) -> str:
         """``"synthetic"`` or ``"recorded"`` (a result never mixes them)."""
         return next(iter(self.answers.values())).provenance.source
+
+    @property
+    def recorded_date(self) -> str | None:
+        """The shared capture date of recorded answers, or ``None`` for a synthetic result."""
+        # The constructor validates the invariant directly, without calling overridable properties.
+        return next(iter(self.answers.values())).provenance.date
 
     def __getitem__(self, name: str) -> Answer:
         return self.answers[name]

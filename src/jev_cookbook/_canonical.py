@@ -1,15 +1,69 @@
-"""Plain-JSON validation and canonical serialization (private; see docs/backends.md)."""
+"""Lightweight shared validation and canonical serialization (private; see docs/backends.md)."""
 
 from __future__ import annotations
 
 import json
 import math
+from collections.abc import Mapping
+from datetime import date
+from numbers import Real
 from typing import Any
 
 MAX_DEPTH = 64  # the fixture nesting limit (docs/fixtures.md): containers nested at most this deep
 
 
 _IMAGE_FORMATS = {"png": "png", "jpeg": "jpeg", "jpg": "jpeg"}
+
+
+def finite_number(value: Any, name: str, *, unit: bool = False, positive: bool = False) -> float:
+    """Return a finite non-negative real as a float, optionally in [0, 1] or positive.
+
+    Booleans are not numbers here. Signed zero is preserved unless ``positive`` is set;
+    with both options, the accepted interval is (0, 1].
+    """
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"{name} must be a finite number")
+    try:
+        number = float(value)
+    except OverflowError as exc:
+        raise ValueError(f"{name} must be a finite number") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{name} must be a finite number")
+    if number < 0 or (unit and number > 1) or (positive and number == 0):
+        if unit:
+            bound = "in (0, 1]" if positive else "in [0, 1]"
+        else:
+            bound = "positive" if positive else "non-negative"
+        raise ValueError(f"{name} must be {bound}")
+    return number
+
+
+def is_iso_date(value: Any) -> bool:
+    """Whether a string is a real calendar date written exactly YYYY-MM-DD."""
+    try:
+        return isinstance(value, str) and date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
+def recorded_answer_dates(result: Any) -> set[str]:
+    """Recorded answer dates; refuse a result with no recorded answer to check against."""
+    answers = getattr(result, "answers", {})
+    if not isinstance(answers, Mapping):
+        raise TypeError("result.answers must be a mapping of answers with provenance")
+    dates = set()
+    for answer in answers.values():
+        provenance = getattr(answer, "provenance", None)
+        if provenance is None or not hasattr(provenance, "source"):
+            raise TypeError("each answer must provide provenance with a source and date")
+        if provenance.source == "recorded":
+            recorded_date = getattr(provenance, "date", None)
+            if not is_iso_date(recorded_date):
+                raise ValueError("recorded answer provenance requires a YYYY-MM-DD date")
+            dates.add(recorded_date)
+    if not dates:
+        raise ValueError("result must contain at least one recorded answer with provenance")
+    return dates
 
 
 def canonical_image_format(declared: Any) -> str:
@@ -46,6 +100,15 @@ def check_depth(value: Any, where: str = "value", limit: int = MAX_DEPTH) -> Non
         if depth + 1 > limit:
             raise ValueError(f"{where}: nested deeper than {limit} levels (see docs/fixtures.md)")
         stack.extend((child, depth + 1) for child in children)
+
+
+def check_question_depth(content: Mapping[str, Any], name: str) -> None:
+    """Limit instructions and each criterion independently, without counting wrappers."""
+    check_depth(content.get("instructions"), f"question {name!r} instructions", MAX_DEPTH)
+    criteria = content.get("criteria")
+    parts = criteria.items() if isinstance(criteria, dict) else enumerate(criteria or ())
+    for label, part in parts:
+        check_depth(part, f"question {name!r} criteria[{label!r}]", MAX_DEPTH)
 
 
 def plain_json(value: Any, where: str = "value", max_depth: int | None = None) -> Any:
