@@ -24,7 +24,7 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -94,6 +94,7 @@ class LiveCallError(RuntimeError):
     """A request failed. ``status`` and ``request_id`` are set when the API answered.
 
     A timeout or a connection error has neither, because no response came back.
+    ``experimental_headers`` snapshots the experimental headers passed to the client.
     """
 
     def __init__(
@@ -103,11 +104,13 @@ class LiveCallError(RuntimeError):
         status: int | None = None,
         request_id: str | None = None,
         error_type: str = "",
+        experimental_headers: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(message)
         self.status = status
         self.request_id = request_id
         self.error_type = error_type
+        self.experimental_headers = dict(experimental_headers or {})
 
 
 class LiveResponseError(ValueError):
@@ -116,7 +119,8 @@ class LiveResponseError(ValueError):
     The call was made and counted. ``response`` holds the parsed JSON body when there was
     one, so the orchestrator can inspect it; nothing is loosened to make it pass.
     ``request_id`` is the response's ``x-typesafe-request-id`` when it had one: the paid call
-    can be found by it even though nothing was recorded.
+    can be found by it even though nothing was recorded. ``experimental_headers`` snapshots
+    the experimental headers passed to the client on that attempt.
     """
 
     def __init__(
@@ -125,10 +129,12 @@ class LiveResponseError(ValueError):
         *,
         response: Mapping[str, Any] | None = None,
         request_id: str | None = None,
+        experimental_headers: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(message)
         self.response = response
         self.request_id = request_id
+        self.experimental_headers = dict(experimental_headers or {})
 
 
 class RecordConflict(ValueError):
@@ -142,6 +148,19 @@ class RecordConflict(ValueError):
     saved_to: Path | None = None
 
 
+class _FrozenHeaders(dict):  # type: ignore[type-arg]
+    """A read-only ``dict`` snapshot that still copies, pickles and converts like a dict."""
+
+    def _read_only(self, *args: Any, **kwargs: Any) -> None:
+        raise TypeError("experimental_headers is a read-only snapshot")
+
+    __setitem__ = __delitem__ = __ior__ = _read_only  # type: ignore[assignment]
+    clear = pop = popitem = setdefault = update = _read_only  # type: ignore[assignment]
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (type(self), (dict(self),))
+
+
 @dataclass(frozen=True)
 class CallRecord:
     """Ledger line for one successful call (no key, no state, no answers).
@@ -149,7 +168,10 @@ class CallRecord:
     ``latency_seconds`` is the wall-clock time of the HTTP attempt that produced the response,
     measured by the backend's clock around the ``client.system_one`` call (see ``LiveBackend``),
     or ``None`` when the clock gave no usable reading. It is never part of a stored response or
-    a replay key.
+    a replay key. ``experimental_headers`` snapshots the experimental header names and values
+    passed to the client on the answering attempt; ``None`` means unknown for older callers.
+    The mapping is stored as a read-only copy and left out of the hash, so a record stays
+    hashable and a caller's dict (or a later change to it) cannot rewrite the snapshot.
     """
 
     replay_key: str
@@ -160,6 +182,13 @@ class CallRecord:
     images: int = 0
     distinct_images: int = 0
     latency_seconds: float | None = None
+    experimental_headers: Mapping[str, str] | None = field(default=None, hash=False)
+
+    def __post_init__(self) -> None:
+        if self.experimental_headers is not None:
+            object.__setattr__(
+                self, "experimental_headers", _FrozenHeaders(self.experimental_headers)
+            )
 
 
 def _secret_variants(*raw: str | None) -> tuple[str, ...]:
@@ -183,17 +212,30 @@ def _scrub(text: str, secrets: Iterable[str]) -> str:
 
 
 def _redact_data(data: Any, secrets: tuple[str, ...]) -> Any:
-    """Copy parsed JSON with the key removed from every string and key."""
-    if isinstance(data, str):
-        return _redact(data, secrets)
-    if isinstance(data, Mapping):
-        return {
-            (_redact(k, secrets) if isinstance(k, str) else k): _redact_data(v, secrets)
-            for k, v in data.items()
-        }
-    if isinstance(data, list):
-        return [_redact_data(v, secrets) for v in data]
-    return data
+    """Copy parsed JSON with secrets removed, without recursing on a deep invalid body."""
+    pending: list[tuple[Any, Any]] = []
+    copies: dict[int, Any] = {}
+
+    def copy(value: Any) -> Any:
+        if isinstance(value, str):
+            return _redact(value, secrets)
+        if not isinstance(value, (Mapping, list)):
+            return value
+        if id(value) not in copies:
+            target: Any = {} if isinstance(value, Mapping) else []
+            copies[id(value)] = target
+            pending.append((value, target))
+        return copies[id(value)]
+
+    result = copy(data)
+    while pending:
+        original, target = pending.pop()
+        if isinstance(original, Mapping):
+            for key, value in original.items():
+                target[_redact(key, secrets) if isinstance(key, str) else key] = copy(value)
+        else:
+            target.extend(copy(value) for value in original)
+    return result
 
 
 def _wire_variants(*raw: str | None) -> tuple[str, ...]:
@@ -381,10 +423,23 @@ def _parse_response(
 ) -> tuple[DecisionResult, str | None]:
     """Turn an API response into a recorded ``DecisionResult`` (validated, not loosened)."""
     rid = _request_id(response)
+    data = None
     try:
         data = _response_json(response)
+        return _parse_response_data(data, questions, date, rid)
     except LiveResponseError as exc:
-        raise LiveResponseError(str(exc), response=exc.response, request_id=rid) from None
+        problem = (str(exc), exc.response)
+    except (ValueError, TypeError, ArithmeticError, RecursionError) as exc:
+        # JSON decoding, provenance and numeric validation reject malformed data through
+        # this one boundary. Keep the parsed body when available, and detach the raw error.
+        problem = (f"the API response fails validation ({type(exc).__name__}): {exc}", data)
+    raise LiveResponseError(problem[0], response=problem[1], request_id=rid) from None
+
+
+def _parse_response_data(
+    data: dict[str, Any], questions: Mapping[str, Question], date: str, rid: str | None
+) -> tuple[DecisionResult, str | None]:
+    """Validate decoded data; the caller normalizes expected malformed-data exceptions."""
     model = data.get("model")
     if type(model) is not str or not model:
         raise LiveResponseError("response has no model string", response=data, request_id=rid)
@@ -402,12 +457,14 @@ def _parse_response(
             raise LiveResponseError(
                 f"answer {name!r} is not an object", response=data, request_id=rid
             )
-        fields = {
+        fields_by_type = {
             "noul": ("noul",),
             "choice": ("choice", "probabilities", "confidence"),
             "score": ("score", "probabilities", "confidence", "legend"),
             "box": ("box", "confidence"),
-        }.get(raw.get("type"))
+        }
+        kind = raw.get("type")
+        fields = fields_by_type.get(kind) if type(kind) is str else None
         if fields is None:
             raise LiveResponseError(
                 f"answer {name!r} has an unknown type {raw.get('type')!r}",
@@ -667,11 +724,14 @@ class LiveBackend:
     def last_retried(self) -> tuple[dict[str, Any], ...]:
         """The failed attempts the latest ``decide`` call retried past, oldest first.
 
-        Each is ``{error_type, http_status, request_id, latency_seconds}`` (scrubbed;
-        ``latency_seconds`` is that attempt's wall-clock time, or ``None``). Reset at the start of
+        Each holds ``error_type``, ``http_status``, ``request_id``, ``latency_seconds`` and
+        ``experimental_headers`` (scrubbed; seconds are that attempt's wall-clock time, or
+        ``None``). Reset at the start of
         every call, so it describes that call whether it then succeeded or raised.
         """
-        return tuple(dict(r) for r in self._retried)
+        return tuple(
+            {**r, "experimental_headers": dict(r["experimental_headers"])} for r in self._retried
+        )
 
     @property
     def last_request_id(self) -> str | None:
@@ -790,8 +850,6 @@ class LiveBackend:
         if self.long_context:
             headers["TypeSafe-Danger-Zone-Long-Context"] = "true"
         call_extra = self._call_extra.copy()
-        if headers:
-            call_extra["extra_headers"] = headers
         payload = {name: _question_payload(q) for name, q in checked.items()}
         attempt = 0
         # Errors are raised after their `except` block has ended, so neither `__cause__` nor
@@ -803,6 +861,10 @@ class LiveBackend:
             failure: Exception | None = None
             delay = 0.0
             started: Any = None
+            experimental_headers: dict[str, str] = {}
+            if headers:
+                # Each attempt gets its own mapping, independent of client mutations.
+                call_extra["extra_headers"] = headers.copy()
             try:
                 # ``dict(...)`` keyword form, not a ``{**a, **b}`` literal: a keyword given twice
                 # still raises ``TypeError`` instead of one value silently replacing the other.
@@ -814,6 +876,7 @@ class LiveBackend:
                     **self._request_kwargs,
                     **call_extra,
                 )
+                experimental_headers = headers.copy()
                 started = self._read_clock()
                 response = self._client.system_one(**call_kwargs)
             except Exception as exc:
@@ -834,6 +897,7 @@ class LiveBackend:
                                 "http_status": note.status,
                                 "request_id": note.request_id,
                                 "latency_seconds": latency,
+                                "experimental_headers": experimental_headers,
                             }
                         )
                 elif _is_validation_error(exc):
@@ -846,6 +910,7 @@ class LiveBackend:
                     self._last_latency = latency
                 break
             if failure is not None:
+                failure.experimental_headers = dict(experimental_headers)
                 raise failure
             self._sleep(delay)
         date = self._today()
@@ -870,9 +935,20 @@ class LiveBackend:
                 _redact(problem[0], self._secrets),
                 response=_redact_data(problem[1], self._secrets),
                 request_id=_redact(rid, self._secrets) if rid else None,
+                experimental_headers=experimental_headers,
             )
         self._note_success(
-            CallRecord(key, result.model, rid, result.usage, date, images, distinct_images, latency)
+            CallRecord(
+                key,
+                result.model,
+                rid,
+                result.usage,
+                date,
+                images,
+                distinct_images,
+                latency,
+                experimental_headers,
+            )
         )
         return result
 
@@ -1059,17 +1135,17 @@ def record(
     format, so it lives there). A request that fails validation never becomes a ``decide`` call:
     ``record`` raises before any call and writes no line for it. A success is
     ``{replay_key: {status: "recorded", request_id, model, date, input_tokens, output_tokens,
-    latency_seconds, attempts, retried}}``, plus ``images`` and ``distinct_images`` (counts only)
-    when the call carried image assets. A call that produced nothing to record
+    latency_seconds, experimental_headers, attempts, retried}}``, plus ``images`` and
+    ``distinct_images`` (counts only) when the call carried image assets. A call that produced nothing to record
     (``invalid_response``, ``error``, ``timeout``, ``budget_stopped``) is
     ``{replay_key + "!failed-N": {status, error_type, http_status, request_id, model, date,
-    latency_seconds, attempts, retried}}`` with no image counts, written
+    latency_seconds, experimental_headers, attempts, retried}}`` with no image counts, written
     before the error is re-raised. A ``decide`` call refused before anything was sent
     (``ImageRequestTooLarge``, ``LiveConfigError``) is ``status: "error"`` with ``error_type``
     the exception's class name and ``attempts`` 0.
     ``attempts`` is the HTTP attempts that call spent (0 when nothing was sent) and ``retried``
-    lists ``{error_type, http_status, request_id, latency_seconds}`` for each failed attempt it
-    retried past, on both kinds of line. ``latency_seconds`` is the wall-clock time of one HTTP
+    lists ``{error_type, http_status, request_id, latency_seconds, experimental_headers}`` for each
+    failed attempt it retried past, on both kinds of line. ``latency_seconds`` is the wall-clock time of one HTTP
     attempt (see ``LiveBackend``): on a ``recorded`` line the attempt that produced the response,
     on a failed line the attempt that ended the call (null when that call sent nothing), and
     null wherever the clock gave no usable reading. It lives only in this ledger, never in the
@@ -1134,6 +1210,9 @@ def record(
                 "input_tokens": rec.usage.input_tokens,
                 "output_tokens": rec.usage.output_tokens,
                 "latency_seconds": rec.latency_seconds,
+                "experimental_headers": (
+                    None if rec.experimental_headers is None else dict(rec.experimental_headers)
+                ),
                 "attempts": backend.requests_made - attempts_before,
                 "retried": list(backend.last_retried),
             }
@@ -1218,6 +1297,7 @@ def _ledger_failure(
         "model": backend.requested_model,
         "date": backend._today(),
         "latency_seconds": backend.last_latency_seconds,
+        "experimental_headers": dict(getattr(exc, "experimental_headers", {})),
         "attempts": attempts,
         "retried": list(backend.last_retried),
     }

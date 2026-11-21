@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import decimal
+import io
 import json
 import subprocess
 import sys
@@ -640,6 +642,7 @@ def test_record_writes_an_optional_request_id_sidecar(tmp_path):
             "input_tokens": 7,
             "output_tokens": None,
             "latency_seconds": 0.25,
+            "experimental_headers": {},
             "attempts": 1,
             "retried": [],
         }
@@ -786,6 +789,7 @@ def test_failure_on_the_second_call_leaves_a_ledger_with_the_first_request_id(tm
         "model": "jev-latest",
         "date": DAY,
         "latency_seconds": 0.125,
+        "experimental_headers": {},
         "attempts": 1,
         "retried": [],
     }
@@ -1016,12 +1020,14 @@ def test_sidecar_attempts_add_up_to_requests_made_and_keep_retried_request_ids(t
             "http_status": None,
             "request_id": None,
             "latency_seconds": 1.0,
+            "experimental_headers": {},
         },
         {
             "error_type": "ApiError",
             "http_status": 500,
             "request_id": "req-err-500",
             "latency_seconds": 2.0,
+            "experimental_headers": {},
         },
     ]
     assert side[keys[0]]["retried"] == [] and side[keys[2] + "!failed-1"]["retried"] == []
@@ -1049,6 +1055,7 @@ def test_a_failed_call_after_retries_lists_them_on_the_failed_line(tmp_path):
             "http_status": 502,
             "request_id": "req-err-502",
             "latency_seconds": 0.5,
+            "experimental_headers": {},
         }
     ]
     assert line["latency_seconds"] == 0.25
@@ -1476,3 +1483,413 @@ def test_load_ledger_latency_refuses_a_missing_file_and_a_non_text_key(tmp_path)
         live_module.load_ledger_latency(tmp_path / "nope.json", "k")
     with pytest.raises(TypeError):
         live_module.load_ledger_latency(write_ledger(tmp_path, {}), 5)
+
+
+# -- experimental-header provenance: fake clients only, with no optional SDK ----------------
+
+
+@pytest.mark.parametrize("images", [False, True])
+@pytest.mark.parametrize("long_context", [False, True])
+def test_experimental_headers_record_the_text_request_not_the_images_permission(
+    tmp_path, images, long_context
+):
+    backend, client = make(images=images, long_context=long_context)
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    record(backend, [(STATE, QUESTIONS)], path, ledger_path=ledger)
+    expected = {"TypeSafe-Danger-Zone-Long-Context": "true"} if long_context else {}
+    key = replay_key(STATE, QUESTIONS)
+    assert client.calls[0].get("extra_headers", {}) == expected
+    assert backend.records[0].experimental_headers == expected
+    assert json.loads(ledger.read_text())[key]["experimental_headers"] == expected
+    # Identical answers/provenance and replay keys under every flag setting.
+    plain, _ = make()
+    plain_path = tmp_path / "plain.json"
+    record(plain, [(STATE, QUESTIONS)], plain_path)
+    assert path.read_bytes() == plain_path.read_bytes()
+    assert ReplayBackend.from_json(path).decide(STATE, QUESTIONS).model == MODEL
+
+
+def test_experimental_headers_follow_mixed_image_and_text_requests_without_the_sdk(
+    tmp_path, monkeypatch
+):
+    from PIL import Image
+
+    data = io.BytesIO()
+    Image.new("RGB", (280, 280), "pink").save(data, format="PNG")
+    assets = {
+        "offline-photo": {
+            "type": "image",
+            "format": "png",
+            "data_base64": base64.b64encode(data.getvalue()).decode("ascii"),
+        }
+    }
+    monkeypatch.setattr(live_module, "_import_sdk", lambda: types.SimpleNamespace(Image=bytes))
+    backend, client = make(images=True, long_context=True)
+    requests = [
+        ({"document": "text before"}, QUESTIONS),
+        ({"document": "offline-photo"}, QUESTIONS, assets),
+        ({"document": "text after"}, QUESTIONS),
+    ]
+    ledger = tmp_path / "ledger.json"
+    record(backend, requests, tmp_path / "r.json", ledger_path=ledger)
+    long_only = {"TypeSafe-Danger-Zone-Long-Context": "true"}
+    both = {**long_only, "TypeSafe-Danger-Zone-Images": "true"}
+    expected = [long_only, both, long_only]
+    assert [call["extra_headers"] for call in client.calls] == expected
+    assert [rec.experimental_headers for rec in backend.records] == expected
+    side = json.loads(ledger.read_text())
+    assert [side[rec.replay_key]["experimental_headers"] for rec in backend.records] == expected
+    assert client.calls[1]["assets"] == {"offline-photo": data.getvalue()}
+
+
+def test_experimental_headers_are_per_attempt_snapshots_not_client_header_mappings(tmp_path):
+    sent = []
+
+    class MutatingClient:
+        def system_one(self, **kwargs):
+            sent.append(dict(kwargs["extra_headers"]))
+            # Synthetic arbitrary headers must never become recorder metadata; mutating the
+            # dictionary retained by the client must not rewrite an earlier attempt's snapshot.
+            kwargs["extra_headers"].clear()
+            kwargs["extra_headers"]["Authorization"] = "offline-placeholder"
+            backend.long_context = False
+            if len(sent) == 1:
+                raise ApiError(503)
+            return Resp(api_body())
+
+    backend = LiveBackend(
+        "jev-latest",
+        client=MutatingClient(),
+        long_context=True,
+        today=lambda: DAY,
+        sleep=lambda _: None,
+    )
+    ledger = tmp_path / "ledger.json"
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    expected = {"TypeSafe-Danger-Zone-Long-Context": "true"}
+    assert sent == [expected, expected]
+    assert backend.records[0].experimental_headers == expected
+    line = json.loads(ledger.read_text())[replay_key(STATE, QUESTIONS)]
+    assert line["experimental_headers"] == expected
+    assert line["retried"][0]["experimental_headers"] == expected
+    assert "Authorization" not in ledger.read_text()
+    retry = backend.last_retried[0]
+    retry["experimental_headers"].clear()
+    assert backend.last_retried[0]["experimental_headers"] == expected
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        ApiError(400),
+        ValidationError({"model": MODEL}, "answers"),
+        Resp({"model": MODEL, "answers": {}}),
+    ],
+)
+def test_failed_attempts_keep_experimental_headers_on_the_exception_and_sidecar(tmp_path, outcome):
+    backend, client = make(outcome, long_context=True)
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises((LiveCallError, LiveResponseError)) as error:
+        record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    expected = {"TypeSafe-Danger-Zone-Long-Context": "true"}
+    assert client.calls[0]["extra_headers"] == expected
+    assert error.value.experimental_headers == expected
+    assert list(json.loads(ledger.read_text()).values())[0]["experimental_headers"] == expected
+
+
+LONG_HEADERS = {"TypeSafe-Danger-Zone-Long-Context": "true"}
+
+
+def test_call_record_stays_hashable_with_experimental_headers(tmp_path):
+    backend, _ = make(long_context=True)
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json")
+    rec = backend.records[0]
+    assert rec.experimental_headers == LONG_HEADERS
+    assert isinstance(hash(rec), int)
+    assert len({rec, rec}) == 1
+    unknown = live_module.CallRecord("k", MODEL, None, Usage(), DAY)
+    assert isinstance(hash(unknown), int)
+
+
+def test_recorded_experimental_headers_are_read_only_and_detached_from_the_caller():
+    source = dict(LONG_HEADERS)
+    rec = live_module.CallRecord("k", MODEL, None, Usage(), DAY, experimental_headers=source)
+    source["X"] = "y"
+    source.clear()
+    assert rec.experimental_headers == LONG_HEADERS
+    with pytest.raises(TypeError):
+        rec.experimental_headers["X"] = "y"  # type: ignore[index]
+    with pytest.raises(TypeError):
+        rec.experimental_headers.clear()  # type: ignore[union-attr]
+    assert rec.experimental_headers == LONG_HEADERS
+
+
+def test_backend_record_headers_cannot_be_rewritten_through_the_public_records(tmp_path):
+    backend, _ = make(ApiError(503), long_context=True)
+    ledger = tmp_path / "ledger.json"
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    rec = backend.records[0]
+    with pytest.raises(TypeError):
+        rec.experimental_headers["X"] = "y"  # type: ignore[index]
+    assert backend.records[0].experimental_headers == LONG_HEADERS
+    assert backend.last_retried[0]["experimental_headers"] == LONG_HEADERS
+
+
+def _frozen_with_every_mutator(headers):
+    for mutate in (
+        lambda h: h.__setitem__("X", "y"),
+        lambda h: h.__delitem__(next(iter(h))),
+        lambda h: h.clear(),
+        lambda h: h.pop(next(iter(h))),
+        lambda h: h.popitem(),
+        lambda h: h.setdefault("X", "y"),
+        lambda h: h.update({"X": "y"}),
+        lambda h: h.__ior__({"X": "y"}),
+    ):
+        with pytest.raises(TypeError):
+            mutate(headers)
+        assert headers == LONG_HEADERS
+
+
+def test_backend_record_converts_copies_and_pickles_like_a_plain_record(tmp_path):
+    import copy
+    import dataclasses
+    import pickle
+
+    backend, _ = make(long_context=True)
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json")
+    rec = backend.records[0]
+    _frozen_with_every_mutator(rec.experimental_headers)
+    assert dataclasses.asdict(rec)["experimental_headers"] == LONG_HEADERS
+    assert LONG_HEADERS in dataclasses.astuple(rec)
+    for clone in (copy.deepcopy(rec), copy.copy(rec), pickle.loads(pickle.dumps(rec))):
+        assert clone == rec and hash(clone) == hash(rec)
+        assert clone.experimental_headers == LONG_HEADERS
+        _frozen_with_every_mutator(clone.experimental_headers)
+    assert json.dumps(rec.experimental_headers) == json.dumps(LONG_HEADERS)
+
+
+def test_call_record_equality_includes_experimental_headers():
+    base = ("k", MODEL, None, Usage(), DAY)
+    long = live_module.CallRecord(*base, experimental_headers=LONG_HEADERS)
+    assert long == live_module.CallRecord(*base, experimental_headers=dict(LONG_HEADERS))
+    assert long != live_module.CallRecord(*base, experimental_headers={})
+    assert live_module.CallRecord(*base, experimental_headers={}) != live_module.CallRecord(*base)
+    assert hash(long) == hash(live_module.CallRecord(*base, experimental_headers={}))
+
+
+def test_retry_then_success_attempt_snapshots_are_independent(tmp_path):
+    backend, _ = make(ApiError(503), ApiError(503), long_context=True)
+    ledger = tmp_path / "ledger.json"
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    assert len(backend.last_retried) == 2
+    first, second = backend.last_retried
+    assert first["experimental_headers"] is not second["experimental_headers"]
+    first["experimental_headers"]["X"] = "first"
+    assert backend.last_retried[1]["experimental_headers"] == LONG_HEADERS
+    assert backend.last_retried[0]["experimental_headers"] == LONG_HEADERS
+    assert backend.records[0].experimental_headers == LONG_HEADERS
+    line = json.loads(ledger.read_text())[replay_key(STATE, QUESTIONS)]
+    assert line["experimental_headers"] == LONG_HEADERS
+    assert [r["experimental_headers"] for r in line["retried"]] == [LONG_HEADERS] * 2
+
+
+def test_retry_then_failure_exception_headers_do_not_alias_earlier_attempts(tmp_path):
+    backend, _ = make(ApiError(503), ApiError(400), long_context=True)
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(LiveCallError) as error:
+        record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    assert error.value.experimental_headers == LONG_HEADERS
+    error.value.experimental_headers["X"] = "mutated"
+    error.value.experimental_headers.clear()
+    assert backend.last_retried[0]["experimental_headers"] == LONG_HEADERS
+    line = list(json.loads(ledger.read_text()).values())[0]
+    assert line["experimental_headers"] == LONG_HEADERS
+    assert line["retried"][0]["experimental_headers"] == LONG_HEADERS
+
+
+def test_experimental_headers_are_empty_when_budget_prevents_the_final_attempt(tmp_path):
+    backend, client = make(ApiError(503), long_context=True, max_requests=1)
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(BudgetExceeded):
+        record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    assert len(client.calls) == 1
+    line = list(json.loads(ledger.read_text()).values())[0]
+    assert line["experimental_headers"] == {}
+    assert line["retried"][0]["experimental_headers"] == {
+        "TypeSafe-Danger-Zone-Long-Context": "true",
+    }
+
+
+def test_legacy_header_provenance_stays_unknown_and_survives_overwrite(tmp_path):
+    old_record = live_module.CallRecord("k", MODEL, None, Usage(), DAY)
+    assert old_record.experimental_headers is None
+    backend, _ = make()
+    ledger = tmp_path / "ledger.json"
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    key = replay_key(STATE, QUESTIONS)
+    old = json.loads(ledger.read_text())
+    del old[key]["experimental_headers"]  # a sidecar written before header provenance
+    ledger.write_text(json.dumps(old))
+    assert live_module.load_ledger_latency(ledger, key).model == MODEL
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger, overwrite=True)
+    line = json.loads(ledger.read_text())[key]
+    assert line["experimental_headers"] == {}
+    assert line["superseded"] == [old[key]]
+    assert "experimental_headers" not in line["superseded"][0]
+
+
+@pytest.mark.parametrize("malformed_type", [[], {}, [SECRET], {"echo": SECRET}])
+@pytest.mark.parametrize("sdk_shaped_response", [False, True])
+def test_malformed_answer_types_keep_failure_header_provenance_and_redaction(
+    tmp_path, clean_env, malformed_type, sdk_shaped_response
+):
+    clean_env.setenv("TYPESAFE_API_KEY", SECRET)
+    body = api_body()
+    body["answers"]["billing"]["type"] = malformed_type
+    response = Resp(body, "req-malformed") if sdk_shaped_response else body
+    backend, client = make(response, long_context=True, clock=clock_of(0.0, 0.25))
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    with pytest.raises(LiveResponseError, match="answer 'billing' has an unknown type") as error:
+        record(backend, [(STATE, QUESTIONS)], path, ledger_path=ledger)
+    expected_headers = {"TypeSafe-Danger-Zone-Long-Context": "true"}
+    assert client.calls[0]["extra_headers"] == expected_headers
+    assert error.value.experimental_headers == expected_headers
+    assert error.value.request_id == ("req-malformed" if sdk_shaped_response else None)
+    assert error.value.response["answers"]["billing"]["type"] == json.loads(
+        json.dumps(malformed_type).replace(SECRET, "[redacted]")
+    )
+    assert SECRET not in everything_said_about(error.value)[0]
+    assert error.value.__cause__ is None and error.value.__context__ is None
+    line = json.loads(ledger.read_text())[replay_key(STATE, QUESTIONS) + "!failed-1"]
+    assert line["status"] == "invalid_response" and line["error_type"] == "LiveResponseError"
+    assert line["experimental_headers"] == expected_headers
+    assert line["request_id"] == error.value.request_id
+    assert line["latency_seconds"] == 0.25
+    assert SECRET not in ledger.read_text()
+    assert backend.requests_made == 1 and backend.ledger()["failed_attempts"] == 1
+    assert backend.records == () and not path.exists()
+
+
+# -- one malformed-data boundary: JSON conversion, provenance, answers and result ------------
+
+
+def boundary_body(case):
+    body = api_body()
+    body["echo"] = SECRET
+    if case == "reserved_model":
+        body["model"] = "synthetic"
+    elif case == "deep_reserved_model":
+        body["model"] = "synthetic"
+        for _ in range(600):
+            body["echo"] = [body["echo"]]
+    elif case == "huge_noul":
+        body["answers"]["billing"]["noul"] = 10**400
+    elif case == "huge_choice":
+        body["answers"]["tone"]["probabilities"]["calm"] = 10**400
+    elif case == "huge_score":
+        body["answers"]["urgency"]["score"] = 10**400
+    else:
+        body["answers"]["tone"]["choice"] = []
+    return body
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "reserved_model",
+        "deep_reserved_model",
+        "huge_noul",
+        "huge_choice",
+        "huge_score",
+        "choice_type",
+    ],
+)
+@pytest.mark.parametrize("sdk_shaped", [False, True])
+def test_malformed_data_boundary_keeps_paid_metadata_and_scrubbed_body(
+    tmp_path, clean_env, case, sdk_shaped
+):
+    clean_env.setenv("TYPESAFE_API_KEY", SECRET)
+    body = boundary_body(case)
+    backend, client = make(
+        Resp(body, "req-boundary") if sdk_shaped else body,
+        long_context=True,
+        clock=clock_of(0.0, 0.25),
+    )
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    with pytest.raises(LiveResponseError) as error:
+        record(backend, [(STATE, QUESTIONS)], path, ledger_path=ledger)
+    expected = {"TypeSafe-Danger-Zone-Long-Context": "true"}
+    assert error.value.experimental_headers == client.calls[0]["extra_headers"] == expected
+    assert error.value.request_id == ("req-boundary" if sdk_shaped else None)
+    assert error.value.response is not None
+    echo = error.value.response["echo"]
+    while isinstance(echo, list):
+        echo = echo[0]
+    assert echo == "[redacted]"
+    assert SECRET not in everything_said_about(error.value)[0]
+    assert error.value.__cause__ is None and error.value.__context__ is None
+    line = json.loads(ledger.read_text())[replay_key(STATE, QUESTIONS) + "!failed-1"]
+    assert line["status"] == "invalid_response" and line["error_type"] == "LiveResponseError"
+    assert line["experimental_headers"] == expected and line["latency_seconds"] == 0.25
+    assert line["request_id"] == error.value.request_id and line["attempts"] == 1
+    assert backend.requests_made == 1 and backend.ledger()["failed_attempts"] == 1
+    assert backend.records == () and not path.exists()
+
+
+class MalformedJsonResponse:
+    request_id = "req-json-boundary"
+
+    def __init__(self, case):
+        self.case = case
+
+    def model_dump_json(self):
+        if self.case == "malformed_json":
+            return "{" + SECRET
+        if self.case == "invalid_encoding":
+            return b"\xff"
+        if self.case == "deep_json":
+            return "[" * 2000 + "0" + "]" * 2000
+        if self.case == "non_object":
+            return "[]"
+        if self.case == "wrong_dump_type":
+            return None
+        error = {
+            "value_error": ValueError,
+            "type_error": TypeError,
+            "overflow": OverflowError,
+            "recursion": RecursionError,
+        }[self.case]
+        raise error("offline serializer echoed " + SECRET)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "malformed_json",
+        "invalid_encoding",
+        "deep_json",
+        "non_object",
+        "wrong_dump_type",
+        "value_error",
+        "type_error",
+        "overflow",
+        "recursion",
+    ],
+)
+def test_malformed_data_boundary_normalizes_sdk_serialization_and_json_decode_failures(
+    tmp_path, clean_env, case
+):
+    clean_env.setenv("TYPESAFE_API_KEY", SECRET)
+    backend, _ = make(MalformedJsonResponse(case), long_context=True, clock=clock_of(0.0, 0.25))
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    with pytest.raises(LiveResponseError) as error:
+        record(backend, [(STATE, QUESTIONS)], path, ledger_path=ledger)
+    assert error.value.response is None and error.value.request_id == "req-json-boundary"
+    assert SECRET not in everything_said_about(error.value)[0]
+    assert error.value.__cause__ is None and error.value.__context__ is None
+    line = json.loads(ledger.read_text())[replay_key(STATE, QUESTIONS) + "!failed-1"]
+    assert line["status"] == "invalid_response" and line["request_id"] == "req-json-boundary"
+    assert line["experimental_headers"] == {"TypeSafe-Danger-Zone-Long-Context": "true"}
+    assert line["latency_seconds"] == 0.25 and line["attempts"] == 1
+    assert backend.ledger()["failed_attempts"] == 1 and not path.exists()

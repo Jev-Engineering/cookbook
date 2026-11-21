@@ -74,6 +74,22 @@ The backend requires `images=True` for image assets and Box questions, whatever
 `TypeSafe-Danger-Zone-Long-Context: true` on every request.
 The existing restriction on arbitrary `request_kwargs["extra_headers"]` still holds.
 
+Header provenance is recorded beside the response: `CallRecord.experimental_headers` holds the
+experimental names and values passed to the client on the answering attempt. The recorder's
+sidecar writes `experimental_headers` on every new success, failure and retried-attempt entry.
+It is `{}` when that attempt used neither header, or when nothing was sent (including a budget
+stop before a retry). The images entry follows the individual request, not the constructor's
+permission flag. Each retry snapshots its own headers.
+
+This metadata stays out of answer provenance, stored responses and replay keys: headers do not
+change the question. A replay or `merge_responses` therefore cannot enforce matching headers;
+keep the sidecar with the recording and use separate response files for experimental comparisons.
+A manually constructed `CallRecord` defaults to `experimental_headers=None` (unknown); new
+backend records always hold a dictionary, including `{}` when neither header was used.
+Older sidecars without `experimental_headers` still load, and overwriting keeps their entries
+under `superseded` without inventing metadata. A missing field on an old entry means the headers
+were not recorded, rather than proving none were sent.
+
 Pass raw image dictionaries using `decide(state, questions, assets=assets)` as described in
 [backends.md](backends.md#images-and-box). Before spending a request, the backend checks the
 assets, requires the images flag, and for a Box requires `jev-1.14.0` or `jev-preview`.
@@ -133,7 +149,8 @@ estimating tokens, and the cookbook has no estimator.
   response format, and `DecisionResult` rejects unknown fields, so it is kept beside the result:
   `backend.last_request_id`, `backend.request_ids`, `backend.records` (one `CallRecord` per
   successful call: replay key, model, request id, usage, date, `images` and `distinct_images`
-  (both 0 unless the call carried image assets) and `latency_seconds`, see [Latency](#latency))
+  (both 0 unless the call carried image assets), `experimental_headers` and `latency_seconds`,
+  see [Latency](#latency))
   and the recorder's optional sidecar.
 
 ## Budget guard
@@ -325,21 +342,21 @@ report = record(
   there, and a path that is the same file as `responses_path` (including through a different
   spelling or a link). Never commit it as a fixture. It is rewritten atomically after every call.
   - A call that produced a response is `{replay_key: {status: "recorded", request_id, model, date,
-    input_tokens, output_tokens, latency_seconds, attempts, retried}}`, written before that
-    response is merged, so a merge conflict still leaves its request id. `request_id` is the id
+    input_tokens, output_tokens, latency_seconds, experimental_headers, attempts, retried}}`,
+    written before that response is merged, so a merge conflict still leaves its request id. `request_id` is the id
     of the answering attempt, and `latency_seconds` is that attempt's [latency](#latency).
     `attempts` is every HTTP attempt that call spent, the answering one included (1 when
     nothing was retried). `retried` lists the failed attempts it retried past, oldest first, as
-    `{error_type, http_status, request_id, latency_seconds}` (`http_status` and `request_id` are
-    null when the attempt got no response, for example a timeout; `latency_seconds` is that
+    `{error_type, http_status, request_id, latency_seconds, experimental_headers}` (`http_status`
+    and `request_id` are null when the attempt got no response, for example a timeout; `latency_seconds` is that
     attempt's own latency); it is `[]` when nothing was retried.
     `images` and `distinct_images` (the image copies and the distinct assets, counts only, never
     bytes or references) are added only when the call carried image assets; a text-only call's
     line has neither.
   - A call that produced nothing to record is written before the error is re-raised, as
     `{replay_key + "!failed-N": {status, error_type, http_status, request_id, model, date,
-    latency_seconds, attempts, retried}}`. `status` is `invalid_response` (the API answered but
-    the result failed validation, or contained the key), `error` (an HTTP or connection error, or any other
+    latency_seconds, experimental_headers, attempts, retried}}`. `status` is `invalid_response`
+    (the API answered but the result failed validation, or contained the key), `error` (an HTTP or connection error, or any other
     exception that ended the call, including a request refused before anything was sent),
     `timeout` or `budget_stopped`. `error_type`, `http_status` and `request_id` describe the last
     attempt (the one that ended the call; a timeout has no request id; for `budget_stopped`
@@ -385,6 +402,11 @@ ever fails them, `record` raises `LiveResponseError` naming the question and the
 example `confidence does not match the published Choice formula`) with the reported values, and
 attaches the parsed body as `.response`. Nothing is loosened and nothing is written for that
 response; the call is counted as spent. The orchestrator decides what to do next.
+
+Malformed responses remain failed calls: expected serialization, JSON decoding, provenance and
+numeric-validation errors become `LiveResponseError`. The error retains the request ID and a
+scrubbed parsed body when one was decoded; a body that could not be decoded has `response=None`.
+The sidecar records the failed attempt's headers and the failure counter includes that attempt.
 
 The first real recording confirms whether the API rounds its numbers at all. If it does not, the
 bounds should be tightened in their own reviewed change; if it rounds differently from two
