@@ -489,9 +489,12 @@ catalog is insufficient; the scope guard reads assignments from the base.
    `python -m jev_cookbook.fixtures validate recipes/NN-slug`. Generating `inputs.jsonl` and
    `labels.jsonl` is separate from generating `responses.json`: once a response is `recorded`,
    rerunning the script refuses to overwrite it unless you pass `--force`. An existing response
-   file that cannot be read as a JSON object is also preserved because its provenance cannot be
-   checked. Inspect or restore the file, or explicitly pass `--force` to replace it with
-   synthetic answers.
+   file that cannot be read as a JSON object with unique keys at every depth is also preserved.
+   Every response must have model `"synthetic"` and a nonempty answers object whose answers
+   all carry valid synthetic provenance; missing, contradictory, or unsupported provenance
+   requires `--force` too. See [the overwrite contract](fixtures.md#generators) for
+   the accepted fields. Inspect or restore a refused file, or explicitly pass `--force` to
+   replace it with synthetic answers.
 5. Work through `notebook.ipynb` section by section. The scaffold's setup, state, question and
    answer cells already run once steps 3 and 4 are done; replace each `TODO` and fill the
    `# TODO` code cells. Copy the template's evaluation cells as a starting point. As Evaluation

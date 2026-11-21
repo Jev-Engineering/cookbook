@@ -746,8 +746,15 @@ answer with a synthetic one: once a response's provenance is `recorded`, regener
 should refuse to overwrite it without an explicit override. The scaffold's `build_fixtures.py`
 (and the template's) does this by checking the existing file before writing and requiring
 `--force` to overwrite a recorded one. An existing response file that cannot be read as a JSON
-object is also preserved because its provenance cannot be checked. Inspect or restore that
-file, or explicitly pass `--force` to replace it with synthetic answers. Generating
+object with unique keys at every nesting depth is also preserved. Each response must have
+model `"synthetic"`, contain a nonempty `answers` object, and have valid synthetic provenance
+on every answer: source `"synthetic"`, with model and date absent or null. Unknown provenance
+fields or response fields outside `model`, `usage`, and `answers` leave provenance ambiguous
+and require `--force`. An empty root object contains no responses to preserve and can be
+regenerated; an entry with no answers cannot prove synthetic provenance. These checks protect
+provenance, while the fixture validator checks the full answer format and mathematics.
+Inspect or restore a refused file, or explicitly pass `--force` to replace it with synthetic
+answers. Generating
 `inputs.jsonl`/`labels.jsonl` stays separate from generating `responses.json`, so the first two
 are regenerated even when the response file is refused. See
 [docs/recipe-template.md](recipe-template.md).
