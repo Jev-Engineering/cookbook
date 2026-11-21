@@ -95,6 +95,7 @@ class LiveCallError(RuntimeError):
 
     A timeout or a connection error has neither, because no response came back.
     ``experimental_headers`` snapshots the experimental headers passed to the client.
+    ``latency_seconds`` is that failed attempt's time, or ``None`` if it was not measurable.
     """
 
     def __init__(
@@ -105,12 +106,14 @@ class LiveCallError(RuntimeError):
         request_id: str | None = None,
         error_type: str = "",
         experimental_headers: Mapping[str, str] | None = None,
+        latency_seconds: float | None = None,
     ) -> None:
         super().__init__(message)
         self.status = status
         self.request_id = request_id
         self.error_type = error_type
         self.experimental_headers = dict(experimental_headers or {})
+        self.latency_seconds = latency_seconds
 
 
 class LiveResponseError(ValueError):
@@ -120,7 +123,8 @@ class LiveResponseError(ValueError):
     one, so the orchestrator can inspect it; nothing is loosened to make it pass.
     ``request_id`` is the response's ``x-typesafe-request-id`` when it had one: the paid call
     can be found by it even though nothing was recorded. ``experimental_headers`` snapshots
-    the experimental headers passed to the client on that attempt.
+    the experimental headers passed to the client on that attempt. ``latency_seconds`` is
+    that attempt's time, or ``None`` if it was not measurable.
     """
 
     def __init__(
@@ -130,11 +134,13 @@ class LiveResponseError(ValueError):
         response: Mapping[str, Any] | None = None,
         request_id: str | None = None,
         experimental_headers: Mapping[str, str] | None = None,
+        latency_seconds: float | None = None,
     ) -> None:
         super().__init__(message)
         self.response = response
         self.request_id = request_id
         self.experimental_headers = dict(experimental_headers or {})
+        self.latency_seconds = latency_seconds
 
 
 class RecordConflict(ValueError):
@@ -911,6 +917,7 @@ class LiveBackend:
                 break
             if failure is not None:
                 failure.experimental_headers = dict(experimental_headers)
+                failure.latency_seconds = latency
                 raise failure
             self._sleep(delay)
         date = self._today()
@@ -936,6 +943,7 @@ class LiveBackend:
                 response=_redact_data(problem[1], self._secrets),
                 request_id=_redact(rid, self._secrets) if rid else None,
                 experimental_headers=experimental_headers,
+                latency_seconds=latency,
             )
         self._note_success(
             CallRecord(
@@ -1296,7 +1304,7 @@ def _ledger_failure(
         "request_id": getattr(exc, "request_id", None),
         "model": backend.requested_model,
         "date": backend._today(),
-        "latency_seconds": backend.last_latency_seconds,
+        "latency_seconds": getattr(exc, "latency_seconds", None),
         "experimental_headers": dict(getattr(exc, "experimental_headers", {})),
         "attempts": attempts,
         "retried": list(backend.last_retried),

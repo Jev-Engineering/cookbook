@@ -8,8 +8,10 @@ import io
 import json
 import subprocess
 import sys
+import threading
 import traceback
 import types
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -1755,6 +1757,7 @@ def test_malformed_answer_types_keep_failure_header_provenance_and_redaction(
     expected_headers = {"TypeSafe-Danger-Zone-Long-Context": "true"}
     assert client.calls[0]["extra_headers"] == expected_headers
     assert error.value.experimental_headers == expected_headers
+    assert error.value.latency_seconds == 0.25
     assert error.value.request_id == ("req-malformed" if sdk_shaped_response else None)
     assert error.value.response["answers"]["billing"]["type"] == json.loads(
         json.dumps(malformed_type).replace(SECRET, "[redacted]")
@@ -1821,6 +1824,7 @@ def test_malformed_data_boundary_keeps_paid_metadata_and_scrubbed_body(
         record(backend, [(STATE, QUESTIONS)], path, ledger_path=ledger)
     expected = {"TypeSafe-Danger-Zone-Long-Context": "true"}
     assert error.value.experimental_headers == client.calls[0]["extra_headers"] == expected
+    assert error.value.latency_seconds == 0.25
     assert error.value.request_id == ("req-boundary" if sdk_shaped else None)
     assert error.value.response is not None
     echo = error.value.response["echo"]
@@ -1886,6 +1890,7 @@ def test_malformed_data_boundary_normalizes_sdk_serialization_and_json_decode_fa
     with pytest.raises(LiveResponseError) as error:
         record(backend, [(STATE, QUESTIONS)], path, ledger_path=ledger)
     assert error.value.response is None and error.value.request_id == "req-json-boundary"
+    assert error.value.latency_seconds == 0.25
     assert SECRET not in everything_said_about(error.value)[0]
     assert error.value.__cause__ is None and error.value.__context__ is None
     line = json.loads(ledger.read_text())[replay_key(STATE, QUESTIONS) + "!failed-1"]
@@ -1893,3 +1898,98 @@ def test_malformed_data_boundary_normalizes_sdk_serialization_and_json_decode_fa
     assert line["experimental_headers"] == {"TypeSafe-Danger-Zone-Long-Context": "true"}
     assert line["latency_seconds"] == 0.25 and line["attempts"] == 1
     assert backend.ledger()["failed_attempts"] == 1 and not path.exists()
+
+
+# -- failed-attempt latency belongs to the exception, even when calls interleave -------------
+
+
+@pytest.mark.parametrize(
+    "outcome, error_type",
+    [
+        (ApiError(400), LiveCallError),
+        (TimeoutError("offline timeout"), LiveCallError),
+        (ValidationError({"model": MODEL}, "answers"), LiveResponseError),
+        (Resp({"model": MODEL, "answers": {}}), LiveResponseError),
+        ({"model": MODEL, "answers": {"billing": {"type": []}}}, LiveResponseError),
+        ({"model": MODEL, "answers": {"billing": {"type": {}}}}, LiveResponseError),
+        (boundary_body("reserved_model"), LiveResponseError),
+        (Resp(boundary_body("reserved_model")), LiveResponseError),
+        (boundary_body("huge_noul"), LiveResponseError),
+        (Resp(boundary_body("huge_noul")), LiveResponseError),
+        (MalformedJsonResponse("malformed_json"), LiveResponseError),
+    ],
+)
+@pytest.mark.parametrize("intervening_call", ["success", "refused"])
+def test_interleaved_failure_ledger_uses_the_exceptions_own_latency(
+    tmp_path, outcome, error_type, intervening_call
+):
+    failed = threading.Event()
+    resume = threading.Event()
+    first_thread_clock = clock_of(0.0, 0.25)
+    main_thread_clock = clock_of(10.0, 19.0)
+    main_thread = threading.get_ident()
+    backend, _ = make(
+        outcome,
+        Resp(api_body()),
+        max_retries=0,
+        clock=lambda: (
+            main_thread_clock if threading.get_ident() == main_thread else first_thread_clock
+        )(),
+    )
+    decide = backend.decide
+    raised = []
+
+    def pause_failed_decide(state, questions, **kwargs):
+        try:
+            return decide(state, questions, **kwargs)
+        except error_type as error:
+            if state == STATE:
+                raised.append(error)
+                failed.set()
+                assert resume.wait(5), "the intervening offline call did not finish"
+            raise
+
+    backend.decide = pause_failed_decide
+    ledger = tmp_path / "ledger.json"
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            record,
+            backend,
+            [(STATE, QUESTIONS)],
+            tmp_path / "r.json",
+            ledger_path=ledger,
+        )
+        try:
+            assert failed.wait(5), "the offline failed attempt did not finish"
+            if intervening_call == "success":
+                backend.decide({"document": "other call"}, QUESTIONS)
+                assert backend.last_latency_seconds == 9.0
+                assert backend.records[0].latency_seconds == 9.0
+            else:
+                with pytest.raises(ValueError, match="non-empty"):
+                    backend.decide({"document": "other call"}, {})
+                assert backend.last_latency_seconds is None
+        finally:
+            resume.set()
+        with pytest.raises(error_type) as error:
+            future.result(timeout=5)
+    assert error.value is raised[0]
+    line = json.loads(ledger.read_text())[replay_key(STATE, QUESTIONS) + "!failed-1"]
+    assert line["latency_seconds"] == 0.25
+    assert error.value.latency_seconds == 0.25
+    assert backend.ledger()["failed_attempts"] == 1
+
+
+@pytest.mark.parametrize("error_type", [LiveCallError, LiveResponseError])
+def test_manually_constructed_live_errors_default_to_unknown_latency(error_type):
+    assert error_type("offline error").latency_seconds is None
+
+
+@pytest.mark.parametrize("readings", [(1.0, float("nan")), (5.0, 4.0)])
+def test_failed_attempt_exception_keeps_an_unmeasurable_latency_as_none(tmp_path, readings):
+    backend, _ = make(ApiError(400), clock=clock_of(*readings))
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(LiveCallError) as error:
+        record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    assert error.value.latency_seconds is None
+    assert list(json.loads(ledger.read_text()).values())[0]["latency_seconds"] is None
