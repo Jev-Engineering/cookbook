@@ -239,6 +239,10 @@ call as seen from the machine that made it. It is not a server-side or model-onl
 Where it is kept:
 
 - `CallRecord.latency_seconds` and `backend.last_latency_seconds` hold the answering attempt's.
+- `LiveCallError.latency_seconds` and `LiveResponseError.latency_seconds` hold the failed
+  attempt's time. The recorder reads a failed line's latency from that exception, so another
+  call on the same backend cannot replace it before the ledger is written. Both default to
+  `None` for manually constructed errors; a call refused before sending also has no latency.
 - Each entry of `backend.last_retried` holds the `latency_seconds` of the failed attempt it
   describes.
 - The recorder's sidecar holds it on a `recorded` line (the answering attempt), on every entry of
@@ -253,6 +257,11 @@ finite, a clock that raises, or readings that cannot be subtracted. A call that 
 attempts has one latency for its answering attempt; the failed attempts' latencies are in
 `retried`, and the backoff between attempts is in none of them, so their sum is not the call's
 elapsed time.
+
+`last_latency_seconds` is a shared convenience view of the latest attempt. Use the success
+record or the raised exception for a particular call's latency when calls interleave. This does
+not make concurrent recording safe: the recorder still requires one writer per responses file,
+and its attempt counts and retry list use backend-wide state.
 
 ### Reading a captured latency back
 
