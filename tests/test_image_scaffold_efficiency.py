@@ -1,9 +1,8 @@
 """Issue 499: preserve scaffold output while bounding real image-build work.
 
-The goldens in fixtures/image_scaffold_text_digests.json were captured from main commit
-47904535641f30b447877830e32450dfa6946321 (tree bb07ffa2769175244206927d308dabfe9b26a696),
-recorded as parent_commit and parent_tree in that file, using files_for() for every text recipe
-and main() for image recipe 77. Only the generated source is allowed to change for images.
+The goldens in fixtures/image_scaffold_text_digests.json were captured from the commit and
+tree recorded as parent_commit and parent_tree in that file, using files_for() for every text
+recipe and main() for image recipe 77. Only the generated source is allowed to change for images.
 Shared-template architecture is reviewed separately; these tests deliberately know no
 template-constant names.
 

@@ -922,16 +922,47 @@ def rows_hint(level: int) -> str:
 
 
 # Shared source fragments keep the emitted replay guards and tests in step.
-BUILDER_RESPONSE_GUARDS = r'''def _is_recorded(path: Path) -> bool:
-    """True if ``path`` exists and holds at least one response whose model is not
-    ``"synthetic"`` (a recorded, or otherwise real, answer). Refuse an overwrite if an
-    existing file cannot be read as a JSON object: its provenance cannot be checked. Inside
-    an object, an entry that is itself not an object blocks an overwrite too."""
+BUILDER_RESPONSE_GUARDS = r'''def _has_synthetic_provenance(entry) -> bool:
+    """Prove the result and every answer synthetic without validating answer mathematics."""
+    if not isinstance(entry, dict) or entry.get("model") != "synthetic":
+        return False
+    if entry.keys() - {"model", "usage", "answers"}:
+        return False
+    answers = entry.get("answers")
+    if not isinstance(answers, dict) or not answers:
+        return False
+    for answer in answers.values():
+        if not isinstance(answer, dict):
+            return False
+        try:
+            provenance = Provenance.from_dict(answer.get("provenance"))
+        except ValueError:
+            return False
+        if provenance.source != "synthetic":
+            return False
+    return True
+
+
+def _is_recorded(path: Path) -> bool:
+    """True when an existing response cannot be proved synthetic; refuse ambiguous JSON.
+
+    An empty response map contains nothing to preserve. Every entry in a nonempty map
+    must have a synthetic model and consistent synthetic provenance on every answer.
+    """
     if not path.exists():
         return False
+
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON object key")
+            result[key] = value
+        return result
+
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError, UnicodeError):
+        data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_object)
+    except (ValueError, OSError, UnicodeError, RecursionError):
         raise SystemExit(
             f"refusing to overwrite {path}: cannot read responses.json to check for recorded "
             "responses (pass --force to overwrite it anyway)"
@@ -941,9 +972,7 @@ BUILDER_RESPONSE_GUARDS = r'''def _is_recorded(path: Path) -> bool:
             f"refusing to overwrite {path}: responses.json is not a JSON object, so its "
             "provenance cannot be checked (pass --force to overwrite it anyway)"
         )
-    return any(
-        not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
-    )
+    return any(not _has_synthetic_provenance(entry) for entry in data.values())
 
 
 def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
@@ -962,7 +991,7 @@ def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
 
 BUILDER_FORCE_REFUSAL = r"""    if not args.force and _is_recorded(responses_file):
         message = (
-            f"refusing to overwrite {responses_file}: it holds a recorded response "
+            f"refusing to overwrite {responses_file}: it holds a recorded response or ambiguous provenance "
             "(pass --force to overwrite it anyway)"
         )
         if _unresolved_keys(inputs, responses_file):
@@ -1115,7 +1144,8 @@ responses.json holds even one recorded answer (provenance "recorded", captured f
 call), running this script again must not silently replace it with a synthetic probability.
 inputs.jsonl and labels.jsonl are always rewritten from ROWS, because neither ever holds a
 model's answer; responses.json is rewritten only when it does not yet exist, holds only
-synthetic answers, or --force is given.
+synthetic answers, or --force is given. Duplicate JSON keys or missing, contradictory,
+or unsupported answer provenance require --force too.
 """
 
 import argparse
@@ -1533,7 +1563,8 @@ responses.json holds even one recorded answer (provenance "recorded", captured f
 call), running this script again must not silently replace it with a synthetic probability.
 inputs.jsonl and labels.jsonl are always rewritten from ROWS, because neither ever holds a
 model's answer; responses.json is rewritten only when it does not yet exist, holds only
-synthetic answers, or --force is given.
+synthetic answers, or --force is given. Duplicate JSON keys or missing, contradictory,
+or unsupported answer provenance require --force too.
 """
 
 import argparse
@@ -1684,7 +1715,7 @@ def main() -> None:
         # A redrawn picture changes the replay key of every request that carries it, which would
         # orphan the recorded answers kept in responses.json; refuse before any file is touched.
         raise SystemExit(
-            f"refusing --overwrite-assets: {responses_file} holds a recorded response, and a "
+            f"refusing --overwrite-assets: {responses_file} holds a recorded response or ambiguous provenance, and a "
             "changed picture changes its replay keys (pass --force too to rewrite both); "
             "nothing was written"
         )
