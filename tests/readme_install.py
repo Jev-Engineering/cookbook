@@ -41,15 +41,30 @@ _scope_spec.loader.exec_module(_scope)
 
 # Collapse line wrapping before command matching. Requiring an actual install command
 # avoids treating a quoted back-reference to an extra as an instruction to install it.
+_PROMPT = r"(?:(?:\$|%|>|PS>|PS\s[^>\n]*>)\s+)?"
+_WRAP = r"(?:[A-Za-z_]\w*=\S*\s+|sudo\s+|env\s+|uv\s+)*"
+_PY = r"(?:(?:py|python[\d.]*)(?:\s+-[\d.]+)?\s+-m\s+)?"
 _INSTALL = re.compile(
-    r"\b(?:python(?:3(?:\.\d+)?)?\s+-m\s+)?pip(?:3)?\s+install\s+"
+    r"\bpip[\d.]*\s+install\s+"
+    r"(?:-{1,2}[\w-]+(?:=\S+)?\s+(?:(?:\.github/)?[\w./-]*constraints-notebooks\.txt\s+)?)*"
     r"(?:(?:-e|--editable)\s+)?(?P<quote>['\"]?)\.\[(?P<extras>[^\]\n]+)\](?P=quote)",
     re.IGNORECASE,
 )
+# A command line that is, or wraps, a pip install: an optional prompt, env assignments, sudo/uv,
+# and an optional python -m / py -m in front of pip.
 _INSTALL_START = re.compile(
-    r"^\s*(?:python(?:3(?:\.\d+)?)?\s+-m\s+)?pip(?:3)?\s+install\b",
+    rf"^\s*{_PROMPT}{_WRAP}{_PY}pip[\d.]*(?:\.exe)?\s+install\b",
     re.IGNORECASE,
 )
+_PIP_PROGRAM = re.compile(r"pip[\d.]*(?:\.exe)?", re.IGNORECASE)
+_PROMPT_PREFIX = re.compile(rf"^\s*{_PROMPT}")
+# pip options whose next token is their argument, so it is never mistaken for the target.
+_OPTIONS_WITH_ARGUMENT = {
+    "-c", "--constraint", "-r", "--requirement", "-i", "--index-url", "--extra-index-url",
+    "-f", "--find-links", "-t", "--target", "--prefix", "--root", "--python", "--proxy",
+    "--cache-dir", "--trusted-host", "--src", "--platform", "--abi", "--implementation",
+    "--python-version", "--upgrade-strategy", "--config-settings", "-C",
+}  # fmt: skip
 _TRAILING_CONSTRAINT = re.compile(
     r"\s+(?:-c|--constraint)(?:\s+|=)(?:\"[^\"]*\"|'[^']*'|[^\s;`]+)",
     re.IGNORECASE,
@@ -116,44 +131,63 @@ def _intent(prose: str, previous: str | None) -> str | None:
     return max(candidates)[1] if candidates else previous
 
 
+def _conservative_combined_install(command: str) -> bool:
+    """Main's coverage, kept whatever the shell syntax: a dev+ml target and the notebook
+    constraints file on one command line. Shell comments are dropped when the line parses."""
+    try:
+        text = " ".join(shlex.split(command, comments=True))
+    except ValueError:
+        text = command
+    return "constraints-notebooks" in text.casefold() and any(
+        {part.strip().casefold() for part in extras.split(",")} >= {"dev", "ml"}
+        for extras in re.findall(r"\.\[([^\]]+)\]", text)
+    )
+
+
 def _direct_combined_install(command: str) -> bool | None:
     """Whether one direct shell command installs both extras; None means no such install.
 
+    The target may follow any pip options (an option's argument is skipped, so ``-c FILE`` can
+    come first); a leading prompt, env assignments, sudo, uv and python/py -m are stripped.
     Keep shlex tokens intact: an echo/printf argument containing a command is never a
-    command. Shell wrappers, aliases and later commands on a compound line are explicit
-    review obligations. Backslash continuations are joined by the caller.
+    command, except that a line naming both a dev+ml target and the notebook constraints
+    file is refused whatever its syntax (main's rule). Other shell wrappers, aliases and
+    later commands on a compound line are explicit review obligations.
     """
+    if _conservative_combined_install(command):
+        return True
     # Inline Markdown code is not necessarily shell source (e.g. O'Reilly). Parse
     # only a direct install candidate; malformed quoting on that candidate still raises.
     if not _INSTALL_START.match(command):
         return None
-    tokens = shlex.split(command, comments=True)
-    if not tokens:
+    tokens = shlex.split(command[_PROMPT_PREFIX.match(command).end() :], comments=True)
+    program = next(
+        (
+            index
+            for index, token in enumerate(tokens[:-1])
+            if _PIP_PROGRAM.fullmatch(token) and tokens[index + 1].casefold() == "install"
+        ),
+        None,
+    )
+    if program is None:
         return None
-    if re.fullmatch(r"pip3?", tokens[0], re.IGNORECASE):
-        start = 1
-    elif (
-        len(tokens) >= 3
-        and re.fullmatch(r"python(?:3(?:\.\d+)?)?", tokens[0], re.IGNORECASE)
-        and tokens[1] == "-m"
-        and re.fullmatch(r"pip3?", tokens[2], re.IGNORECASE)
-    ):
-        start = 3
-    else:
-        return None
-    if len(tokens) <= start or tokens[start].casefold() != "install":
-        return None
-    start += 1
-    if len(tokens) > start and tokens[start] in {"-e", "--editable"}:
-        start += 1
-    if len(tokens) <= start:
-        return None
-    target = re.fullmatch(r"\.\[([^\]]+)\]", tokens[start])
-    if target is None or not {"dev", "ml"} <= {
-        part.strip().casefold() for part in target[1].split(",")
-    }:
-        return None
-    return any("constraints-notebooks" in token.casefold() for token in tokens[start + 1 :])
+    constraints = False
+    combined = False
+    skip = False
+    for token in tokens[program + 2 :]:
+        constraints = constraints or "constraints-notebooks" in token.casefold()
+        if skip:
+            skip = False
+            continue
+        if token in _OPTIONS_WITH_ARGUMENT:
+            skip = True
+            continue
+        target = re.fullmatch(r"\.\[([^\]]+)\]", token)
+        if target is not None and {"dev", "ml"} <= {
+            part.strip().casefold() for part in target[1].split(",")
+        }:
+            combined = True
+    return constraints if combined else None
 
 
 def _prose_source(content: str) -> str:
@@ -173,8 +207,6 @@ def _bad_installs(content: str, mode: str | None, *, prose: bool) -> bool:
         # apply, so '# <!--' cannot hide a real install on the next line.
         logical = re.sub(r"\\(?:\r\n|\r|\n)", " ", content)
         for line in re.split(r"\r\n|\r|\n", logical):
-            if not _INSTALL_START.match(line):
-                continue
             constraints = _direct_combined_install(line)
             if constraints is not None and (mode == "reproduction" or constraints):
                 return True

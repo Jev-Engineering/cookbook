@@ -451,3 +451,77 @@ def test_a_shell_comment_after_a_tests_install_is_not_a_constraints_argument():
         'pip install -e ".[dev,ml]"  # not the constraints-notebooks.txt stack\n```\n'
     )
     assert readme_install.combined_reproduction_installs(text) == []
+
+
+# B1 of the PR #641 review (seat A): a dev+ml install that names the notebook constraints file was
+# refused on main whatever the pip options, prompt or wrapper around it. Each spelling below must
+# stay refused, in a fence and in inline code, with and without a reproduction introduction.
+
+_CONSTRAINT = "-c .github/constraints-notebooks.txt"
+_SPELLINGS = [
+    f'pip install -e ".[dev,ml]" {_CONSTRAINT}',
+    f'pip install {_CONSTRAINT} -e ".[dev,ml]"',
+    f'pip install -q -e ".[dev,ml]" {_CONSTRAINT}',
+    f'pip install --upgrade -e ".[dev,ml]" {_CONSTRAINT}',
+    f'python -m pip install -U -e ".[dev,ml]" {_CONSTRAINT}',
+    f'uv pip install -e ".[dev,ml]" {_CONSTRAINT}',
+    f'$ pip install -e ".[dev,ml]" {_CONSTRAINT}',
+    f'> pip install -e ".[dev,ml]" {_CONSTRAINT}',
+    f'PS> py -m pip install -e ".[dev,ml]" {_CONSTRAINT}',
+    f'sudo pip install -e ".[dev,ml]" {_CONSTRAINT}',
+    f'PIP_NO_CACHE_DIR=1 pip install -e ".[dev,ml]" {_CONSTRAINT}',
+    f'echo go && pip install -e ".[dev,ml]" {_CONSTRAINT}',
+    'pip install --constraint=.github/constraints-notebooks.txt -e ".[dev,ml]"',
+    f'pip install --no-cache-dir -r requirements.txt -e ".[dev,ml]" {_CONSTRAINT}',
+]
+
+
+@pytest.mark.parametrize("command", _SPELLINGS)
+@pytest.mark.parametrize("formatted", ["fence", "inline"])
+@pytest.mark.parametrize("intro", ["Install:", "To reproduce the committed outputs:"])
+def test_a_constrained_dev_ml_install_is_refused_whatever_surrounds_it(command, formatted, intro):
+    text = f"```sh\n{command}\n```\n" if formatted == "fence" else f"`{command}`\n"
+    assert len(readme_install.combined_reproduction_installs(f"{intro}\n\n{text}")) == 1
+    ok = text.replace(".[dev,ml]", ".[ml]")
+    assert readme_install.combined_reproduction_installs(f"{intro}\n\n{ok}") == []
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'pip install -q -e ".[dev,ml]"',
+        'pip install -c .github/constraints.txt -e ".[dev,ml]"',
+        '$ uv pip install --upgrade -e ".[dev,ml]"',
+    ],
+)
+def test_an_unconstrained_dev_ml_install_still_depends_on_the_introduction(command):
+    block = f"```sh\n{command}\n```\n"
+    assert readme_install.combined_reproduction_installs(f"To run the tests:\n\n{block}") == []
+    reproduce = f"To reproduce the committed outputs:\n\n{block}"
+    assert len(readme_install.combined_reproduction_installs(reproduce)) == 1
+
+
+def test_a_dev_ml_install_wrapped_across_lines_with_options_is_refused():
+    text = (
+        "```sh\npip install \\\n  -q \\\n  -e \\\n"
+        '  ".[dev,ml]" \\\n  -c .github/constraints-notebooks.txt\n```\n'
+    )
+    assert len(readme_install.combined_reproduction_installs(text)) == 1
+    split = 'To reproduce the outputs:\n\n```sh\npip install \\\n-e ".[dev,ml]"\n```\n'
+    assert len(readme_install.combined_reproduction_installs(split)) == 1
+    assert readme_install.combined_reproduction_installs(split.replace(".[dev,ml]", ".[ml]")) == []
+
+
+def test_reproducible_in_the_middle_of_a_sentence_is_not_reproduction_intent():
+    text = f"The runs are reproducible, so run the suite with `{_INSTALL}`.\n"
+    assert readme_install.combined_reproduction_installs(text) == []
+    assert (
+        len(readme_install.combined_reproduction_installs(f"To reproduce, run `{_INSTALL}`.")) == 1
+    )
+
+
+@pytest.mark.parametrize("options", ["-q", "--upgrade", f"{_CONSTRAINT}"])
+def test_an_unformatted_install_with_options_before_the_target_is_recognised(options):
+    text = f'To reproduce the committed outputs, run pip install {options} -e ".[dev,ml]".\n'
+    assert len(readme_install.combined_reproduction_installs(text)) == 1
+    assert readme_install.combined_reproduction_installs(text.replace(".[dev,ml]", ".[ml]")) == []
