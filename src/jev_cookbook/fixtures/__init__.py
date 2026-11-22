@@ -610,12 +610,15 @@ def _box_label_places(label: Any) -> list[tuple[_LabelPath, Any]]:
                     parts.append(key)
                 found.append((tuple(reversed(parts)), node))
                 continue
-            children = list(node.items())
+            # JSON objects are dicts; retain support for other Mapping implementations.
+            children = (
+                reversed(node.items()) if type(node) is dict else reversed(tuple(node.items()))
+            )
         elif isinstance(node, list):
-            children = list(enumerate(node))
+            children = ((key, node[key]) for key in range(len(node) - 1, -1, -1))
         else:
             continue
-        pending.extend((child, (link, key)) for key, child in reversed(children))
+        pending.extend((child, (link, key)) for key, child in children)
     return found
 
 

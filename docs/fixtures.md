@@ -103,8 +103,8 @@ here too.
 
 `label` is any JSON value except `null`: a string, number, boolean, list, or object (for several
 labels). The key `present` marks a [Box label](#box-labels): a label object that has it at
-its top is read as a Box label, and so is a nested object whose only keys are `present` and
-`box`. Every `train`, `validation` and
+its top is read as a Box label, and so is a nested object with a `present` key and no key
+other than `present` and `box`. Every `train`, `validation` and
 `test` example needs exactly one label; a label whose `id` is not in the inputs is an error.
 
 `present` is reserved at the top level of a label for the Box format, including when its
@@ -182,7 +182,7 @@ A recipe that scores a transition over an ordered frame sequence ([vision](visio
 
 - `transition` is a non-empty string naming the transition. A prediction is the right transition when its name equals this one. It is a resolved label: `evaluation.transition_metrics` raises `ValueError` on a gold label that is one of its review labels (`uncertain` by default).
 - `seconds` is a nonnegative number that converts to a finite float. It records **elapsed seconds since the start of the sequence**, using the `timestamp_seconds` of the first frame of the full-rate sequence in which the new state is visible, the convention of `frames.transition_time`. A label that has no time, such as `unchanged`, omits `seconds`.
-- The object has no other key. In particular it has no `present` key, which is reserved for Box labels (above).
+- The object has no other key. In particular it has no `present` key: a top-level `present` key makes the label a Box label (above).
 - One transition per example. A sequence with several transitions becomes several examples, each with its own label ([evaluation](evaluation.md#transitions)).
 
 `(label["transition"], label.get("seconds"))` is the `(label, seconds_or_None)` pair that `evaluation.transition_metrics` takes for gold ([evaluation](evaluation.md#transitions)).
