@@ -86,11 +86,14 @@ _AUTH_HEADER = re.compile(
     re.IGNORECASE,
 )
 _BEARER = re.compile(r"\bbearer\s+(?P<v>[A-Za-z0-9._~+/=-]{16,})", re.IGNORECASE)
+# Parse candidate names independently of their values so a non-secret assignment cannot
+# consume a later secret assignment on the same line. The leading guard avoids retrying a
+# long name at every character when no assignment follows it.
 _ASSIGNMENT = re.compile(
-    r"""(?:api[_-]?key|apikey|secret|token|passw(?:or)?d|access[_-]?key|credential)s?
-        ["']?\]?\s*[:=]\s*["']?(?P<v>[A-Za-z0-9_\-./+=]{16,})""",
-    re.IGNORECASE | re.VERBOSE,
+    r"""(?<![A-Za-z0-9_-])(?P<name>[A-Za-z0-9_-]+)["']?\]?\s*[:=]\s*["']?""",
+    re.IGNORECASE,
 )
+_ASSIGNMENT_VALUE = re.compile(r"[A-Za-z0-9_\-./+=]{16,}", re.IGNORECASE)
 # A "word" is a whitespace/quote-delimited run. A word shaped like a path or URL is scored
 # per "/"-separated segment, so a commit permalink or fixtures/replay/<hash>.json is not one
 # long "random" token. Any other word is scored whole, "/" included, because base64 keys
@@ -136,6 +139,9 @@ _NAME_GLUE = re.compile(r"[0-9_]+")
 _SECRET_WORD = re.compile(r"secret|token|passw(?:or)?d|credential")
 _KEY_PREFIXES = ("api", "access")
 _LETTER_RUN = re.compile(r"[a-z]+")
+# Python's Unicode IGNORECASE admits these four extra characters in [A-Za-z]. Fold only
+# those equivalents before the shared name test, preserving the assignment rule's coverage.
+_ASCII_CASE_EQUIVALENTS = str.maketrans("İıſK", "iisk")
 
 
 def _is_secret_name(name: str) -> bool:
@@ -143,7 +149,7 @@ def _is_secret_name(name: str) -> bool:
     # later "key". That second test is str.find inside each run of letters, not a regex such
     # as ``api[a-z]*key``: the regex retries the letter run from every "api" in a name with
     # no later "key", which is quadratic in the name's length; this is linear.
-    lowered = name.lower()
+    lowered = name.translate(_ASCII_CASE_EQUIVALENTS).lower()
     if _SECRET_WORD.search(lowered):
         return True
     for run in _LETTER_RUN.findall(lowered):
@@ -152,6 +158,34 @@ def _is_secret_name(name: str) -> bool:
             if start >= 0 and run.find("key", start + len(prefix)) >= 0:
                 return True
     return False
+
+
+def _assignment_value_ranges(line: str) -> Iterator[tuple[int, int, int]]:
+    """Yield inclusive valid suffix-start bounds and the end of each maximal value run.
+
+    Each run is inspected once. A suffix needs 16 characters, a letter and a digit, and
+    must start after the last placeholder marker. Candidate assignments can then share
+    this analysis even when their values overlap through literal equals signs.
+    """
+    for match in _ASSIGNMENT_VALUE.finditer(line):
+        value = match.group(0)
+        lowered = value.lower()
+        last_marker = max(lowered.rfind(marker) for marker in _PLACEHOLDER_MARKERS)
+        first_allowed = 0
+        last_letter = last_digit = -1
+        lowered_offset = 0
+        for offset, character in enumerate(value):
+            if character.isalpha():
+                last_letter = offset
+            if character.isdigit():
+                last_digit = offset
+            # U+0130 lowercases to two characters. Map the marker start back to the
+            # original run so suffixes retain exactly _is_placeholder's lower() policy.
+            if lowered_offset <= last_marker:
+                first_allowed = offset + 1
+            lowered_offset += len(character.lower())
+        last_allowed = min(len(value) - 16, last_letter, last_digit)
+        yield match.start() + first_allowed, match.start() + last_allowed, match.end()
 
 
 def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
@@ -166,11 +200,21 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
     m = _BEARER.search(line)
     if m and not _is_placeholder(m.group("v")):
         yield "bearer-token", _mask(m.group("v"))
-    m = _ASSIGNMENT.search(line)
-    if m:
-        v = m.group("v")
-        if _letters_and_digits(v) and not _is_placeholder(v):
-            yield "secret-assignment", _mask(v)
+    value_ranges = _assignment_value_ranges(line)
+    bounds = None
+    for m in _ASSIGNMENT.finditer(line):
+        # Hyphens in header-style names have the same meaning as underscores (api-key).
+        name = _NAME_GLUE.sub("", m.group("name").replace("-", "_"))
+        if not _is_secret_name(name):
+            continue
+        start = m.end()
+        while bounds is None or bounds[2] <= start:
+            bounds = next(value_ranges, None)
+            if bounds is None:
+                break
+        if bounds is not None and bounds[0] <= start <= bounds[1]:
+            yield "secret-assignment", _mask(line[start : bounds[2]])
+            break
     for word in _WORD.findall(line):
         if _IDENT_ASSIGNMENT.fullmatch(word):
             name = _NAME_GLUE.sub("", word.partition("=")[0])
