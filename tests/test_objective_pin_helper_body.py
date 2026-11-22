@@ -11,6 +11,7 @@ import ast
 import importlib.util
 import json
 import shutil
+import sys
 from pathlib import Path
 from textwrap import dedent
 
@@ -25,7 +26,16 @@ def guard():
         "recipe_guard_for_helper_body_tests", Path(__file__).with_name("test_recipe_guard.py")
     )
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # Executing the guard a second time re-registers its private tool modules (for example
+    # check_recipe_scope.py_for_recipe_guard) in sys.modules; restore them so the collected
+    # guard's identity assertions still hold when both files run in one session.
+    saved = dict(sys.modules)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        for name in set(sys.modules) - set(saved):
+            del sys.modules[name]
+        sys.modules.update(saved)
     return module
 
 
