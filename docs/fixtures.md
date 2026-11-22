@@ -442,7 +442,7 @@ imports and function bodies by
 | `recipes/27-function-selection/helpers.py` | `option_order_for` | `stable_shuffle` |
 | `recipes/32-regression-test-selection/build_fixtures.py` | `build_rows` | `stable_permutation` |
 | `recipes/32-regression-test-selection/build_fixtures.py` | `_demo_rows` | `stable_permutation` |
-| `recipes/57-evidence-graph-updates/helpers.py` | `option_order` | `stable_permutation` |
+| `recipes/57-evidence-graph-updates/helpers.py` | `option_order` | `stable_shuffle` |
 
 The candidate-order functions reorder candidates within their examples; `assign_first_shown` uses
 `stable_permutation(..., 2)` to assign a pairwise side.
