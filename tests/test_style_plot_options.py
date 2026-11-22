@@ -13,54 +13,34 @@ these options answer lived in committed PNGs that every source-level check let t
 
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pytest
 from matplotlib.axis import Axis
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
-from matplotlib.text import Text
 
 from jev_cookbook import style
 
 # --- helpers -------------------------------------------------------------------------------
 
 
-def _draw(fig: Figure) -> None:
-    FigureCanvasAgg(fig)
-    fig.canvas.draw()
-
-
-def _ticks(axis: Axis) -> list[str]:
-    """The text of each tick the axis draws (call after the figure is drawn)."""
-    lo, hi = sorted(axis.get_view_interval())
-    return [
-        t.label1.get_text() for t in axis.get_major_ticks() if lo - 1e-9 <= t.get_loc() <= hi + 1e-9
-    ]
+# Load by path: tests has no __init__.py, and pytest uses importlib collection.
+_spec = importlib.util.spec_from_file_location(
+    "_style_assertions", Path(__file__).with_name("_style_assertions.py")
+)
+_assertions = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_assertions)
+_draw = _assertions._draw
+_ticks = _assertions.tick_texts
+_no_text_overlaps = _assertions.assert_no_overlapping_text
+_same_full_canvas = _assertions.assert_same_full_canvas
 
 
 def _rotation(axis: Axis) -> float:
     return axis.get_majorticklabels()[0].get_rotation()
-
-
-def _no_text_overlaps(fig: Figure) -> None:
-    _draw(fig)
-    boxes = [
-        (t.get_text(), t.get_window_extent())
-        for t in fig.findobj(Text)
-        if t.get_visible() and t.get_text().strip()
-    ]
-    assert boxes
-    for i, (a, box_a) in enumerate(boxes):
-        for b, box_b in boxes[i + 1 :]:
-            overlap = (
-                box_a.x0 < box_b.x1
-                and box_b.x0 < box_a.x1
-                and box_a.y0 < box_b.y1
-                and box_b.y0 < box_a.y1
-            )
-            assert not overlap, f"{a!r} overlaps {b!r}"
 
 
 # --- #261: distinct row and column vocabularies --------------------------------------------
@@ -158,7 +138,8 @@ def test_a_figure_for_one_vocabulary_is_unchanged_by_naming_it_for_both_axes():
     names = ["one", "two", "a_rather_long_label_x"]
     a = style.plot_confusion_matrix(counts, names, title="t")
     b = style.plot_confusion_matrix(counts, row_labels=names, col_labels=names, title="t")
-    assert _png(a) == _png(b)
+    _same_full_canvas(a, b)
+    assert style._figure_png(a) == style._figure_png(b)
     assert a.get_size_inches().tolist() == b.get_size_inches().tolist()
 
 
@@ -250,27 +231,17 @@ POLICY_COVERAGE = [1.0, 0.8667, 1.0]
 POLICY_RISK = [0.1, 0.05, 0.3]
 
 
-def _png(fig: Figure) -> bytes:
-    import io
-
-    buffer = io.BytesIO()
-    FigureCanvasAgg(fig)
-    fig.savefig(buffer, format="png")
-    return buffer.getvalue()
-
-
 def _pixels(fig: Figure) -> np.ndarray:
     _draw(fig)
     return np.asarray(fig.canvas.buffer_rgba())[..., :3].astype(float)
 
 
-def _ink_near(fig: Figure, point: tuple[float, float], radius: int = 3) -> bool:
+def _ink_near(fig: Figure, image: np.ndarray, point: tuple[float, float], radius: int = 3) -> bool:
     """Is there a dark pixel within ``radius`` pixels of data ``point`` in the drawn figure?
 
     The grid is the light panel grey and the background is paper, so a dark pixel is a mark
     the helper drew: the line or a marker.
     """
-    image = _pixels(fig)
     ax = fig.axes[0]
     x, y = ax.transData.transform(point)
     row = int(round(image.shape[0] - y))
@@ -288,12 +259,15 @@ def test_connect_false_draws_unordered_policies_without_a_line_between_them():
     the default draws a line and ``connect=False`` leaves the background."""
     joined = style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK)
     points = style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK, connect=False)
+    joined_pixels, points_pixels = _pixels(joined), _pixels(points)
     for midpoint in _midpoints(POLICY_COVERAGE, POLICY_RISK):
-        assert _ink_near(joined, midpoint), "the default no longer joins its points"
-        assert not _ink_near(points, midpoint), f"a line still runs through {midpoint}"
+        assert _ink_near(joined, joined_pixels, midpoint), "the default no longer joins its points"
+        assert not _ink_near(points, points_pixels, midpoint), (
+            f"a line still runs through {midpoint}"
+        )
     # The measured points themselves are drawn: a marker at each of them.
     for point in zip(POLICY_COVERAGE, POLICY_RISK, strict=True):
-        assert _ink_near(points, point, radius=1)
+        assert _ink_near(points, points_pixels, point, radius=1)
 
 
 def test_connect_false_keeps_the_coordinates_and_their_order():
@@ -320,7 +294,8 @@ def test_the_default_and_connect_true_are_the_same_figure():
     explicit = style.plot_risk_coverage(
         coverage, risk, label="m", reference_risk=0.2, title="t", connect=True
     )
-    assert _png(plain) == _png(explicit)
+    _same_full_canvas(plain, explicit)
+    assert style._figure_png(plain) == style._figure_png(explicit)
 
 
 @dataclass

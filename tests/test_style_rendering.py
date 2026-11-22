@@ -16,88 +16,35 @@ The assertion functions are module-level and are themselves proved able to fail 
 
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import SimpleNamespace
 
+import matplotlib as mpl
 import numpy as np
 import pytest
 from matplotlib.axis import Axis
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.legend import Legend
-from matplotlib.text import Text
+from matplotlib.patches import Rectangle
 
 from jev_cookbook import style
 
+# Load by path: tests has no __init__.py, and pytest uses importlib collection.
+_spec = importlib.util.spec_from_file_location(
+    "_style_assertions", Path(__file__).with_name("_style_assertions.py")
+)
+_assertions = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_assertions)
+_draw = _assertions._draw
+_intersect = _assertions._intersect
+assert_no_overlapping_text = _assertions.assert_no_overlapping_text
+assert_same_full_canvas = _assertions.assert_same_full_canvas
+full_canvas_png = _assertions.full_canvas_png
+tick_texts = _assertions.tick_texts
+
 # --- the assertions ------------------------------------------------------------------------
-
-
-def _draw(fig: Figure) -> None:
-    """Lay the figure out and draw it on the Agg canvas (what a saved PNG would see)."""
-    FigureCanvasAgg(fig)
-    fig.canvas.draw()
-
-
-def _in_view_ticks(axis: Axis) -> list:
-    """The ticks the axis actually draws: matplotlib keeps stale ticks beyond the view limits."""
-    lo, hi = sorted(axis.get_view_interval())
-    eps = 1e-9 * max(1.0, abs(hi - lo))
-    return [t for t in axis.get_major_ticks() if lo - eps <= t.get_loc() <= hi + eps]
-
-
-def tick_texts(axis: Axis) -> list[str]:
-    """The text each drawn tick label of ``axis`` renders (call after the figure is drawn)."""
-    return [t.label1.get_text() for t in _in_view_ticks(axis) if t.label1.get_visible()]
-
-
-def rendered_blocks(fig: Figure) -> list[tuple[str, object]]:
-    """Every visible, non-empty text artist and every legend, as ``(description, bbox)``.
-
-    A legend counts once, as its whole box (frame included); the texts inside it are not
-    listed separately. Tick labels beyond the view limits are not drawn and are left out.
-    """
-    _draw(fig)
-    legends = [lg for lg in fig.findobj(Legend) if lg.get_visible()]
-    inside_legend = {id(t) for lg in legends for t in lg.get_texts()}
-    undrawn = set()
-    for ax in fig.axes:
-        for axis in (ax.xaxis, ax.yaxis):
-            in_view = {id(t) for t in _in_view_ticks(axis)}
-            for tick in axis.get_major_ticks():
-                if id(tick) not in in_view:
-                    undrawn |= {id(tick.label1), id(tick.label2)}
-    blocks: list[tuple[str, object]] = []
-    for text in fig.findobj(Text):
-        if not text.get_visible() or not text.get_text().strip():
-            continue
-        if id(text) in inside_legend or id(text) in undrawn:
-            continue
-        blocks.append((f"text {text.get_text()!r}", text.get_window_extent()))
-    for lg in legends:
-        names = ", ".join(repr(t.get_text()) for t in lg.get_texts())
-        blocks.append((f"legend [{names}]", lg.get_window_extent()))
-    return blocks
-
-
-def _intersect(a, b) -> bool:
-    """Strict overlap of two display-space boxes: touching edges do not count."""
-    return a.x0 < b.x1 and b.x0 < a.x1 and a.y0 < b.y1 and b.y0 < a.y1
-
-
-def assert_no_overlapping_text(fig: Figure) -> None:
-    """Property 1: no two text artists or legends intersect, and none is cut off the figure."""
-    blocks = rendered_blocks(fig)
-    assert blocks, "nothing rendered; the assertion would pass vacuously"
-    page = fig.bbox
-    for name, box in blocks:
-        inside = box.x0 >= page.x0 and box.y0 >= page.y0 and box.x1 <= page.x1 and box.y1 <= page.y1
-        assert inside, f"{name} is cut off by the figure edge: {box.extents} not in {page.extents}"
-    for i, (name_a, box_a) in enumerate(blocks):
-        for name_b, box_b in blocks[i + 1 :]:
-            assert not _intersect(box_a, box_b), (
-                f"{name_a} {np.round(box_a.extents, 1).tolist()} overlaps "
-                f"{name_b} {np.round(box_b.extents, 1).tolist()}"
-            )
 
 
 def assert_ticks_faithful(rendered: list[str], sources: list[str], *, exact: bool = False) -> None:
@@ -571,6 +518,33 @@ def test_labels_that_stay_unique_are_still_abbreviated_as_before():
 
 
 # --- the assertions can fail: planted defects ----------------------------------------------
+
+
+def test_planted_canvas_padding_difference_reddens_full_canvas_equality():
+    small = Figure(figsize=(2, 2), dpi=100)
+    padded = Figure(figsize=(3, 3), dpi=100)
+    for fig in (small, padded):
+        # The same one-inch square has identical absolute coordinates on both canvases.
+        fig.add_artist(
+            Rectangle((0.5, 0.5), 1.0, 1.0, transform=fig.dpi_scale_trans, facecolor="black")
+        )
+    with mpl.rc_context({"savefig.dpi": 100, "savefig.bbox": "tight"}):
+        assert style._figure_png(small) == style._figure_png(padded)
+        # PNG IHDR encodes width and height in bytes 16..23, before compressed pixel data.
+        assert full_canvas_png(small)[16:24] == (200).to_bytes(4, "big") * 2
+        assert full_canvas_png(padded)[16:24] == (300).to_bytes(4, "big") * 2
+        with pytest.raises(AssertionError, match="full-canvas PNGs differ"):
+            assert_same_full_canvas(small, padded)
+
+
+def test_tick_texts_excludes_hidden_and_out_of_view_labels():
+    fig = Figure()
+    ax = fig.subplots()
+    ax.set_xticks([-1, 0, 1, 2], labels=["stale-left", "shown", "hidden", "stale-right"])
+    ax.set_xlim(-0.25, 1.25)
+    ax.xaxis.get_major_ticks()[2].label1.set_visible(False)
+    _draw(fig)
+    assert tick_texts(ax.xaxis) == ["shown"]
 
 
 def _planted_overlap() -> Figure:
