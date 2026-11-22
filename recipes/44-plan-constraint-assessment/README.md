@@ -64,6 +64,12 @@ and recall, the plan-level coverage, accuracy and risk, the named hard case, and
 zero-request baseline comparisons are all checks that the pipeline works; they say nothing about
 how Jev performs, how fast it is, or what it costs.
 
+The coverage/risk plot compares `reject_all`, the mechanism and `approve_all` as separate,
+unconnected policy points. They use different decision rules rather than successive thresholds
+of one rule. `always_review` is printed but excluded from the plot because it answers nothing,
+so its risk is undefined. The points compare each policy at its own coverage; the notebook also
+scores `reject_all` on the same plans the mechanism answers for an equal-coverage comparison.
+
 ## Pull request rules
 
 This recipe's pull request changes only `recipes/44-plan-constraint-assessment/`. The root `README.md` is generated; per
