@@ -242,6 +242,7 @@ rule (letters, digits, `_`, `.`, `-`, up to 64 characters). Each file is a norma
 file validated by the rules above, so one provenance and one model per file; different files may
 name different models. Because a comparison answers the same requests, **every replay key listed
 in `inputs.jsonl` must be present in every responses file**, and none may hold a key nobody lists.
+The explicit branching-comparison extension below is the only exception to sharing that inventory.
 Never mix two models in one file; that is what the extra files are for.
 
 ```python
@@ -259,6 +260,29 @@ Keep `responses.json` for the live lane and give each always-offline lane its ow
 
 `responses_path(recipe_dir=None, tag=None)` and `load_responses(recipe_dir=None, tag=None)` take
 the tag; a tag that breaks the id rule is a `ValueError`.
+
+#### Branching comparison inventories
+
+A comparison whose arms take different dependent-request paths may add `replay_lanes` to each
+input row. It is an explicit list of objects with exactly `responses` (the response filename)
+and `keys` (that arm's ordered request keys for this example). For example, an arm whose own
+category skips a follow-up lists only its first key; the other arms list both keys.
+
+Once any input uses this extension, every input must name every response file exactly once.
+The union of its lane keys must equal its existing `replay_keys`; that common union preserves
+the task's identity, split-leak checks and label association. Duplicate lane names, repeated
+keys within a lane, extra fields, unsafe filenames, an undeclared response file, missing lane
+keys and response keys not listed by their own lane are errors. Each response file is checked
+against its own full inventory, including the default `responses.json`. The ordered lists
+state the intended path; fixture validation does not execute helpers to establish that path.
+A recipe test must execute its policy with the stored answers and compare each exercised key
+set with the declared inventory, and an audited recipe also checks exact executed inventories.
+
+With no `replay_lanes`, the existing rule is unchanged: every response file must contain every
+shared `replay_keys` entry. This extension never changes response provenance, the question or
+state used in a key, the example ID, split or gold labels. It does not turn synthetic answers
+into model evidence or permit unused answers in a lane. A recorded file retains the recorder's
+existing overwrite protections.
 
 ## Secrets
 
