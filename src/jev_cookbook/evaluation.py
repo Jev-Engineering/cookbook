@@ -1774,19 +1774,23 @@ def _results_and_gold(
         for r in rs:
             key = key_of(r)
             try:
-                # Custom membership can reject a key that __getitem__ would synthesize
-                # (defaultdict and Counter do this). Preserve that missing-label boundary.
-                # Mapping's default membership already calls __getitem__, so do not read
-                # its labels twice. Exact dicts raise KeyError without needing membership.
-                contains = getattr(type(gold), "__contains__", None)
-                if type(gold) is not dict and contains is not Mapping.__contains__:
-                    if key not in gold:
-                        raise KeyError(key)
+                hash(key)
+            except TypeError:
+                raise ValueError(f"{function}: key_of returned an unhashable key {key!r}") from None
+            # Only a plain lookup can mean "missing" when it raises KeyError: an exact dict, or a
+            # Mapping whose default membership already calls __getitem__ (read once). Custom
+            # membership (defaultdict and Counter synthesize labels) is checked first, and then
+            # nothing raised inside __getitem__ is relabelled: it propagates unchanged.
+            contains = getattr(type(gold), "__contains__", None)
+            if type(gold) is not dict and contains is not Mapping.__contains__:
+                if key not in gold:
+                    raise ValueError(f"{function}: no gold label for key {key!r}")
+                out.append(gold[key])
+                continue
+            try:
                 out.append(gold[key])
             except KeyError:
                 raise ValueError(f"{function}: no gold label for key {key!r}") from None
-            except TypeError:
-                raise ValueError(f"{function}: key_of returned an unhashable key {key!r}") from None
         return rs, out
     if key_of is not None:
         raise ValueError(f"{function}: key_of only applies to a mapping gold")

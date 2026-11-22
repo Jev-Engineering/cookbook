@@ -356,3 +356,44 @@ def test_outcome_curve_all_rejected_preserves_thresholds_zero_coverage_and_nan_r
     np.testing.assert_array_equal(curve.coverage, [0, 0])
     assert np.isnan(curve.accuracy).all()
     assert np.isnan(curve.risk).all()
+
+
+class RaisingGetitem(Mapping):
+    """A mapping whose own ``__getitem__`` raises ``error`` for the key ``"a"``."""
+
+    def __init__(self, error, contains=True):
+        self.error = error
+        self.has = contains
+
+    def __getitem__(self, key):
+        raise self.error
+
+    def __contains__(self, key):
+        return self.has
+
+    def __iter__(self):
+        return iter(["a"])
+
+    def __len__(self):
+        return 1
+
+
+@pytest.mark.parametrize("function", ACCOUNTING)
+def test_gold_lookup_does_not_label_a_getitem_typeerror_as_unhashable(function):
+    gold = RaisingGetitem(TypeError("custom getitem failure"))
+    with pytest.raises(TypeError, match="custom getitem failure"):
+        accounting(function, [Result("a", "A")], gold, key_of=lambda r: r.key)
+
+
+@pytest.mark.parametrize("function", ACCOUNTING)
+def test_gold_lookup_does_not_label_a_getitem_keyerror_for_a_present_key_as_missing(function):
+    gold = RaisingGetitem(KeyError("custom getitem failure"))
+    with pytest.raises(KeyError, match="custom getitem failure"):
+        accounting(function, [Result("a", "A")], gold, key_of=lambda r: r.key)
+
+
+@pytest.mark.parametrize("function", ACCOUNTING)
+def test_gold_lookup_still_refuses_a_missing_key_by_custom_membership(function):
+    gold = RaisingGetitem(KeyError("never reached"), contains=False)
+    with pytest.raises(ValueError, match="no gold label for key 'a'"):
+        accounting(function, [Result("a", "A")], gold, key_of=lambda r: r.key)
