@@ -22,6 +22,8 @@ The comparison, in full (it is documented in ``docs/notebook-ci.md``):
 3. Each pair of images is then compared by what it shows rather than by its bytes, because the
    bytes change with the matplotlib version, the encoder version, the platform and the pixel
    size. See ``compare_png`` (it decodes either format).
+3a. The fresh run may not hold fewer image outputs (outputs with a non-empty ``image/*`` value)
+   than the committed notebook; the command line always prints both counts (``image_count_line``).
 4. The outputs of all the cells together may weigh at most ``MAX_OUTPUT_BYTES``, in either file.
 5. Every embedded image in either file obeys the metadata rules of ``tools/check_recipe_assets.py``
    (``embedded_image_problems``), because comparing pixels cannot see EXIF or text in the bytes: a
@@ -266,6 +268,26 @@ def embedded_image_problems(nb: dict[str, Any], label: str) -> list[str]:
     return problems
 
 
+def image_output_count(nb: dict[str, Any]) -> int:
+    """How many outputs of ``nb`` hold at least one non-empty ``image/*`` value (a PNG, a JPEG
+    or an SVG): a figure that was committed and is no longer produced is one fewer."""
+    return sum(
+        1
+        for cell in nb["cells"]
+        for output in _outputs(cell)
+        if isinstance(output, dict)
+        and isinstance(output.get("data"), dict)
+        and any(mime.startswith("image/") and value for mime, value in output["data"].items())
+    )
+
+
+def image_count_line(committed: dict[str, Any], fresh: dict[str, Any]) -> str:
+    return (
+        f"image outputs: {image_output_count(committed)} committed, "
+        f"{image_output_count(fresh)} in the fresh run"
+    )
+
+
 def output_bytes(nb: dict[str, Any]) -> int:
     """The UTF-8 length of every output of every cell, each serialised as compact JSON."""
     return sum(
@@ -388,7 +410,13 @@ def check(committed: dict[str, Any], fresh: dict[str, Any]) -> tuple[list[str], 
     problems.extend(found[:MAX_PROBLEMS])
     if len(found) > MAX_PROBLEMS:
         problems.append(f"... and {len(found) - MAX_PROBLEMS} more differences")
+    committed_images, fresh_images = image_output_count(committed), image_output_count(fresh)
     notes = []
+    if fresh_images < committed_images:
+        problems.append(
+            f"image outputs dropped: {committed_images} committed, {fresh_images} in the fresh "
+            "run; a figure the committed notebook shows is no longer produced"
+        )
     if not found:
         for key in sorted(images_a):
             where = _where(key[0], committed["cells"][key[0]], key[1])
@@ -413,6 +441,7 @@ def main(argv: list[str] | None = None) -> int:
         print(error, file=sys.stderr)
         return 2
     problems, notes = check(committed, fresh)
+    print(image_count_line(committed, fresh))
     for note in notes:
         print(note)
     for problem in problems:
