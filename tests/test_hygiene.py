@@ -1489,6 +1489,24 @@ def test_a_bare_key_session_or_salt_name_keeps_the_exemption(name):
     assert packaged_scan.scan_text(line) == [], line
 
 
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("name", ["key_api", "key_access"])
+def test_key_before_api_or_access_keeps_the_exemption(scanner, name):
+    assert not scanner._is_secret_name(scanner._NAME_GLUE.sub("", name))
+    assert scanner.scan_text(f"{name}={LOWER_36}") == []
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+def test_a_mutant_that_accepts_key_before_api_loses_the_exemption(scanner, monkeypatch):
+    def unordered(name):
+        return "api" in name and "key" in name
+
+    line = f"key_api={LOWER_36}"
+    assert scanner.scan_text(line) == []
+    monkeypatch.setattr(scanner, "_is_secret_name", unordered)
+    assert "high-entropy-token" in {rule for _, rule, _ in scanner.scan_text(line)}
+
+
 def test_code_keyword_arguments_keep_the_exemption_after_the_name_normalisation():
     # not secret names even with digits and "_" removed: the exemption still applies
     for line in (
