@@ -238,7 +238,9 @@ came with them:
 - `plot_confusion_matrix` takes one `labels` list for both axes, as it always has. A table whose
   rows and columns are different quantities (gold content against the final action) is a plain
   array with `row_labels` and `col_labels` (either defaults to `labels`) and, to name the axes,
-  `row_axis_title` and `col_axis_title`. `ConfusionMatrix` does not change: it stays one
+  `row_axis_title` and `col_axis_title`. Passing explicit `labels` together with both axis
+  overrides raises `ValueError`; implicit labels from a matrix object can be overridden on
+  either or both axes. `ConfusionMatrix` does not change: it stays one
   vocabulary, so its "gold option / predicted option" wording stays true, and a two-vocabulary
   table is not a `ConfusionMatrix`. Abbreviation is judged on each axis on its own. A
   rectangular table's figure starts from its cell counts and grows until no label or title

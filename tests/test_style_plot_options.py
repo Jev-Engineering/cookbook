@@ -15,12 +15,17 @@ from __future__ import annotations
 
 import importlib.util
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 import numpy as np
 import pytest
 from matplotlib.axis import Axis
 from matplotlib.figure import Figure
+from matplotlib.layout_engine import ConstrainedLayoutEngine
+from matplotlib.markers import MarkerStyle
+from matplotlib.path import Path as MarkerPath
+from matplotlib.text import Text
 
 from jev_cookbook import style
 
@@ -124,6 +129,35 @@ def test_an_object_with_labels_and_matrix_is_still_one_vocabulary():
     assert (ax.get_ylabel(), ax.get_xlabel()) == ("Gold", "Predicted")
 
 
+@pytest.mark.parametrize("shared", [["a", "b"], ["a", "b", "c"]])
+@pytest.mark.parametrize("as_object", [False, True], ids=["array", "matrix-object"])
+def test_explicit_shared_labels_cannot_be_silently_discarded_by_both_overrides(shared, as_object):
+    counts = np.ones((2, 2))
+    if as_object:
+        counts = _Matrix(["implicit a", "implicit b"], counts)
+    with pytest.raises(ValueError, match=r"labels.*row_labels.*col_labels"):
+        style.plot_confusion_matrix(
+            counts, labels=shared, row_labels=["r1", "r2"], col_labels=["c1", "c2"]
+        )
+
+
+def test_implicit_matrix_labels_can_be_replaced_on_both_axes():
+    cm = _Matrix(["implicit a", "implicit b"], np.ones((2, 2)))
+    fig = style.plot_confusion_matrix(cm, row_labels=["r1", "r2"], col_labels=["c1", "c2"])
+    _draw(fig)
+    assert _ticks(fig.axes[0].yaxis) == ["r1", "r2"]
+    assert _ticks(fig.axes[0].xaxis) == ["c1", "c2"]
+
+
+@pytest.mark.parametrize("override", ["row_labels", "col_labels"])
+def test_one_matrix_axis_override_retains_the_other_implicit_vocabulary(override):
+    cm = _Matrix(["no", "yes"], np.ones((2, 2)))
+    fig = style.plot_confusion_matrix(cm, **{override: ["x", "y"]})
+    _draw(fig)
+    assert _ticks(fig.axes[0].yaxis) == (["x", "y"] if override == "row_labels" else cm.labels)
+    assert _ticks(fig.axes[0].xaxis) == (["x", "y"] if override == "col_labels" else cm.labels)
+
+
 def test_explicit_row_and_column_labels_need_no_shared_list():
     fig = style.plot_confusion_matrix(
         CONTENT_BY_ACTION, row_labels=GOLD_CONTENT, col_labels=FINAL_ACTION
@@ -176,6 +210,23 @@ def test_the_figure_grows_with_each_axis():
 def test_labels_that_do_not_fit_the_counts_are_refused(call):
     with pytest.raises(ValueError):
         call()
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "named", "unnamed"),
+    [
+        ({}, ["row_labels", "col_labels"], []),
+        ({"row_labels": ["a", "b"]}, ["col_labels"], ["row_labels"]),
+        ({"col_labels": ["a", "b"]}, ["row_labels"], ["col_labels"]),
+    ],
+    ids=["none", "rows-only", "cols-only"],
+)
+def test_the_missing_labels_refusal_names_the_axis_without_labels(kwargs, named, unnamed):
+    with pytest.raises(ValueError, match="labels are required") as raised:
+        style.plot_confusion_matrix(np.ones((2, 2)), **kwargs)
+    detail = str(raised.value).split("no labels were given for ")[1].split(" (")[0]
+    assert detail.split(" and ") == named
+    assert not any(name in detail for name in unnamed)
 
 
 def test_a_rectangular_refusal_names_both_dimensions():
@@ -276,7 +327,7 @@ def test_connect_false_keeps_the_coordinates_and_their_order():
     assert line.get_xdata().tolist() == POLICY_COVERAGE
     assert line.get_ydata().tolist() == POLICY_RISK
     assert line.get_linestyle() == "None"
-    assert line.get_marker() not in (None, "None", "")
+    assert MarkerStyle(line.get_marker())
     assert [t.get_text() for t in fig.axes[0].get_legend().get_texts()] == ["policies"]
 
 
@@ -331,8 +382,69 @@ def test_connect_false_on_an_axes_made_outside_the_style_still_draws_a_marker():
     style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK, connect=False, ax=ax)
     points = ax.lines[0]
     assert points.get_linestyle() == "None"
-    assert points.get_marker() not in (None, "None", "none", "", " ")
+    assert MarkerStyle(points.get_marker())
     assert points.get_markersize() > 0
+
+
+@pytest.mark.parametrize("marker", [None, "None", "none", "", " "])
+def test_connect_false_replaces_every_matplotlib_no_marker_spelling(marker, monkeypatch):
+    """``''`` and ``'none'`` (the default spelling) both draw nothing, so both are refused."""
+    fig = Figure()
+    ax = fig.subplots()
+    # A caller can wrap plot with its own default marker.
+    monkeypatch.setattr(ax, "plot", partial(ax.plot, marker=marker))
+    style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK, connect=False, ax=ax)
+    points = ax.lines[0]
+    assert MarkerStyle(points.get_marker())
+    assert points.get_marker() == style.rc_params()["axes.prop_cycle"].by_key()["marker"][0]
+    assert points.get_markersize() > 0
+
+
+@pytest.mark.parametrize(
+    "marker", sorted(m for m, meaning in MarkerStyle.markers.items() if meaning == "nothing")
+)
+def test_connect_false_replaces_every_empty_marker_in_matplotlibs_registry(marker, monkeypatch):
+    fig = Figure()
+    ax = fig.subplots()
+    monkeypatch.setattr(ax, "plot", partial(ax.plot, marker=marker))
+    style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK, connect=False, ax=ax)
+    assert not MarkerStyle(marker)
+    assert MarkerStyle(ax.lines[0].get_marker())
+
+
+@pytest.mark.parametrize("marker", ["s", "x", "o", "+"], ids=["square", "cross", "circle", "plus"])
+def test_connect_false_keeps_a_visible_marker_the_caller_chose(marker, monkeypatch):
+    fig = Figure()
+    ax = fig.subplots()
+    monkeypatch.setattr(ax, "plot", partial(ax.plot, marker=marker))
+    style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK, connect=False, ax=ax)
+    points = ax.lines[0]
+    assert MarkerStyle(marker)
+    assert points.get_marker() == marker
+    assert points.get_linestyle() == "None"
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [
+        MarkerPath([[-1.0, -1.0], [0.0, 1.0], [1.0, -1.0]]),
+        np.array([[-1.0, 0.0], [0.0, 1.0], [1.0, 0.0]]),
+    ],
+    ids=["path", "vertices"],
+)
+def test_connect_false_preserves_a_caller_supplied_custom_marker(marker, monkeypatch):
+    fig = Figure()
+    ax = fig.subplots()
+    # A caller can wrap plot with its own default marker, including a custom Path.
+    monkeypatch.setattr(ax, "plot", partial(ax.plot, marker=marker))
+    style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK, connect=False, ax=ax)
+    actual = MarkerStyle(ax.lines[0].get_marker())
+    expected = MarkerStyle(marker)
+    assert actual
+    np.testing.assert_array_equal(actual.get_path().vertices, expected.get_path().vertices)
+    np.testing.assert_array_equal(
+        actual.get_transform().get_matrix(), expected.get_transform().get_matrix()
+    )
 
 
 def test_connect_false_keeps_the_style_cycle_marker_and_is_unclipped_at_full_coverage():
@@ -362,3 +474,80 @@ def test_growing_a_rectangular_figure_prints_no_constrained_layout_warning():
         warnings.simplefilter("error")
         fig = style.plot_confusion_matrix(np.ones((2, 3)), row_labels=rows, col_labels=list("abc"))
         _draw(fig)
+
+
+@pytest.mark.parametrize("normalize", [False, True])
+def test_a_fitting_rectangle_lays_out_once_without_drawing_or_measuring_cell_annotations(
+    monkeypatch, normalize
+):
+    layout_calls = []
+    measured = []
+    original_execute = ConstrainedLayoutEngine.execute
+    original_extent = Text.get_window_extent
+
+    def execute(engine, fig):
+        layout_calls.append(fig)
+        return original_execute(engine, fig)
+
+    def extent(text, *args, **kwargs):
+        assert text.axes is None or text not in text.axes.texts, "measured a cell annotation"
+        measured.append(text.get_text())
+        return original_extent(text, *args, **kwargs)
+
+    def unexpected_draw(*args, **kwargs):
+        raise AssertionError("a fitting rectangle needs layout, not a full figure draw")
+
+    # Keep the guard local to construction: the rendered assertions below should draw cells.
+    with monkeypatch.context() as patch:
+        patch.setattr(ConstrainedLayoutEngine, "execute", execute)
+        patch.setattr(Text, "get_window_extent", extent)
+        patch.setattr(Figure, "draw", unexpected_draw)
+        patch.setattr(Figure, "draw_without_rendering", unexpected_draw)
+        fig = style.plot_confusion_matrix(
+            np.ones((2, 3)),
+            row_labels=list("ab"),
+            col_labels=list("cde"),
+            normalize=normalize,
+            title="A fitting rectangle",
+        )
+    assert layout_calls == [fig]
+    assert set("abcde") <= set(measured)
+    assert {"Gold", "Predicted", "A fitting rectangle"} <= set(measured)
+    assert fig.get_size_inches().tolist() == [5.2, 4.3]
+    assert all(text.get_in_layout() for text in fig.axes[0].texts)
+    _no_text_overlaps(fig)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"title": "A title " + "that runs well past the matrix " * 4},
+        {"col_axis_title": "A column axis title " + "that runs on " * 8},
+        {"row_axis_title": "A row axis title " + "that runs on " * 8},
+    ],
+    ids=["title", "x-axis-title", "y-axis-title"],
+)
+def test_growth_still_measures_the_title_and_each_axis_title(kwargs):
+    rows, cols = list("ab"), list("cde")
+    short = style.plot_confusion_matrix(np.ones((2, 3)), row_labels=rows, col_labels=cols)
+    fig = style.plot_confusion_matrix(np.ones((2, 3)), row_labels=rows, col_labels=cols, **kwargs)
+    assert fig.get_size_inches().tolist() != short.get_size_inches().tolist()
+    _no_text_overlaps(fig)
+
+
+@pytest.mark.parametrize("axis", ["rows", "columns"])
+def test_growth_measures_tick_labels_when_nothing_else_overflows(axis):
+    """With empty axis titles and no title, only the tick labels can run past the edge."""
+    long_whole = [f"customer_refund_{'x' * 60}_{i}" for i in range(3)]
+    short = list("ab")
+    rows, cols = (long_whole, short) if axis == "rows" else (short, long_whole)
+    fig = style.plot_confusion_matrix(
+        np.ones((len(rows), len(cols))),
+        row_labels=rows,
+        col_labels=cols,
+        row_axis_title="",
+        col_axis_title="",
+    )
+    w, h = fig.get_size_inches()
+    assert (w > 8.0) if axis == "rows" else (h > 8.0)
+    _no_text_overlaps(fig)
