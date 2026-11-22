@@ -162,8 +162,13 @@ own first use the same way.
         contains the token `f1`) together with another spelling. A call that names none is not
         credited either. A direct pin (route 1) is the alternative for any shape refused here.
 
-     The guard does not read the helper's body, so a helper that falls back to another
-     spelling inside its body is not detected (tracked in issue #540).
+     The selected helper must also contain no whole-token objective spelling in a literal
+     string. The guard conservatively refuses such a helper even when the literal is the
+     same spelling, a default, a docstring or an unreachable branch. A literal fallback in
+     the helper therefore cannot stand in for the spelling named at the call. Unrelated
+     helpers do not remove this helper's credit; a direct pin remains available when this
+     extraction shape is refused. This check does not evaluate computed strings, follow
+     global values or analyse transitive helper calls.
   3. **A production tie** (recipe 28's shape, which reads no file). A `helpers.py` function
      whose body makes the real selection call is compared with `==` to a local re-derivation
      computed with an explicit keyword, and a separate `!=` assert shows that re-derivation
