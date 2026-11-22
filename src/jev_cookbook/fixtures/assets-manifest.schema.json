@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Jev-Engineering/cookbook/schemas/assets-manifest.json",
   "title": "Jev Cookbook image assets manifest",
-  "description": "A recipe's assets-manifest.json: provenance, licence and attestations for every image under its assets/ folder. Required exactly when the recipe has an assets/ folder. The validator also checks what a schema cannot: every file under assets/ is listed, every listed file exists, hash, format and size match the bytes, the generator script exists in the recipe, and no image crosses splits. See docs/fixtures.md, 'Image provenance manifest'.",
+  "description": "A recipe's assets-manifest.json: provenance, licence and attestations for every image under its assets/ folder. Required exactly when the recipe has an assets/ folder. The validator also checks what a schema cannot: every file under assets/ is listed, every listed file exists, hash, format and size match the bytes, the generator names a readable recipe script or installed regular package source module mentioning the function name as a word (without importing it; namespace packages and zip installs are unsupported), and no image crosses splits. See docs/fixtures.md, 'Image provenance manifest'.",
   "type": "object",
   "required": ["schema", "assets"],
   "additionalProperties": false,
