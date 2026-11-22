@@ -340,7 +340,7 @@
         "tin": false
       },
       "licence": "CC0-1.0",
-      "description": "An invented shelf frame under 'shelf' conditions with no tin in it (seed 41).",
+      "description": "An invented empty wall/background under 'shelf' conditions with no tin or board in it (seed 41).",
       "attestations": {
         "synthetic": true,
         "real_photo": false,
