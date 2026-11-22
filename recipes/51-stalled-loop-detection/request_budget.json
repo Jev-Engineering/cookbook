@@ -1,6 +1,6 @@
 {
   "schema": 1,
   "backends": {
-    "main": { "requests": 52, "fixtures": "fixtures/responses.json" }
+    "main": { "requests": 59, "fixtures": "fixtures/responses.json" }
   }
 }
