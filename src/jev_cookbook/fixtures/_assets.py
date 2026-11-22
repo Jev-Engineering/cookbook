@@ -24,12 +24,10 @@ with the ``[rule]`` that failed; ``validate_recipe`` turns them into ``Problem``
 ``split-leak``            the same image bytes are named by examples of different splits
 
 Reading an image is a header parse with the standard library, not a decode, and a package
-generator is found by reading its module's source, not by importing it. ``jev_cookbook.vision``
-(which imports Pillow) is imported only for its path check, and only when the recipe has a manifest
-entry or a ``fields`` image path to check, so a text-only recipe with no ``assets/`` path in
-its fields never imports it. What this
-does not do: decode pixels, so the same picture saved twice with different bytes is two hashes;
-or judge that a description is true.
+generator is found by reading its module's source, not by importing it. Path containment also
+uses only the standard library, so checking image manifests and asset paths does not import
+Pillow or Matplotlib. Other recipe checks may have their own dependencies. What this does not do: decode pixels, so the same picture saved twice
+with different bytes is two hashes; or judge that a description is true.
 """
 
 from __future__ import annotations
@@ -44,6 +42,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from .._paths import AssetPathError, resolve_asset_path
 from ._schema import check, load_schema
 
 ASSETS_DIR = "assets"
@@ -291,10 +290,6 @@ def check_assets(
         for example in examples
         if example.fields is not None
     ]
-
-    if not entries and not any(paths for _, paths in field_paths):
-        return out  # nothing below needs a path check; a text-only recipe never imports vision
-    from ..vision import AssetPathError, resolve_asset_path  # Pillow: import only when needed
 
     # Each entry against its file, then its generator, entry by entry.
     hashes: dict[str, str] = {}
