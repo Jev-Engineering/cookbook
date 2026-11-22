@@ -312,6 +312,10 @@ own first use the same way.
   `pow()` is not pinned across builds). Rounding the stored value also hides a difference, but
   prefer a construction that is deterministic to one that truncates its output. The measured
   example, and the other operations to avoid, are in [fixtures.md](fixtures.md#floats-in-a-generator).
+  The recipe guard checks every builder's AST, permitting `sum()` only for recognized integer
+  syntax or a directly rounded expression with literal 0..10 decimal places. It also rejects
+  powers with literal-arithmetic float evidence; it does not infer numeric types through names
+  or functions. See the exact scope and remaining review work in that section of `fixtures.md`.
   The template's own `build_fixtures.py` stores hand-typed probabilities and does neither.
 - **Neighbour links are folder links, and every linked neighbour already exists on `main`.**
   "Next steps" links a neighbouring recipe as `../NN-slug/`. `tools/render_catalog.py` renders
