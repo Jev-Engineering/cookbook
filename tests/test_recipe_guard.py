@@ -35,7 +35,9 @@ check id                              rule -> detection
                                        docstrings and docs/fixtures.md for exact limits.
 ``build_fixtures_scaffold``           G1(a): ``tests/test_build_fixtures.py`` matches
                                        ``tools/new_recipe.py::build_fixtures_test_text`` for
-                                       this recipe, byte for byte.
+                                       this recipe, byte for byte: the ``replay-images``
+                                       variant when ``assets/`` is a directory, otherwise
+                                       the ``replay`` variant.
 ``no_issue_citations``                G1(b), CONTRIBUTING.md section 6: no ``#NNN`` or
                                        "the issue" in a recipe file's prose (docstrings and
                                        comments in ``.py`` files, full text of ``README.md``
@@ -290,9 +292,10 @@ Scope decisions (see the pull request body for the full reasoning):
   keyed on the property its own check is about, and the three no longer share one skip
   condition:
 
-  - ``build_fixtures_scaffold`` (G1(a)) is about ``tools/new_recipe.py``'s *replay-mode*
-    scaffold for ``tests/test_build_fixtures.py``, and a scripted recipe has no such file by
-    construction (``tools/new_recipe.py::build_scripted_fixtures_text`` writes a different
+  - ``build_fixtures_scaffold`` (G1(a)) is about ``tools/new_recipe.py``'s ``replay`` and
+    ``replay-images`` scaffolds for ``tests/test_build_fixtures.py``: ``assets/`` being a
+    directory selects ``replay-images``, otherwise ``replay``. A scripted recipe has no such
+    file by construction (``tools/new_recipe.py::build_scripted_fixtures_text`` writes a different
     docstring and never writes ``responses.json`` at all) -- there is nothing for a scripted
     recipe to hold byte-identical, so the skip here is genuinely vacuous and stays keyed on
     ``responses.json``'s absence, which **is** the property for this one check alone.
