@@ -509,8 +509,8 @@ catalog is insufficient; the scope guard reads assignments from the base.
    cannot even install it (`numpy==2.5.3` needs Python 3.12 or newer), and CI compares text output
    byte for byte against its pinned stack. Install the way the `Notebook (<recipe>)` job does,
    `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python 3.14; `nbclient` and
-   `ipykernel` are core dependencies, so this alone is enough to execute a notebook — `.[dev]`
-   from step 1 is for `ruff` and `pytest`, which that job does not run), so the outputs you commit
+   `ipykernel` are core dependencies, so this alone is enough to execute a notebook — the `dev`
+   extra from step 1 adds `ruff` and `pytest`, which that job does not run), so the outputs you commit
    come from the same library versions; then `python tools/execute_notebook.py recipes/NN-slug`,
    and read the outputs.
 7. Run it twice: the second run must change nothing (`git diff --stat` empty after `git add`).

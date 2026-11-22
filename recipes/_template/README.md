@@ -32,7 +32,7 @@ replays the stored answers in `fixtures/responses.json`, and imports only the st
 Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
 `Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
 3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
-notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
+notebook — the `dev` extra above adds `ruff` and `pytest`, which that job does not run; see
 [docs/recipe-template.md](../../docs/recipe-template.md) step 6).
 
 ## Switch to live

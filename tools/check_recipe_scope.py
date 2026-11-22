@@ -123,12 +123,8 @@ def _without_commonmark_code_fences(body: str) -> str:
     CommonMark preset's nesting bound is retained: source outside emitted fence ranges stays
     visible to callers, including text the parser stops processing at its nesting limit.
     """
-    from markdown_it import MarkdownIt
-
-    # Only block context and line maps are needed; do not parse or render inline content.
-    parser = MarkdownIt("commonmark").disable(["inline", "text_join"])
     excluded: set[int] = set()
-    for token in parser.parse(body):
+    for token in commonmark_blocks(body):
         if token.type == "fence":
             assert token.map is not None, "a fence token must have a source line range"
             excluded.update(range(*token.map))
@@ -136,6 +132,18 @@ def _without_commonmark_code_fences(body: str) -> str:
     if lines[-1] == "":
         lines.pop()
     return "\n".join(line for index, line in enumerate(lines) if index not in excluded)
+
+
+def commonmark_blocks(body: str) -> list[Any]:
+    """CommonMark block tokens with source ranges for explicitly dev-installed consumers.
+
+    This is the same reader used by the opt-in fence remover. The privileged scope CLI
+    never calls it. Inline content remains unparsed; consumers choose their own prose rule.
+    Missing parser support and parse errors propagate, with no historical-reader fallback.
+    """
+    from markdown_it import MarkdownIt
+
+    return MarkdownIt("commonmark").disable(["inline", "text_join"]).parse(body)
 
 
 INLINE_CODE = re.compile(r"(?P<ticks>`+)(?:(?!(?P=ticks)).)*?(?P=ticks)", re.DOTALL)
