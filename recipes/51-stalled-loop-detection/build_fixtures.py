@@ -227,6 +227,20 @@ TRANSCRIPTS = [
     ], [
         (U, (U, 68, R, 14)), (A, (R, 52, A, 32)), (R, (R, 52, A, 32)), (C, (C, 84, A, 6)),
     ]),
+    ("t-index-budget", "test", "R-207", "Build and verify the offline search index.", [
+        _turn("inspect index manifest", "7 shards need indexing", "Starting the build."),
+        _turn("index shard 1", "shard 1 indexed; 1 of 7 ready", "First shard ready."),
+        _turn("index shard 2", "shard 2 indexed; 2 of 7 ready", "Second shard ready."),
+        _turn("index shard 3", "shard 3 indexed; 3 of 7 ready", "Third shard ready."),
+        _turn("index shard 4", "shard 4 indexed; 4 of 7 ready", "Fourth shard ready."),
+        _turn("index shard 5", "shard 5 indexed; 5 of 7 ready", "Fifth shard ready."),
+        _turn("index shard 6", "shard 6 indexed; 6 of 7 ready", "Sixth shard ready."),
+        _turn("index shard 7 and verify index", "(output cut off)", "Probably finished."),
+    ], [
+        (A, (A, 84, C, 6)), (A, (A, 84, C, 6)), (A, (A, 84, C, 6)),
+        (A, (A, 84, C, 6)), (A, (A, 84, C, 6)), (A, (A, 84, C, 6)),
+        (U, (U, 84, C, 6)),
+    ]),
     # --- demo: shown up close, never scored -------------------------------------------------
     ("d-integration", "demo", "R-301", "Get the integration suite green on the release branch.", [
         _turn("run_tests tests/integration",
