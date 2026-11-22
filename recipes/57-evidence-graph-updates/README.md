@@ -14,10 +14,16 @@ propositions (do the excerpts state the new employment, and that the old one end
 everything else: the candidate shortlist, the confidence gate and thresholds frozen on
 `validation`, a request `Budget`, the composition into one proposed update, and the transactional
 apply in a simulated `Store` through a `Transactor` that validates the update, checks the graph
-invariant (one employer per person) on the staged writes, rolls back on failure and logs every
-attempt with its provenance. The notebook evaluates update accuracy against gold, runs a rollback
-test and a replay test (`replay_transactions` rebuilds the graph from the log with identical
-history), and compares a keyword baseline run under the same conditions.
+invariant (at most one employer per person) on the staged writes, rolls back on failure and logs
+every attempt with its provenance. The notebook evaluates update accuracy against gold, runs a
+rollback test and a replay test (`replay_transactions` rebuilds the graph from the log with
+identical history), and compares a keyword baseline run under the same conditions.
+
+The seed graph gives every person exactly one employer; successful replacements swap one
+employment edge for another. The graph invariant independently permits at most one employer,
+including none. `validate_update` also serves direct callers, so a replacement must identify
+an existing employment edge to remove: it refuses `replace=True, remove=None` before staging
+writes. This defensive case cannot arise through the normal seeded `run_updates` sequence.
 
 ## Run it offline
 
