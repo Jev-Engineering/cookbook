@@ -162,8 +162,6 @@ def threshold_pool(
     This is the one place that decides which answers are in the selection. The notebook, the
     tests and ``choose_threshold`` all call it.
     """
-    if not len(answers) == len(gold) == len(turns):
-        raise ValueError("answers, gold and turns must have the same length")
     correct, confidences = [], []
     for a, g, t in zip(answers, gold, turns, strict=True):
         if _gate_matters(a.choice, t):
@@ -220,9 +218,9 @@ def transition(
 
     The turn budget is part of the table. At ``turn >= MAX_TURNS`` the run stops whatever the
     answer: the budget is a hard stop owned by Python, so a below-threshold or ``unclear``
-    answer at that turn is stopped, not queued for review, and a confident ``repeating`` is
-    stopped instead of asking for a change, with the stall reason "repeating at the turn
-    budget". An answer that stops the run anyway (``complete``, ``regressing``, a further
+    answer at that turn is stopped and still queued for review by ``supervise``; a confident
+    ``repeating`` is stopped instead of asking for a change, with the stall reason
+    "repeating at the turn budget". An answer that stops the run anyway (``complete``, ``regressing``, a further
     ``repeating``) keeps its own reason; every other answer stops with the reason "turn budget
     reached", which says the budget decided and not the label.
     """
@@ -280,9 +278,7 @@ class Run:
         return self.stall_interventions[0] if self.stall_interventions else None
 
 
-def _run(
-    transcript: str, checkpoints: list[tuple[int, str, float]], threshold: float, on_step=None
-) -> Run:
+def _run(transcript: str, checkpoints: list[tuple[int, str, float]], threshold: float) -> Run:
     """Walk ``(turn, choice, confidence)`` in turn order through ``transition``, the one table."""
     turns = [turn for turn, _, _ in checkpoints]
     if turns != sorted(turns) or len(set(turns)) != len(turns):
@@ -294,8 +290,6 @@ def _run(
         decision, reason = transition(choice, confidence, threshold, changes, turn)
         step = Step(transcript, turn, choice, decision, reason)
         steps.append(step)
-        if on_step is not None:
-            on_step(step)
         if reason in STALL_REASONS:
             stalls.append(turn)
         if decision == CHANGE_STRATEGY:
@@ -330,22 +324,25 @@ def supervise(
     cases. At turn ``MAX_TURNS`` the budget is a hard stop owned by Python: whatever the answer,
     including one the gate would have sent to review, the run stops, the stop is recorded in the
     action log (reason "turn budget reached", "repeating at the turn budget" for a confident
-    first ``repeating``, or the answer's own reason when it stops the run anyway), and nothing is
-    queued. A strategy change or a stop is recorded in the action log
+    first ``repeating``, or the answer's own reason when it stops the run anyway). Below-gate
+    and ``unclear`` answers still enter the review queue with their review reason. The pure Run
+    is computed before any writes, so a later checkpoint failure leaves both sinks unchanged.
+    A strategy change or a stop is recorded in the action log
     (simulated: nothing is executed). Checkpoints after a stop are never consumed.
     """
-    by_turn = {turn: answer for turn, answer in answers}
-
-    def write(step: Step) -> None:
+    checkpoints = [(turn, answer.choice, answer.confidence) for turn, answer in answers]
+    run = _run(transcript, checkpoints, threshold)
+    by_turn = dict(answers)
+    for step in run.steps:
         answer = by_turn[step.turn]
         item = {"transcript": step.transcript, "turn": step.turn, "choice": step.choice}
-        if step.decision == REVIEW:
-            queue.submit(item, step.reason, answer=answer, step=step.turn)
-        elif step.decision in (CHANGE_STRATEGY, STOP):
+        # The answer's review disposition survives the budget's independent hard stop.
+        decision, reason = _answer_decision(step.choice, answer.confidence, threshold, 0)
+        if decision == REVIEW:
+            queue.submit(item, reason, answer=answer, step=step.turn)
+        if step.decision in (CHANGE_STRATEGY, STOP):
             actions.record(step.decision, item, step=step.turn, answer=answer, rule=step.reason)
-
-    checkpoints = [(turn, answer.choice, answer.confidence) for turn, answer in answers]
-    return _run(transcript, checkpoints, threshold, on_step=write)
+    return run
 
 
 def stall_onset(labelled: list[tuple[int, str]]) -> int | None:
@@ -362,30 +359,28 @@ class Detection:
 
     transcript: str
     onset: int | None
-    intervened: int | None  # the first stall intervention at or after the onset
+    intervened: int | None  # the first intervention on a gold stall turn
     outcome: str  # "detected" or "missed" when there is a stall point, else "no stall"
     delay: int | None  # intervened - onset, for a detected stall only
-    false_alarm: int | None  # the turn of the first stall intervention before the onset, or on a
-    # transcript that never stalls; reported apart from the outcome
+    false_alarm: int | None  # first intervention on a gold non-stall turn
 
 
-def detection(run: Run, onset: int | None) -> Detection:
-    """Compare a run's stall interventions with the gold onset.
+def detection(run: Run, labelled: list[tuple[int, str]]) -> Detection:
+    """Compare interventions with the gold labels at their turns.
 
-    A transcript with a stall point is ``detected`` when the run has a stall intervention at or
-    after the onset (the first one is the detection, and its distance from the onset is the
-    delay) and ``missed`` otherwise, including a run that stopped for another reason first. So
-    detected plus missed is the number of transcripts with a stall point. A stall intervention
-    before the onset, or any on a transcript that never stalls, is a false alarm: it is recorded
-    in ``false_alarm`` and does not change the outcome, so an early false alarm cannot hide a
-    later correct detection.
+    A transcript with a stall point is ``detected`` when an intervention lands on a gold
+    ``repeating`` or ``regressing`` turn, and ``missed`` otherwise. Delay is measured from the
+    first gold stall to that first correct intervention; this scores transcripts, not episodes.
+    An intervention on any non-stall turn is a false alarm, including one after a stall ended.
+    It is recorded separately, so a false alarm cannot hide a later correct detection.
     """
+    onset = stall_onset(labelled)
+    gold = dict(labelled)
     turns = run.stall_interventions
+    false_alarm = next((t for t in turns if gold[t] not in STALLS), None)
     if onset is None:
-        return Detection(run.transcript, None, None, "no stall", None, turns[0] if turns else None)
-    early = [t for t in turns if t < onset]
-    false_alarm = early[0] if early else None
-    seen = next((t for t in turns if t >= onset), None)
+        return Detection(run.transcript, None, None, "no stall", None, false_alarm)
+    seen = next((t for t in turns if gold[t] in STALLS), None)
     if seen is None:
         return Detection(run.transcript, onset, None, "missed", None, false_alarm)
     return Detection(run.transcript, onset, seen, "detected", seen - onset, false_alarm)
