@@ -92,9 +92,10 @@ were not recorded, rather than proving none were sent.
 
 Pass raw image dictionaries using `decide(state, questions, assets=assets)` as described in
 [backends.md](backends.md#images-and-box). Before spending a request, the backend checks the
-assets, requires the images flag, and for a Box requires `jev-1.14.0` or `jev-preview`.
-Use the pinned `jev-1.14.0` for recordings. An unknown future version is refused for Box until
-support is verified; the text-only model behavior is unchanged. The API replaces references in
+assets, requires the images flag, and for a Box requires the pinned `jev-1.14.0`.
+The moving aliases `jev-latest` and `jev-preview` are refused for Box, as is `jev-1.13.0`, even
+though TypeSafe's SDK examples use `jev-preview`: the cookbook pins the version it verified. An
+unknown future version is refused for Box until support is verified; the text-only model behavior is unchanged. The API replaces references in
 string values; cookbook passes those strings through and converts assets into SDK `Image`
 objects for multipart upload. SDK 0.7.5 introduced this support
 ([changelog](https://docs.typesafe.ai/sdk/python/changelog)).

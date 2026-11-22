@@ -73,6 +73,8 @@ def test_candidates_and_option_order_are_built_by_python():
     assert helpers.candidates("M. Okafor") == ["P01", "P02"]
     assert helpers.candidates("Gwen Tallis") == ["P21"]
     assert helpers.option_order("d01", "P. Lund") == ["P23", "P22"]
+    assert helpers.option_order("empty", "Lena Smith") == []
+    assert helpers.option_order("single", "Gwen Tallis") == ["P21"]
     fields = _examples()["d01"].fields
     options = list(helpers.build_first_questions("d01", fields)["entity"].criteria)
     assert options == ["P23", "P22", "no_match"]
@@ -306,6 +308,32 @@ def test_entity_hits_and_conflict_rows_leave_out_unanswered_requests():
     assert [e.id for e in helpers.conflict_rows(examples, first, right["entity"].confidence)] == [
         "1"
     ]
+
+
+@pytest.mark.parametrize(
+    "answer, expected", [(None, False), (helpers.UNMATCHED, False), ({}, True)]
+)
+def test_is_answered_preserves_empty_mappings(answer, expected):
+    assert helpers.is_answered(answer) is expected
+    assert helpers._answered([answer], [{"entity": "P01"}]) == (
+        ([answer], [{"entity": "P01"}]) if expected else ([], [])
+    )
+    assert helpers._answers_dict(answer, None) == {}
+
+
+def test_answer_serialization_skips_refusals_and_keeps_answered_values():
+    answer = {"conflict": NoulAnswer(0.1, SYN)}
+    assert helpers.is_answered(answer) is True
+    expected = {
+        "conflict": {
+            "type": "noul",
+            "noul": 0.1,
+            "provenance": {"source": "synthetic", "model": None, "date": None},
+        }
+    }
+    assert helpers._answers_dict(None, helpers.UNMATCHED) == {}
+    assert helpers._answers_dict(answer, helpers.UNMATCHED) == expected
+    assert helpers._answers_dict(None, answer) == expected
 
 
 def test_decide_needs_both_stages_of_settings():
