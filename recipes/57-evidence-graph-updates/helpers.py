@@ -31,7 +31,7 @@ from typing import Any
 
 from jev_cookbook import Choice, Noul
 from jev_cookbook.evaluation import select_confidence_threshold, select_threshold
-from jev_cookbook.fixtures import stable_permutation
+from jev_cookbook.fixtures import stable_shuffle
 from jev_cookbook.simulation import ReviewQueue, Store, Transactor
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
@@ -169,9 +169,7 @@ def option_order(example_id: str, mention: str) -> list[str]:
     ``f"{SLUG}:{example_id}"``, so the shown order comes from neither the data nor the id order.
     It holds only the shortlisted people: ``build_first_questions`` appends ``no_match`` after
     them, and ``ask_first`` sends no request at all when the shortlist is empty."""
-    pool = candidates(mention)
-    order = stable_permutation(f"{SLUG}:{example_id}", len(pool))
-    return [pool[i] for i in order]
+    return list(stable_shuffle(f"{SLUG}:{example_id}", candidates(mention)))
 
 
 def describe(person: str) -> str:
@@ -265,15 +263,16 @@ class Settings:
     ended: float | None = None
 
 
-def _is_answered(answer: Any) -> bool:
+def is_answered(answer: Any) -> bool:
     """Whether a request was actually answered: a request the budget could not pay for (``None``)
-    or a mention with no candidate (``UNMATCHED``) has no probability."""
+    or a mention with no candidate (``UNMATCHED``) has no probability. Empty mappings are
+    answered."""
     return answer is not None and answer != UNMATCHED
 
 
 def _answered(first: list[Any], gold: list[dict[str, Any]]) -> tuple[list[Any], list[Any]]:
     """The (answer, gold) pairs whose request was actually answered."""
-    pairs = [(a, g) for a, g in zip(first, gold, strict=True) if _is_answered(a)]
+    pairs = [(a, g) for a, g in zip(first, gold, strict=True) if is_answered(a)]
     return [a for a, _ in pairs], [g for _, g in pairs]
 
 
@@ -282,7 +281,7 @@ def reaches_conflict_check(first: Any, gate: float) -> bool:
     request was answered, its entity confidence is at or above the gate, and it is not
     ``no_match``. The conflict threshold is fitted, and reported, on exactly these rows."""
     return (
-        _is_answered(first)
+        is_answered(first)
         and first["entity"].confidence >= gate
         and first["entity"].choice != NO_MATCH
     )
@@ -510,7 +509,7 @@ def _answers_dict(first: Any, second: Any) -> dict[str, Any]:
     plain ``{name: answer}`` mapping (the notebook's counterfactual rows use one)."""
     out = {}
     for result in (first, second):
-        if result is not None and result != UNMATCHED:
+        if is_answered(result):
             for name in result.keys():
                 out[name] = result[name].to_dict()
     return out
@@ -655,7 +654,14 @@ def current_edges(state: dict[str, Any], person: str) -> list[str]:
 
 
 def validate_update(view: Any, params: Any) -> list[str] | None:
-    """Checks on the proposal itself, before it is staged."""
+    """Checks on the proposal itself, before it is staged.
+
+    A replacement must identify the existing employment edge it removes. ``run_updates``
+    seeds exactly one employer per person and preserves it on successful replacements.
+    Direct callers can supply a graph with no employer: ``graph_invariant`` permits at most
+    one. Refusing ``replace=True, remove=None`` keeps such a replacement from becoming an
+    insertion; that defensive case is not produced by the normal seeded sequence.
+    """
     problems = []
     if person_key(params["person"]) not in view:
         problems.append(f"no person {params['person']}")
