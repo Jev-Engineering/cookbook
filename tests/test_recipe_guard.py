@@ -48,11 +48,15 @@ check id                              rule -> detection
                                        or "recall (PR)", the metric), a wave or batch number,
                                        a house rule number ("rule 12", unless it is followed
                                        by of/in/from and a path from the repository root that
-                                       exists), "the orchestrator", "the brief", "the
+                                       is git-tracked and regular, outside orchestration/;
+                                       rendered links resolve from the source file), "the
+                                       orchestrator", "the brief", "the
                                        reviewer's finding", a review finding label ``(M3)``,
                                        "acceptance criteria" (not "acceptance test", ordinary
                                        vocabulary), a review or fix round, and a recipe
-                                       number or ``../NN-slug/`` link that is not published.
+                                       number (each in a list) or a sibling/repository-relative
+                                       recipe link that is not published. Small ordinary-English
+                                       exceptions are paired with process-pointer regressions.
                                        Quoted fixture text is stripped as before. Not seen:
                                        any other way to cite a document outside the tree.
 ``no_cell_id_citations``              CONTRIBUTING.md section 6 (#250): no backticked span
@@ -424,12 +428,15 @@ import inspect
 import io
 import json
 import operator
+import posixpath
 import re
 import shutil
+import subprocess
 import sys
 import textwrap
 import tokenize
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
+from functools import cache
 from pathlib import Path
 from types import ModuleType
 from typing import NamedTuple
@@ -681,54 +688,54 @@ def _prose_of_python(source: str) -> str:
     return "\n".join(parts)
 
 
-# CONTRIBUTING.md section 6 forbids citing anything "a reader cannot see", and the reason it gives
-# governs every spelling, not just the two above (#225). These are the other spellings that have
-# reached a committed file or a review: a pointer to a pull request's description, a wave or batch
-# number, a house review-brief rule number, the orchestration roles, a review finding label, a
-# private issue's acceptance criteria. Each is a SHAPE, not a topic: a recipe about a review queue
-# says "a reviewer" freely, and only "the reviewer's finding", "the brief" and the like are
-# pointers at a document the reader cannot open.
+# CONTRIBUTING.md section 6 forbids pointers to documents a reader cannot open. Ordinary
+# orchestration, hardware notation, batches of input and precision-recall metrics are not such
+# pointers. The contextual exceptions below are intentionally small (#471): an ambiguous label
+# or unexplained PR still fails, and every exception has a paired process-citation regression.
+NUMBER_LIST = r"\d+(?:\s*(?:,\s*(?:(?:and|or)\s+)?|(?:and|or)\s+|&\s*)\d+)*"
 PROCESS_CITATIONS: dict[str, re.Pattern[str]] = {
-    # A bare ``PR`` is a pointer ("as the PR says"), but "PR curve", "PR AUC" and "precision-recall
-    # (PR)" are the metric, ordinary evaluation vocabulary, so a ``PR`` that is followed by one of
-    # the metric's own words, or introduced by "recall (", is not one.
     "pull request pointer": re.compile(
-        r"(?<!recall \()\b(?-i:PRs?)\b"
-        r"(?!\)?[\s-]*(?:curves?|AUC|AP\b|areas?|plots?|precision|recall|scores?|points?|metrics?))"
-        r"|\bpull[- ]request(?:'s)?\s+(?:description|body|text)\b",
+        r"\b(?-i:PRs?)\b|\bpull[- ]requests?(?:['’]s|['’])?\s+"
+        r"(?:description|body|text|\d+)\b",
         re.IGNORECASE,
     ),
     "wave or batch number": re.compile(r"\b(?:wave|batch)\s+\d+\b", re.IGNORECASE),
     "review round": re.compile(r"\b(?:review|fix)\s+round\b", re.IGNORECASE),
-    "house rule number": re.compile(r"\brules?\s+\d+\b", re.IGNORECASE),
+    "house rule number": re.compile(rf"\brules?\s+{NUMBER_LIST}\b", re.IGNORECASE),
     "orchestration role": re.compile(
         r"\bthe\s+(?:orchestrator|brief)\b"
-        r"|\b(?:the|this)\s+(?:independent\s+)?reviewers?(?:'s)?\s+"
-        r"(?:found|finding|findings|noted|asked|comments?|said|required|flagged)\b",
+        r"|\b(?:the|this)\s+(?:independent\s+)?reviewers?(?:['’]s|['’])?\s+"
+        r"(?:found|finding|findings|noted|asked|comments?|said|required|flagged)\b"
+        r"|\breviewers['’]\s+(?:findings?|comments?)\b",
         re.IGNORECASE,
     ),
     "review finding label": re.compile(r"\(\s*[MSBN][1-9]\s*\)"),
-    # "Acceptance criteria" is a private issue's checklist. "Acceptance test" is NOT in this list:
-    # it is ordinary vocabulary for a recipe about CI failures or test selection (19, 32) and
-    # cites nothing the reader cannot open.
     "acceptance criteria": re.compile(r"\bacceptance\s+criteri(?:a|on)\b", re.IGNORECASE),
 }
-# A rule number whose target is a committed file is a citation a reader CAN open ("rule 4 of
-# docs/x.md"), the one carve-out #225 asks for. The identifiers the repository itself defines
-# (G1(c), R21, CONTRIBUTING.md section 6, S07) match none of the shapes above, so they need no
-# allowlist; this is only for a numbered rule that names where it is written. The target is
-# `of`/`in`/`from` (any case) and a path from the repository root that looks like one (it has a
-# "/" or a ".") and EXISTS in this repository's checkout: any committed file qualifies, a
-# neighbouring recipe's README included, and a path that names nothing, climbs out with "..", or
-# is absolute (so names a file outside the repository) does not.
-COMMITTED_RULE_TARGET = re.compile(r"\s*(?i:of|in|from)\s+`?([\w./-]*[/.][\w./-]*[\w])")
-# A recipe reference ("recipe 30", "../30-citation-verification/") the reader cannot follow
-# because that recipe is not published (#225's second comment). Pointing at a published
-# neighbour is what section 6 asks for. Ranks run to 100, so a number or slug prefix has two or
-# three digits, and a slug link must name the published folder itself: a published number with a
-# slug that is not that recipe's (``../30-not-a-real-slug/``) leads nowhere either.
-RECIPE_NUMBER = re.compile(r"\brecipes?\s+(\d{1,3})\b", re.IGNORECASE)
-RECIPE_SLUG_LINK = re.compile(r"\.\./((\d{2,3})-[a-z0-9-]*[a-z0-9])")
+# A list of rule numbers shares the following target. Bare paths are repository-root-relative;
+# rendered Markdown links are relative to the actual source file. Neither spelling grants a
+# private orchestration file, untracked file, directory, symlink or case-mismatched path a pass.
+COMMITTED_RULE_TARGET = re.compile(
+    r"\s*(?i:of|in|from)\s+(?:\[[^]\n]+\]\((?P<link>[^\s)]+)\)"
+    r"|`(?P<code>[^`\n]+)`|(?P<bare>[^\s`<>()\[\]{}]+))"
+)
+RECIPE_NUMBER = re.compile(rf"\brecipes?\s+({NUMBER_LIST})\b", re.IGNORECASE)
+RECIPE_SLUG_LINK = re.compile(
+    # An underscore may open emphasis; real underscore suffixes stay inside the folder token.
+    r"(?<![^\W_])(?<![.-])(?:(?:\.\./)+(?:recipes/)?|recipes/)"
+    r"((\d{2,3})-[^\s/`)\]}>\"',;:!?#]+)"
+)
+# A destination starts after the link opener, independently of its optional title or closing
+# whitespace. Even a malformed link keeps its destination literal; it cannot turn a real folder
+# period into prose punctuation by breaking its closing delimiter. Angle destinations also name
+# literal paths. This is conservative recognition, not a complete Markdown renderer.
+RECIPE_LITERAL_PATH = re.compile(
+    r"`+(?P<code>[^`\n]*)`+|\[[^]\n]*\]\(\s*"
+    r"(?:<(?P<angle>[^>\n]*)>|(?P<link>[^\s)>]+))"
+)
+PR_METRIC_WORD = re.compile(
+    r"\)?[\s-]*(?:curves?|AUC|AP|areas?|plots?|precision|recall|metrics?)\b", re.IGNORECASE
+)
 
 
 def _published_recipe_numbers() -> set[int]:
@@ -739,32 +746,230 @@ def _published_recipe_slugs() -> set[str]:
     return {r["slug"] for r in PUBLISHED}
 
 
-def _names_a_committed_file(text: str, end: int) -> bool:
-    """Whether the text right after position ``end`` names a file or folder that exists."""
+def _pr_is_metric(text: str, start: int, end: int) -> bool:
+    """Recognise metric grammar, never a word merely starting with a metric word.
+
+    Scores/points are ambiguous: allow a standalone metric noun or a metric's preposition,
+    but not a pointer's verb ("points out", "scores the change"). Spell out precision-recall
+    when another construction is needed rather than adding a blanket PR exemption.
+    """
+    before, after = text[:start], text[end:]
+    if PR_METRIC_WORD.match(after):
+        return True
+    if re.match(r"\s+(?:scores?|points?)\b(?=\s*(?:$|[,.;:)]|(?:for|on|over)\b))", after, re.I):
+        return True
+    if re.match(r"\s+and\s+ROC\s+curves?\b", after, re.I):
+        return True
+    if re.match(
+        r"\s+is\s+(?:0(?:\.[0-9]+)?|1(?:\.0+)?)"
+        r"(?=\s*(?:$|[,;:!?)](?=\s|$)|\.(?=\s|$)))",
+        after,
+        re.I,
+    ):
+        return True
+    if re.search(r"\brecall\s+\($", before, re.I):
+        return after.startswith(")")
+    return bool(
+        re.search(r"\barea\s+under\s+(?:the\s+)?$", before, re.I)
+        and re.match(r"\s*(?:$|[,.;:)]|(?:is|of)\b)", after, re.I)
+    )
+
+
+@cache
+def _tracked_regular_files(repo: Path) -> frozenset[str]:
+    """One case-exact index snapshot per repository in this guard invocation; git errors fail.
+
+    Stage/mode checks also reject symlinks, submodules and unresolved index entries. Do not use
+    exists(): an ignored local file must not make the same prose pass only on one machine.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(repo), "ls-files", "--stage", "-z"],
+        check=True,
+        capture_output=True,
+    )
+    files = set()
+    for record in result.stdout.split(b"\0"):
+        if record:
+            metadata, path = record.split(b"\t", 1)
+            mode, _object_id, stage = metadata.split()
+            if mode in (b"100644", b"100755") and stage == b"0":
+                files.add(path.decode("utf-8", "surrogateescape"))
+    return frozenset(files)
+
+
+def _names_a_committed_file(text: str, end: int, source_path: Path | None = None) -> bool:
+    """Whether the rule's target names a tracked regular file a recipe reader can open."""
     found = COMMITTED_RULE_TARGET.match(text, end)
-    if not found or found.group(1).startswith("/") or ".." in found.group(1).split("/"):
+    if not found:
         return False
-    return (REPO / found.group(1)).exists()
+    path = found.group("link") or found.group("code") or found.group("bare")
+    if found.group("bare"):
+        # Capture the whole token before trimming sentence punctuation; never validate a
+        # tracked prefix of a query, percent escape, backslash path or another malformed token.
+        path = path.rstrip(".,;:!?")
+        if not any(c in path for c in (".", "/")):
+            return False
+    if found.group("link"):
+        path = path.split("#", 1)[0]
+    if any(c in path for c in (":", "%", "?", "\\", "#")):
+        return False
+    if found.group("link"):
+        # No schemes, absolute paths, URL escapes, queries or platform-specific separators.
+        # Resolve ../ lexically, then check containment and exact git membership. Never resolve
+        # a symlink first: its textual path must not become another file's legitimate name.
+        if source_path is None:
+            return False
+        try:
+            parent = source_path.relative_to(REPO).parent.as_posix()
+        except ValueError:
+            return False
+        if path.startswith("/"):
+            return False
+        path = posixpath.normpath(posixpath.join(parent, path))
+    elif path.startswith("/") or ".." in path.split("/") or "." in path.split("/"):
+        return False
+    if path.startswith(("/", "../", "orchestration/")) or path == "orchestration":
+        return False
+    if path not in _tracked_regular_files(REPO):
+        return False
+    target = REPO / path
+    return target.is_file() and not any(
+        p.is_symlink() for p in (target, *target.parents) if p != REPO
+    )
 
 
-def _citation_hits(text: str, location: str) -> list[str]:
+def _ordinary_citation_shape(text: str, match: re.Match[str], kind: str) -> bool:
+    """Small unambiguous English exceptions; other review-like labels remain conservative."""
+    before, after = text[: match.start()], text[match.end() :]
+    if kind == "pull request pointer":
+        return match.group().startswith("PR") and _pr_is_metric(text, match.start(), match.end())
+    if kind == "orchestration role":
+        # Singular "brief pause/delay" is adjective+noun; plural-looking "the brief delays"
+        # can instead be a brief imposing requirements and must remain a pointer. Routing
+        # tasks to skills describes the recipe's actor. Keep other bare roles conservative.
+        return bool(
+            (
+                match.group().lower().endswith("brief")
+                and re.match(r"\s+(?:pause|delay|interval|wait)\b", after, re.I)
+            )
+            or (
+                match.group().lower().endswith("orchestrator")
+                and re.match(
+                    r"\s+routes?\s+(?:each\s+task|tasks?)\s+to\s+(?:a|the)\s+skills?\b",
+                    after,
+                    re.I,
+                )
+            )
+        )
+    if kind == "wave or batch number":
+        return bool(
+            match.group().lower().startswith("batch")
+            and re.search(r"\bprocess\s+$", before, re.I)
+            and re.match(r"\s+of\s+\d+\b", after)
+        )
+    if kind == "review finding label":
+        # A colon/dash still introduces a finding even after an ordinary-looking noun.
+        if re.match(r"\s*[:–—-]", after):
+            return False
+        return bool(
+            re.search(r"\b(?:vitamin|sample|region)\s+$", before, re.I)
+            or (
+                re.fullmatch(r"\(\s*M[1-9]\s*\)", match.group())
+                and re.match(r"\s+chips?\b", after, re.I)
+            )
+        )
+    return False
+
+
+def _recipe_reference_slug(text: str, match: re.Match[str]) -> str:
+    """Keep literal folder names exact; remove only paired prose emphasis and punctuation."""
+    slug = match.group(1)
+    if text[match.end() :].startswith("/"):
+        return slug
+    for literal in RECIPE_LITERAL_PATH.finditer(text):
+        group = next(name for name in ("code", "angle", "link") if literal.group(name) is not None)
+        start, end = literal.span(group)
+        if start <= match.start() and match.end() <= end:
+            # The prose regex deliberately stops at punctuation. Literal destinations
+            # cannot accept that prefix as a real folder: recover the entire segment
+            # through its slash/query/fragment boundary, including punctuation/spaces.
+            return re.split(r"[/?#]", text[match.start(1) : end], maxsplit=1)[0]
+    # A bare prose path can finish a sentence. An explicit code/link destination, or a folder
+    # segment before a slash, cannot borrow this punctuation exception for its real name.
+    slug = slug.rstrip(".…")
+    opening = re.search(r"([*_]+)$", text[: match.start()])
+    if opening:
+        closing = opening.group(1)[::-1]
+        if slug.endswith(closing):
+            slug = slug[: -len(closing)].rstrip(".…")
+    return slug
+
+
+def _citation_hits(text: str, location: str, source_path: Path | None = None) -> list[str]:
     text = _strip_quoted(text)
     hits = [f"{location}: {m.group(0)!r} (issue number)" for m in ISSUE_NUMBER.finditer(text)]
     hits += [f'{location}: {m.group(0)!r} ("the issue")' for m in THE_ISSUE.finditer(text)]
     for kind, pattern in PROCESS_CITATIONS.items():
         for m in pattern.finditer(text):
-            if kind == "house rule number" and _names_a_committed_file(text, m.end()):
+            if _ordinary_citation_shape(text, m, kind):
                 continue
-            hits.append(f"{location}: {m.group(0)!r} ({kind}: a reader cannot open it)")
+            if kind == "house rule number" and _names_a_committed_file(text, m.end(), source_path):
+                continue
+            explanation = "a reader cannot open it"
+            if kind == "house rule number":
+                explanation += (
+                    "; name a case-exact git-tracked regular file outside orchestration/ "
+                    "using a repository-root-relative path or a Markdown link relative to this file"
+                )
+            hits.append(f"{location}: {m.group(0)!r} ({kind}: {explanation})")
     published = _published_recipe_numbers()
     for m in RECIPE_NUMBER.finditer(text):
-        if int(m.group(1)) not in published:
-            hits.append(f"{location}: {m.group(0)!r} (a recipe that is not published)")
+        for number in re.findall(r"\d+", m.group(1)):
+            if int(number) not in published:
+                hits.append(f"{location}: recipe {number!s} (a recipe that is not published)")
     slugs = _published_recipe_slugs()
     for m in RECIPE_SLUG_LINK.finditer(text):
-        if m.group(1) not in slugs:
+        if _recipe_reference_slug(text, m) not in slugs:
             hits.append(f"{location}: {m.group(0)!r} (a recipe that is not published)")
     return hits
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "the PR is 1 commit ahead",
+        "the PR is 1 of the required approvals",
+        "the PR is 1.2 revisions old",
+        "the PR is 0 commits ahead",
+        "the PR is 0.81 commits behind",
+        "the PR is 1.000 revisions old",
+        "the PR is 1,000 commits ahead",
+        "the PR is 1,234 commits behind",
+        "the PR is 0,123 revisions old",
+    ],
+)
+def test_numeric_pr_metrics_do_not_excuse_process_predicates(sentence):
+    assert _citation_hits(sentence, "negative control")
+
+
+@pytest.mark.parametrize("value", ["0", "0.81", "1", "1.000"])
+@pytest.mark.parametrize("ending", ["", ".", ", with recall shown separately."])
+def test_numeric_pr_metric_sentence_remains_allowed(value, ending):
+    assert not _citation_hits(f"the PR is {value}{ending}", "metric control")
+
+
+@pytest.mark.parametrize("punctuation", [",", ";", ":", "!", "'", '"', ")", "]", "}", " "])
+@pytest.mark.parametrize("prefix", ["../", "../../recipes/", "recipes/"])
+@pytest.mark.parametrize("wrapper", ["`{}`", "[next](<{}>)"])
+def test_literal_recipe_folder_suffix_is_not_a_published_prefix(punctuation, prefix, wrapper):
+    target = f"{prefix}30-citation-verification{punctuation}missing/README.md"
+    assert _citation_hits(wrapper.format(target), "literal destination")
+
+
+@pytest.mark.parametrize("punctuation", [",", ";", ":", "!", "'", '"', "]", "}"])
+def test_unbracketed_recipe_folder_suffix_is_not_a_published_prefix(punctuation):
+    target = f"../30-citation-verification{punctuation}missing/README.md"
+    assert _citation_hits(f"[next]({target})", "literal destination")
 
 
 def _recipe_citation_hits(recipe_dir_: Path) -> list[str]:
@@ -772,23 +977,25 @@ def _recipe_citation_hits(recipe_dir_: Path) -> list[str]:
     for name in ("helpers.py", "build_fixtures.py"):
         path = recipe_dir_ / name
         if path.is_file():
-            hits += _citation_hits(_prose_of_python(path.read_text("utf-8")), name)
+            hits += _citation_hits(_prose_of_python(path.read_text("utf-8")), name, path)
     readme = recipe_dir_ / "README.md"
     if readme.is_file():
-        hits += _citation_hits(readme.read_text("utf-8"), "README.md")
+        hits += _citation_hits(readme.read_text("utf-8"), "README.md", readme)
     tests_dir = recipe_dir_ / "tests"
     if tests_dir.is_dir():
         for path in sorted(tests_dir.glob("*.py")):
-            hits += _citation_hits(_prose_of_python(path.read_text("utf-8")), f"tests/{path.name}")
+            hits += _citation_hits(
+                _prose_of_python(path.read_text("utf-8")), f"tests/{path.name}", path
+            )
     notebook = recipe_dir_ / "notebook.ipynb"
     if notebook.is_file():
         for cell in notebook_cells(recipe_dir_):
             source = cell_source(cell)
             location = f"notebook.ipynb cell {cell.get('id', '?')}"
             if cell["cell_type"] == "code":
-                hits += _citation_hits(_prose_of_python(source), location)
+                hits += _citation_hits(_prose_of_python(source), location, notebook)
             else:
-                hits += _citation_hits(source, location)
+                hits += _citation_hits(source, location, notebook)
     return hits
 
 
@@ -978,10 +1185,322 @@ def test_the_hit_message_names_the_place_the_shape_and_the_words():
 
 
 def test_a_committed_target_is_looked_up_in_the_tree_not_trusted_by_its_spelling():
-    # The carve-out is for a rule whose target a reader can open, a path that exists; a path-shaped
+    # The carve-out is for a rule whose target a reader can open, a tracked regular file; a path-shaped
     # string that names nothing is the same dangling pointer as a bare "rule 4".
     assert _citation_hits("rule 4 of docs/glossary.md", "x") == []
     assert _citation_hits("rule 4 of docs/glossary-of-nothing.md", "x") != []
+
+
+# #471: every narrowed vocabulary has a must-fail process pointer beside its ordinary use.
+# Labels with no explicit ordinary context stay conservative; so do in-fiction rule numbers:
+# state/quote the supplied rule itself rather than silently exempting "of the game/policy".
+_CITATION_VOCABULARY_PAIRS = {
+    "brief-adjective": ("as the brief says, retry", "the brief pause between retries"),
+    "brief-delay": ("the brief requires retries", "allow the brief delay before retrying"),
+    "routing-actor": (
+        "the orchestrator asked for this order",
+        "the orchestrator routes each task to a skill",
+    ),
+    "hardware-label": ("the objective is pinned (M2): a swap", "an (M2) chip"),
+    "vitamin-label": ("the finding (B1) needs a fix", "vitamin (B1)"),
+    "sample-label": ("the sample (N1): missing evidence", "the sample (N1) of the population"),
+    "region-label": ("region (S1): a finding", "region (S1)"),
+    "input-batch": ("the batch 3 sweep moved this", "process batch 3 of 5"),
+    "pr-roc": ("as the PR says, use the gate", "PR and ROC curves"),
+    "pr-number": ("the PR scored the change", "the PR is 0.81"),
+    "pr-area": ("the PR pointed to the change", "area under the PR"),
+    "pr-points": ("as the PR points out, freeze it", "PR points"),
+    "pr-scores": ("this PR scores the change", "PR scores"),
+    "pr-metric-boundary": ("the PR plotted the change", "the PR plot"),
+    "pr-metric-areas-boundary": ("the PR areaspecific note", "PR areas"),
+    "typographic-pull-request": ("the pull request’s description", "the precision-recall curve"),
+    "typographic-reviewer": ("the reviewer’s finding", "a reviewer decides uncertain cases"),
+    "plural-possessive": ("reviewers' findings", "reviewers in the queue decide cases"),
+    "plural-typographic-possessive": ("reviewers’ findings", "the reviewers who work the queue"),
+    "pull-request-number": ("pull request 12", "the request contains 12 rows"),
+    "repository-relative-recipe": (
+        "see ../../recipes/99-not-a-recipe/",
+        "see ../../recipes/30-citation-verification/",
+    ),
+    "repository-relative-wrong-slug": (
+        "see ../../recipes/30-wrong-slug/",
+        "see ../../recipes/30-citation-verification/README.md",
+    ),
+    "recipe-number-list": ("recipes 30 and 99", "recipes 28 and 30"),
+    "recipe-comma-list": ("recipes 28, 30, and 99", "recipes 28, 30, and 36"),
+    "multiple-rule-target": (
+        "rules 4 and 5 of docs/missing.md",
+        "rules 4 and 5 of docs/glossary.md",
+    ),
+    "comma-rule-target": (
+        "rules 4, 5, and 6 of docs/missing.md",
+        "rules 4, 5, and 6 of docs/glossary.md",
+    ),
+    "orchestration-target": (
+        "rule 6 of orchestration/PROMPT.md",
+        "rule 6 of CONTRIBUTING.md",
+    ),
+    "path-case": ("rule 4 of docs/GLOSSARY.md", "rule 4 of docs/glossary.md"),
+    "directory-target": (
+        "rule 4 of recipes/16-discord-moderation-triage",
+        "rule 4 of recipes/16-discord-moderation-triage/README.md",
+    ),
+    "fictional-game-rule": ("rule 2 of the game", 'the game says "rule 2: take one card"'),
+    "fictional-server-rule": (
+        "rule 3 of the server's rules",
+        'the server says "rule 3: keep messages civil"',
+    ),
+    "ambiguous-review-label": ("the outcome (N1) follows", "the sample (N1) of the population"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_CITATION_VOCABULARY_PAIRS))
+def test_citation_vocabulary_pairs_keep_process_pointers_and_allow_ordinary_prose(case):
+    must_fail, must_pass = _CITATION_VOCABULARY_PAIRS[case]
+    assert _citation_hits(must_fail, "prose"), (case, must_fail)
+    assert _citation_hits(must_pass, "prose") == [], (case, must_pass)
+
+
+@pytest.mark.parametrize(
+    "text,numbers",
+    [
+        ("recipes 30 and 99", [99]),
+        ("recipes 99 and 30", [99]),
+        ("recipes 30, 99, and 100", [99, 100]),
+        ("recipes 99 or 100", [99, 100]),
+        ("recipes 30 & 99", [99]),
+    ],
+)
+def test_citation_recipe_lists_check_every_number(text, numbers):
+    hits = _citation_hits(text, "prose")
+    assert len(hits) == len(numbers), hits
+    assert all(any(f"recipe {number} " in hit for hit in hits) for number in numbers), hits
+
+
+@pytest.mark.parametrize(
+    "target,passes",
+    [
+        ("[the glossary](../../docs/glossary.md)", True),
+        ("[the glossary](../../docs/glossary.md#state)", True),
+        ("[a neighbour](../30-citation-verification/README.md)", True),
+        ("[the glossary](../../docs/GLOSSARY.md)", False),
+        ("[missing](../../docs/missing.md)", False),
+        ("[a directory](../../docs/)", False),
+        ("[the brief](../../orchestration/PROMPT.md)", False),
+        ("[the brief](../../docs/../orchestration/PROMPT.md)", False),
+        ("[outside](../../../CONTRIBUTING.md)", False),
+        ("[absolute](/docs/glossary.md)", False),
+        ("[remote](https://example.invalid/docs/glossary.md)", False),
+        ("[escaped](../../docs/%67lossary.md)", False),
+        ("[query](../../docs/glossary.md?raw=1)", False),
+    ],
+)
+def test_citation_rule_targets_accept_safe_rendered_links(target, passes):
+    source = REPO / "recipes/_template/README.md"
+    hits = _citation_hits(f"rules 4 and 5 of {target}", "README.md", source)
+    assert (hits == []) is passes, hits
+
+
+def test_citation_rule_links_resolve_from_the_actual_source_file():
+    prose = "rule 4 of [the glossary](../../../docs/glossary.md)"
+    assert (
+        _citation_hits(prose, "tests/test_helpers.py", REPO / "recipes/_template/tests/t.py") == []
+    )
+    assert _citation_hits(prose, "README.md", REPO / "recipes/_template/README.md")
+    assert _citation_hits(prose, "unknown source")
+
+
+def test_citation_rule_target_message_explains_both_path_spellings():
+    (hit,) = _citation_hits("rule 4 of helpers.py", "README.md")
+    assert "git-tracked regular file" in hit
+    assert "repository-root-relative path" in hit
+    assert "Markdown link relative to this file" in hit
+
+
+def test_citation_git_index_requires_exact_regular_stage_zero_paths(monkeypatch, tmp_path):
+    def git_index(command, **kwargs):
+        assert command == ["git", "-C", str(tmp_path), "ls-files", "--stage", "-z"]
+        assert kwargs == {"check": True, "capture_output": True}
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                b"100644 aaaa 0\tdocs/glossary.md\0"
+                b"100755 bbbb 0\ttools/run.sh\0"
+                b"120000 cccc 0\tdocs/link.md\0"
+                b"160000 dddd 0\tmodule\0"
+                b"100644 eeee 2\tdocs/conflict.md\0"
+            ),
+        )
+
+    monkeypatch.setattr(subprocess, "run", git_index)
+    assert _tracked_regular_files(tmp_path) == frozenset({"docs/glossary.md", "tools/run.sh"})
+    _tracked_regular_files.cache_clear()
+
+
+@pytest.mark.parametrize("target", ["docs/untracked.md", "ignored.md", "docs/GLOSSARY.md", "docs"])
+def test_citation_rule_targets_reject_local_untracked_ignored_or_case_wrong_paths(
+    monkeypatch, tmp_path, target
+):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/glossary.md").write_text("Tracked document", "utf-8")
+    if target != "docs":
+        (tmp_path / target).write_text("Local file", "utf-8")
+    monkeypatch.setitem(globals(), "REPO", tmp_path)
+    monkeypatch.setitem(
+        globals(), "_tracked_regular_files", lambda repo: frozenset({"docs/glossary.md"})
+    )
+    assert _citation_hits("rule 4 of docs/glossary.md", "prose") == []
+    assert _citation_hits(f"rule 4 of {target}", "prose")
+
+
+@pytest.mark.parametrize("symlink", ["docs/glossary.md", "docs"])
+def test_citation_rule_targets_reject_worktree_symlinks(monkeypatch, tmp_path, symlink):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/glossary.md").write_text("Tracked document", "utf-8")
+    monkeypatch.setitem(globals(), "REPO", tmp_path)
+    monkeypatch.setitem(
+        globals(), "_tracked_regular_files", lambda repo: frozenset({"docs/glossary.md"})
+    )
+    assert _citation_hits("rule 4 of docs/glossary.md", "prose") == []
+    # Model an index-tracked regular file replaced by a symlink in the working tree. This
+    # avoids depending on host symlink permissions while testing both final and parent paths.
+    monkeypatch.setattr(Path, "is_symlink", lambda path: path == tmp_path / symlink)
+    assert _citation_hits("rule 4 of docs/glossary.md", "prose")
+
+
+def test_citation_git_lookup_failure_is_not_an_empty_allowlist(monkeypatch, tmp_path):
+    def failed_git(command, **kwargs):
+        raise subprocess.CalledProcessError(128, command)
+
+    monkeypatch.setattr(subprocess, "run", failed_git)
+    with pytest.raises(subprocess.CalledProcessError):
+        _tracked_regular_files(tmp_path)
+
+
+# #471 fix round: regressions against rejected tree 672f8e3212245d3d6e44abcb0481740923e112cf.
+# Preserve the original Unicode-decimal coverage and punctuation spellings, and keep ordinary
+# adjective nouns distinct from briefs that impose requirements through a verb.
+_CITATION_NO_LOOSENING_PAIRS = {
+    "fullwidth-wave": ("wave ３", 'the fixture says "wave ３"'),
+    "arabic-wave": ("wave ٣", 'the fixture says "wave ٣"'),
+    "fullwidth-rule": ("rule ６", "rule ６ of docs/glossary.md"),
+    "arabic-rule": ("rule ٦", "rule ٦ of docs/glossary.md"),
+    "fullwidth-recipe": ("recipe ９９", "recipe ３０"),
+    "arabic-recipe": ("recipe ٩٩", "recipe ٣٠"),
+    "mixed-fullwidth-list": ("recipes 30 and ９９", "recipes 30 and ２８"),
+    "mixed-arabic-list": ("recipes 30 and ٩٩", "recipes 30 and ٢٨"),
+    "unicode-batch-input": ("batch ３", "process batch ３ of ５"),
+    "bare-slug-period": ("see ../99-not-a-recipe.", "see ../30-citation-verification."),
+    "bare-slug-backticks": ("see `../99-not-a-recipe`", "see `../30-citation-verification`"),
+    "repository-slug-period": (
+        "see ../../recipes/99-not-a-recipe.",
+        "see ../../recipes/30-citation-verification.",
+    ),
+    "slug-filename-prefix": (
+        "see ../30-citation-verification.md.",
+        "see ../30-citation-verification.",
+    ),
+    "slug-underscore-prefix": (
+        "see `../30-citation-verification_missing`",
+        "see `../30-citation-verification`",
+    ),
+    "slug-uppercase-prefix": (
+        "see `../30-citation-verificationMissing`",
+        "see `../30-citation-verification`",
+    ),
+    "slug-hyphen-prefix": (
+        "see `../30-citation-verification-`",
+        "see `../30-citation-verification`",
+    ),
+    "wrong-slug-period": ("see ../30-wrong-slug.", "see ../30-citation-verification."),
+    "repository-slug-backticks": (
+        "see `../../recipes/99-not-a-recipe`",
+        "see `../../recipes/30-citation-verification`",
+    ),
+    "brief-delays-verb": (
+        "the brief delays release until approval",
+        "allow the brief delay before retrying",
+    ),
+    "brief-pauses-verb": (
+        "the brief pauses execution until approval",
+        "the brief pause between retries",
+    ),
+    "brief-waits-verb": ("the brief waits for approval", "the brief wait between retries"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_CITATION_NO_LOOSENING_PAIRS))
+def test_citation_fix_round_preserves_prior_detections(case):
+    must_fail, must_pass = _CITATION_NO_LOOSENING_PAIRS[case]
+    assert _citation_hits(must_fail, "prose"), (case, must_fail)
+    assert _citation_hits(must_pass, "prose") == [], (case, must_pass)
+
+
+@pytest.mark.parametrize("suffix", ["?raw=1", "%2Fmissing", "\\missing", "/missing"])
+@pytest.mark.parametrize("spelling", ["bare", "backticked", "rendered"])
+def test_citation_rule_target_checks_the_complete_token(suffix, spelling):
+    path = f"docs/glossary.md{suffix}"
+    if spelling == "backticked":
+        target = f"`{path}`"
+        valid_target = "`docs/glossary.md`"
+    elif spelling == "rendered":
+        target = f"[the glossary](../../{path})"
+        valid_target = "[the glossary](../../docs/glossary.md)"
+    else:
+        target = path
+        valid_target = "docs/glossary.md"
+    source = REPO / "recipes/_template/README.md"
+    assert _citation_hits(f"rule 4 of {target}", "prose", source)
+    assert _citation_hits(f"rule 4 of {valid_target}", "prose", source) == []
+
+
+@pytest.mark.parametrize("punctuation", [".", ",", ";", ":", "!", "?", ")", "]"])
+def test_citation_rule_target_preserves_sentence_punctuation(punctuation):
+    assert _citation_hits(f"See rule 4 of docs/glossary.md{punctuation}", "prose") == []
+    assert _citation_hits(f"See rule 4 of `docs/glossary.md`{punctuation}", "prose") == []
+
+
+# #471 fix round 2: Markdown wrappers are prose formatting, while punctuation in literal
+# destinations and actual folder segments is part of the path and must match exactly.
+@pytest.mark.parametrize("marker", ["*", "**", "_", "__"])
+@pytest.mark.parametrize("prefix", ["../", "../../recipes/"])
+@pytest.mark.parametrize("slash", ["", "/"])
+def test_citation_recipe_emphasis_preserves_published_and_unpublished_paths(marker, prefix, slash):
+    published = f"see {marker}{prefix}30-citation-verification{slash}{marker}."
+    unpublished = f"see {marker}{prefix}99-not-a-recipe{slash}{marker}."
+    assert _citation_hits(published, "prose") == [], published
+    assert _citation_hits(unpublished, "prose"), unpublished
+
+
+@pytest.mark.parametrize("prefix", ["../", "../../recipes/"])
+@pytest.mark.parametrize("punctuation", [".", "…"])
+@pytest.mark.parametrize("form", ["rendered", "backticked", "directory", "file-in-directory"])
+def test_citation_recipe_literal_folder_punctuation_is_not_sentence_punctuation(
+    prefix, punctuation, form
+):
+    valid = f"{prefix}30-citation-verification"
+    invalid = f"{valid}{punctuation}"
+    if form == "rendered":
+        valid, invalid = f"[next]({valid})", f"[next]({invalid})"
+    elif form == "backticked":
+        valid, invalid = f"`{valid}`", f"`{invalid}`"
+    elif form == "directory":
+        valid, invalid = f"{valid}/", f"{invalid}/"
+    else:
+        valid, invalid = f"[next]({valid}/README.md)", f"[next]({invalid}/README.md)"
+    assert _citation_hits(f"see {valid}", "prose") == [], valid
+    assert _citation_hits(f"see {invalid}", "prose"), invalid
+    assert _citation_hits(f"see {prefix}30-citation-verification{punctuation}", "prose") == []
+
+
+@pytest.mark.parametrize("suffix", ["_missing", ".md", "Missing", "-", "."])
+@pytest.mark.parametrize("marker", ["*", "**", "_", "__"])
+def test_citation_recipe_emphasis_does_not_hide_a_wrong_folder_suffix(suffix, marker):
+    valid = f"{marker}../30-citation-verification{marker}."
+    invalid = f"{marker}../30-citation-verification{suffix}/{marker}."
+    assert _citation_hits(valid, "prose") == []
+    assert _citation_hits(invalid, "prose"), invalid
 
 
 # The same spelling in each place the check reads: a comment or docstring in a .py file, the
@@ -13733,3 +14252,55 @@ def test_fixture_arithmetic_string_binders_cannot_grant_exemptions(
     problems = _fixture_arithmetic_violations(shadowed)
     assert len(problems) == 1
     assert "sum() requires a left-to-right accumulation loop" in problems[0]
+
+
+@pytest.mark.parametrize("prefix", ["../", "../../recipes/", "recipes/"])
+@pytest.mark.parametrize("angle", [False, True], ids=["bare-destination", "angle-destination"])
+@pytest.mark.parametrize("punctuation", [".", "…"])
+@pytest.mark.parametrize("tail", [")", " )", ' "Next")', " 'Next')", " (Next))", '\n "Next")'])
+def test_citation_link_destinations_keep_folder_punctuation_with_titles_and_whitespace(
+    prefix, angle, punctuation, tail
+):
+    """Link syntax never grants the sentence-punctuation exception to a real folder name."""
+
+    def linked(slug):
+        destination = prefix + slug
+        if angle:
+            destination = "<" + destination + ">"
+        return "see [next](" + destination + tail
+
+    published = "30-citation-verification"
+    assert not _citation_hits(linked(published), "prose")
+    assert _citation_hits(linked(published + punctuation), "prose")
+    assert _citation_hits(linked("99-not-a-recipe"), "prose")
+
+
+@pytest.mark.parametrize("wrapper", ["{}", "`{}`", "[next]({})", '[next]({} "Next")'])
+@pytest.mark.parametrize("prefix", ["./../", "../30-citation-verification/../"])
+def test_citation_relative_segments_cannot_hide_an_unpublished_recipe(wrapper, prefix):
+    """A slash before a later relative segment cannot suppress a recipe reference."""
+    assert _citation_hits(wrapper.format(prefix + "99-not-a-recipe/"), "prose")
+    assert not _citation_hits(wrapper.format(prefix + "01-sentiment-classification/"), "prose")
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "the PR in docs/glossary.md",
+        "batch 3 of docs/glossary.md",
+        "the brief from docs/glossary.md",
+        "the orchestrator in docs/glossary.md",
+        "acceptance criteria in docs/glossary.md",
+    ],
+)
+def test_the_committed_file_carve_out_belongs_to_rule_numbers_alone(sentence):
+    """A tracked path after any other process pointer is not a rule's target (#471)."""
+    assert _citation_hits(sentence, "prose")
+    assert not _citation_hits("rule 4 of docs/glossary.md", "prose")
+
+
+@pytest.mark.parametrize("sentence", ["send batch 3 of 5 to review", "ship wave 3 of 5 first"])
+def test_a_batch_number_is_ordinary_only_after_the_word_process(sentence):
+    """Only "process batch N of M" is input batching; the same number elsewhere is a pointer."""
+    assert _citation_hits(sentence, "prose")
+    assert not _citation_hits("process batch 3 of 5", "prose")
