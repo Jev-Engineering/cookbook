@@ -149,10 +149,12 @@ check id                              rule -> detection
                                        alias (``as prc``), an assigned alias, ``getattr`` or
                                        ``functools.partial``; and a wrapper defined in one
                                        cell and called from another (the defining cell is
-                                       selected, the calling cell is not). None of these
-                                       spellings occurs in a published recipe; they are
-                                       listed, not detected, because a static name rule that
-                                       chased them would risk false positives.
+                                       selected, the calling cell is not). None of the alias,
+                                       ``getattr``, ``partial`` or cross-cell wrapper spellings
+                                       occurs in a published recipe (the direct ``Figure`` and
+                                       ``display()`` cases do). All are listed, not detected,
+                                       because a static name rule that chased them would risk
+                                       false positives.
 ``next_steps_links_exist``            G1(f) clause 1, docs/recipe-template.md: every
                                        ``../NN-slug/`` link in the notebook resolves to a
                                        published recipe.
@@ -276,6 +278,14 @@ check id                              rule -> detection
                                        fixtures), no committed output line prints a number
                                        as a token count, in any cell: nothing offline measures
                                        tokens, and characters or bytes are not tokens.
+``simulated_side_effect_invoked``     #212: the notebook's live code (parsed with ``ast``: no
+                                       comment, string, uncalled function, lambda or dead
+                                       branch) calls the recipe's simulated side effect, as
+                                       many call sites of each key as the recipe declares in
+                                       ``side_effects.json`` (or ``SIDE_EFFECT_INVENTORY``
+                                       for the first 50 recipes); fails closed when it
+                                       detects a side effect with no declaration. See the
+                                       section header of that check for the rule and limits.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -3617,6 +3627,48 @@ def test_the_plot_underscore_prefix_is_pinned(source):
 def test_a_bare_plot_underscore_call_is_the_shortest_selected_name():
     assert _cell_calls_a_plot_function("plot_x(1)")
     assert _cell_calls_a_plot_function("style.plot_x(1)")
+
+
+def _guarded_check_ids() -> set[str]:
+    """Every check id registered through a real ``guarded("...")`` call in this module, found
+    with ``ast`` so a call that spans several lines counts and a string that merely contains
+    ``guarded("example")`` (test scaffolding) does not."""
+    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    return {
+        node.args[0].value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "guarded"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and isinstance(node.args[0].value, str)
+    }
+
+
+def _table_check_ids(doc: str) -> set[str]:
+    """The check ids in the first column of the module docstring's check table."""
+    table = doc.split("check id", 1)[1].split("Scope decisions", 1)[0]
+    return set(re.findall(r"^``([a-z0-9_]+)``", table, re.MULTILINE))
+
+
+def test_the_check_table_lists_exactly_the_guarded_check_ids():
+    """docs/notebook-ci.md points readers at the table as the list of rules (#655), so every
+    ``guarded()`` id needs a row (plus ``fixture_arithmetic``, which is not registered through
+    ``guarded``) and no row may name an id that does not exist."""
+    expected = _guarded_check_ids() | {"fixture_arithmetic"}
+    assert "simulated_side_effect_invoked" in expected  # multi-line calls are counted
+    assert "example" not in expected  # scaffolding inside a string is not a check
+    table = _table_check_ids(__doc__)
+    assert table == expected, (
+        f"guarded ids with no table row: {sorted(expected - table)}; "
+        f"table rows with no guarded id: {sorted(table - expected)}"
+    )
+
+
+def test_the_table_completeness_test_fails_when_a_row_is_missing():
+    doc = __doc__.replace("``simulated_side_effect_invoked``", "``x``", 1)
+    assert _table_check_ids(doc) != _guarded_check_ids() | {"fixture_arithmetic"}
 
 
 # Figure sources the guard does not see (#655). Each is listed under "Not seen" in the check table

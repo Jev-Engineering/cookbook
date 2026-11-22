@@ -753,6 +753,9 @@ def test_only_a_non_empty_image_value_counts_as_an_image_output():
     svg = {"output_type": "display_data", "data": {"image/svg+xml": "<svg/>"}}
     notebook["cells"][0]["outputs"].append(svg)
     assert fresh_tool.image_output_count(notebook) == 2
+    both = {"output_type": "display_data", "data": {"image/svg+xml": "<svg/>", "image/png": "p"}}
+    notebook["cells"][0]["outputs"].append(both)
+    assert fresh_tool.image_output_count(notebook) == 3  # one output with two images counts once
 
 
 def test_the_cli_fails_on_a_drop_in_image_outputs(tmp_path):

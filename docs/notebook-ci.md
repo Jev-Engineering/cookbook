@@ -750,9 +750,9 @@ multimodal track. Check the repository's usage report for totals over time.
 
 ## The recipe guard allowlist
 
-`tests/test_recipe_guard.py` (#165) parametrises one test per rule per recipe, each rule under its
-own check id; the check table at the top of that module is the list (it is not counted here, so
-this sentence cannot go stale). The rules include the current scaffold shape, no private issue citations, the strong-form
+`tests/test_recipe_guard.py` (#165) parametrises one test per check id per recipe; the check table at
+the top of that module has one row per check id (a test keeps it complete) and is the list, which
+is not counted here, so this sentence cannot go stale. The rules include the current scaffold shape, no private issue citations, the strong-form
 `test_stored_answers_are_not_all_right`, every printed metric line's disclosure label (both that
 a validation line carries both labels and that any metric line carries at least the pipeline-check
 one), figure disclosure labels, print-what-you-plot, a committed image in every `plot_*` cell, Next-steps links both forward (a link resolves)
