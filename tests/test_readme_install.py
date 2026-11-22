@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 
 # Loaded by path like test_new_recipe.py and test_recipe_guard.py do. Their loaders are not reused:
-# tests/ has no __init__.py, so they cannot be imported reliably, and loading either file by path
-# would run its module-level setup (tools/new_recipe.py, all of test_recipe_guard.py) to get 4 lines.
+# importing either test file would run its module-level setup (tools/new_recipe.py, all of
+# test_recipe_guard.py) to get 4 lines.
 _spec = importlib.util.spec_from_file_location(
     "readme_install_for_own_test", Path(__file__).with_name("readme_install.py")
 )
