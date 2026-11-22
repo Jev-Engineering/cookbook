@@ -81,7 +81,7 @@ SDK_LOGGER = "typesafe_sdk"
 # extra_headers, state, questions, model, response_model, ...) can change what is sent or how
 # many times, so it is rejected rather than forwarded.
 ALLOWED_REQUEST_KWARGS = frozenset({"provider", "timeout"})
-BOX_MODELS = frozenset({"jev-1.14.0", "jev-preview"})
+BOX_MODELS = frozenset({"jev-1.14.0"})
 
 
 class LiveConfigError(LiveBackendUnavailable):
@@ -853,7 +853,9 @@ class LiveBackend:
             raise LiveConfigError("image assets and Box questions require LiveBackend(images=True)")
         if has_box and self.requested_model not in BOX_MODELS:
             raise LiveConfigError(
-                "Box requires model='jev-1.14.0' (pinned) or 'jev-preview'; "
+                "Box requires the pinned model='jev-1.14.0'; the moving aliases 'jev-latest' "
+                "and 'jev-preview' are refused even though TypeSafe's SDK examples use "
+                "'jev-preview', because the cookbook pins the verified version instead; "
                 f"got {self.requested_model!r}"
             )
         asset_kwargs = {}

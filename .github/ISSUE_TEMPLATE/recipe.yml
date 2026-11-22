@@ -25,11 +25,17 @@ body:
         - label: Choice
         - label: Noul
         - label: Score
+        - label: Box
   - type: textarea
     id: fixtures
     attributes:
       label: Fixtures and evaluation
       description: What synthetic data is needed, which hard cases it must include, and how the result is evaluated. More than one Noul proposition in one request? Say what positive examples, truth combinations, and outcome-changing cases each proposition's fixtures need.
+  - type: textarea
+    id: image-assets
+    attributes:
+      label: Image assets and provenance
+      description: Optional. Any recipe that uses images lists each image, where it comes from, and its license. Follow the "Image provenance manifest" section of docs/fixtures.md.
   - type: textarea
     id: sources
     attributes:
