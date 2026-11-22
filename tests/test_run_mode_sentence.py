@@ -22,11 +22,20 @@ The selection label's sentence names no split: it is true of every line that car
 including the queue counts and previews in recipes 02, 10, 15, 25, 26 and 31 that span ``demo``
 and ``validation`` or both scored splits (review 2 of PR #317, M1).
 
+Labelling of metric lines (#326): in a synthetic or scripted run, every output line that carries
+the selection label also carries the pipeline-check label, and every metric line (an accuracy,
+precision, recall, f1, coverage or risk figure, a baseline comparison, or a count of a scored
+split's examples) carries the pipeline-check label. ``test_every_metric_line_is_labelled_...``
+checks this on every carrying notebook, with no list of exempt recipes, and
+``test_the_metric_label_checks_fail_on_an_unlabelled_line`` proves that an unlabelled metric line
+and a selection-only line each turn it red.
+
 What it deliberately does NOT claim, because it is not true of the published set: that every
-metric line carries a label. Some validation lines in recipes 06-10, 18 and 37 carry only the
-selection label, and recipes 39, 47 and 49 print a metric line with no label at all. Those are
-pre-existing labelling gaps (CONTRIBUTING.md section 2), tracked in #326; the paragraph says
-"may follow" for that reason.
+printed line carries a label. An individual answer or a per-example line carries none and still
+comes from the mode the header names (the paragraph says "may follow" for that reason). Notebooks
+outside the closed legacy list that print a metric in a spelling the metric pattern below does not
+recognise are not covered; a new spelling is added to ``METRIC_LINE`` with the notebook that
+needs it.
 """
 
 from __future__ import annotations
@@ -235,6 +244,65 @@ def test_the_paragraph_is_verbatim_and_its_claims_hold_in_the_committed_output(p
         pytest.skip("closed legacy list: published before the paragraph, no claim of its own")
     assert PARAGRAPH in squash(setup_markdown(nb))
     check_run_mode_claims(nb)
+
+
+# A metric line, as opposed to a demo answer or a per-example line: a figure of merit with its
+# value, a comparison of Jev with a baseline, or the example count of a scored split. Only notebooks
+# whose run is synthetic or scripted are held to it (a recorded run prints no pipeline-check label).
+METRIC_LINE = re.compile(
+    r"\b(accuracy|precision|recall|f1|coverage|risk)\b.*\d\.\d"
+    r"|\bbeats\b.*\d\.\d"
+    r"|\b(validation|test) (examples|documents|fields|pairs)\b.*: \d+"
+)
+
+
+def run_modes(lines: list[str]) -> set[str]:
+    return {m for line in lines for g in PROVENANCE.findall(line) for m in g if m}
+
+
+def unlabelled_metric_lines(nb: dict) -> list[str]:
+    """Lines a synthetic or scripted run prints that break the labelling rule of #326: a line with
+    the selection label but not the pipeline-check label, or a metric line with neither."""
+    lines = list(output_lines(nb))
+    if not run_modes(lines) & {"synthetic", "scripted"}:
+        return []
+    return [
+        line
+        for line in lines
+        if CHECK not in line and (SELECTION in line or METRIC_LINE.search(line))
+    ]
+
+
+@pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.parent.name)
+def test_every_metric_line_is_labelled_in_a_synthetic_or_scripted_run(path):
+    """#326: the lines the paragraph above says "may" carry a label do carry it, in every
+    notebook that carries the paragraph. The recipes this was filed for (06-10, 18, 37, 39, 47
+    and 49) are held to it like the rest; there is no exemption list to grow."""
+    nb = load(path)
+    if not carries(nb):
+        assert path.parent.name in LEGACY_WITHOUT_THE_PARAGRAPH
+        pytest.skip("closed legacy list: published before the paragraph, no claim of its own")
+    assert unlabelled_metric_lines(nb) == []
+
+
+def test_the_metric_label_checks_fail_on_an_unlabelled_line():
+    """The labelling check is not vacuous: a selection-only line (recipe 06's pooled validation
+    count) and an unlabelled metric line (recipe 47's baseline comparison) each turn it red."""
+    nb = load(REPO / "recipes" / "06-multiple-topic-labels" / "notebook.ipynb")
+    assert unlabelled_metric_lines(nb) == []
+    selection_only = mutated(
+        nb,
+        lambda t: t.replace(f" ({CHECK})", "") if t.startswith("pooled validation") else t,
+    )
+    assert unlabelled_metric_lines(selection_only)
+
+    nb = load(REPO / "recipes" / "47-evidence-conflict-diagnosis" / "notebook.ipynb")
+    assert unlabelled_metric_lines(nb) == []
+    unlabelled = mutated(
+        nb,
+        lambda t: t.replace(f" ({CHECK})", "") if t.startswith("the name-pattern baseline") else t,
+    )
+    assert unlabelled_metric_lines(unlabelled)
 
 
 def mutated(nb: dict, change) -> dict:
