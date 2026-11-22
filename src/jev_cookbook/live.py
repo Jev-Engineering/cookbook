@@ -12,7 +12,6 @@ touches the network. The SDK is imported (and ``TYPESAFE_API_KEY`` read) only wh
 
 from __future__ import annotations
 
-import base64
 import datetime
 import inspect
 import json
@@ -37,9 +36,9 @@ from .backends import (
     FixtureError,
     LiveBackendUnavailable,
     ReplayBackend,
-    _check_assets,
     _check_request,
     _check_result,
+    _request_key,
     replay_key,
 )
 from .questions import Box, Question
@@ -841,12 +840,12 @@ class LiveBackend:
             self._retried = []
             self._last_latency = None
         plain_state, checked = _check_request(state, questions)
-        key = replay_key(plain_state, checked, assets=assets)
+        decoded_assets: dict[str, bytes] = {}
+        key, checked_assets = _request_key(plain_state, checked, assets, decoded=decoded_assets)
         # Questions contain mutable JSON even though their dataclasses are frozen. Keep the
-        # retry payload and response validation on a snapshot after replay_key's iterative
+        # retry payload and response validation on a snapshot after the key's iterative
         # depth check, so a mutated deep/cyclic question fails before recursive copying.
         checked = deepcopy(checked)
-        checked_assets = _check_assets(plain_state, checked, assets)
         has_box = any(isinstance(q, Box) for q in checked.values())
         needs_images = bool(checked_assets) or has_box
         if needs_images and not self.images:
@@ -873,10 +872,7 @@ class LiveBackend:
                 raise LiveConfigError("image assets require typesafe-sdk>=0.7.5,<0.8")
             # The public API keeps official JSON assets for deterministic offline replay.
             # SDK 0.7.5 expects Image values and emits multipart uploads for these bytes.
-            asset_kwargs["assets"] = {
-                ref: sdk.Image(base64.b64decode(asset["data_base64"], validate=True))
-                for ref, asset in checked_assets.items()
-            }
+            asset_kwargs["assets"] = {ref: sdk.Image(data) for ref, data in decoded_assets.items()}
         headers = {}
         if needs_images:
             headers["TypeSafe-Danger-Zone-Images"] = "true"
