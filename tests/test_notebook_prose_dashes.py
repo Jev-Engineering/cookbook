@@ -44,9 +44,16 @@ def test_published_notebook_markdown_uses_em_dashes(path):
     assert not problems, f"{path.relative_to(ROOT)}: use an em dash in prose: {problems}"
 
 
+def _template_notebook_path():
+    return ROOT / "recipes/_template/notebook.ipynb"
+
+
+def _template_notebook():
+    return json.loads(_template_notebook_path().read_text(encoding="utf-8"))
+
+
 def test_template_notebook_markdown_uses_em_dashes():
-    path = ROOT / "recipes/_template/notebook.ipynb"
-    assert not _notebook_dash_problems(json.loads(path.read_text(encoding="utf-8")))
+    assert not _notebook_dash_problems(_template_notebook())
 
 
 @pytest.mark.parametrize("as_list", [False, True])
@@ -83,7 +90,7 @@ def test_notebook_dash_prose_mutation_is_detected(source, as_list):
 @pytest.mark.parametrize(
     "source",
     [
-        "A decision â€” a bounded one â€” stays typed.",
+        "A decision — a bounded one — stays typed.",
         "` -- ` quotes the code spelling.",
         "```python\n# code -- permitted\n```",
         "~~~bash\npython tool.py -- value\n~~~",
@@ -135,3 +142,29 @@ def test_fixture_quote_mutation_requires_code_context(literal):
     assert not _notebook_dash_problems(notebook)
     notebook["cells"][0]["source"] = f"Quoted {literal}."
     assert _notebook_dash_problems(notebook) == [(0, 1)]
+
+
+def test_guard_scope_is_every_published_notebook_plus_the_template():
+    """Pin the parametrized set against an independent filesystem enumeration."""
+    found = {
+        path.parent.name
+        for path in (ROOT / "recipes").glob("*/notebook.ipynb")
+        if path.parent.name != "_template"
+    }
+    assert {path.parent.name for path in _published_notebooks()} == found
+    assert (ROOT / "recipes/_template/notebook.ipynb").is_file()
+    assert _template_notebook_path() == ROOT / "recipes/_template/notebook.ipynb"
+
+
+def test_template_guard_scans_the_template_notebook():
+    assert _notebook_dash_problems(_template_notebook()) == []
+    mutated = _template_notebook()
+    mutated["cells"].append({"cell_type": "markdown", "source": "Added -- aside"})
+    assert _notebook_dash_problems(mutated)
+
+
+@pytest.mark.parametrize("index", [2, 3, 10])
+def test_dash_in_a_later_markdown_cell_is_detected(index):
+    cells = [{"cell_type": "code", "source": "x = 1"} for _ in range(index)]
+    cells.append({"cell_type": "markdown", "source": "A decision -- a late aside."})
+    assert _notebook_dash_problems({"cells": cells}) == [(index, 1)]
