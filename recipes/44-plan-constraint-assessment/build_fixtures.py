@@ -16,6 +16,7 @@ synthetic answers, or --force is given.
 
 import argparse
 import json
+from datetime import datetime
 from pathlib import Path
 
 from jev_cookbook import DecisionResult, NoulAnswer, Provenance, load_helpers, replay_key
@@ -23,6 +24,12 @@ from jev_cookbook import DecisionResult, NoulAnswer, Provenance, load_helpers, r
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
 QUESTIONS = helpers.build_questions()
+
+
+def _iso(month_day):
+    """``"March 14"`` as ``"2026-03-14"``. The prose dates carry no year, so every date here
+    is in the same fixed year; Python then compares real dates, never the text."""
+    return datetime.strptime(f"{month_day} 2026", "%B %d %Y").date().isoformat()
 
 
 def _fields(
@@ -38,10 +45,11 @@ def _fields(
     steps,
 ):
     """One plan's ``fields``: the user's four constraint statements (the concrete limit,
-    deadline, vendor list and data scope baked into each), the plan's own description built
-    from ``steps`` plus its stated cost, completion date, vendor and data-handling note, and
-    ``cost`` on its own -- the only numeric fact Python reads back out, for the stateful
-    walkthrough's running-budget bookkeeping (never read a second time by the model)."""
+    deadline, vendor list and data scope baked into each, for the human reviewer), the plan's
+    own description built from ``steps`` plus its vendor and data-handling note, and the
+    structured ``cost``, ``budget_limit``, ``completion`` and ``deadline`` that Python compares
+    (``helpers.computed_checks``). Cost and completion are not part of the description Jev
+    reads: the comparison is done in code and only its named bucket is sent."""
     return {
         "user_constraints": {
             helpers.BUDGET: f"Budget constraint: total plan cost must not exceed ${budget_limit}.",
@@ -55,11 +63,11 @@ def _fields(
                 f"{data_scope}."
             ),
         },
-        "plan": (
-            f"{steps} Estimated total cost: ${cost}. Target completion: {completion}. "
-            f"Vendor used: {used_vendor}. {data_note}"
-        ),
+        "plan": f"{steps} Vendor used: {used_vendor}. {data_note}",
         "cost": cost,
+        "budget_limit": budget_limit,
+        "completion": _iso(completion),
+        "deadline": _iso(deadline),
     }
 
 
@@ -88,6 +96,12 @@ def _fields(
 # is cautious (gold is actually clear), one where it is warranted (gold is actually a
 # violation) -- that exercise the review path through the confidence gate rather than a
 # confident business-rule tag.
+#
+# The budget and timeline gold labels are exactly what helpers.budget_check and
+# helpers.timeline_check compute from each row's cost, limit, completion and deadline (a test
+# pins that), because those two comparisons are code's, not Jev's. Their stored answers are
+# synthetic readbacks of that computed bucket; where one is wrong on purpose (t13, t10, v13) it
+# stands for a misread of a bucket Python had already computed correctly.
 ROWS = [
     # -- validation: 15 ------------------------------------------------------------------------
     ("v01", "validation", _fields(
@@ -349,10 +363,7 @@ ROWS = [
         approved_vendors=["Pinnacle AV"], used_vendor="Pinnacle AV",
         data_scope="Pinnacle AV",
         data_note="The plan shares only the equipment list with Pinnacle AV.",
-        steps=(
-            "Outfit the quarterly town hall through Pinnacle AV; a worst-case contingency "
-            "estimate of $5800 is noted in case of last-minute additions."
-        ),
+        steps="Outfit the quarterly town hall through Pinnacle AV.",
     ), {"budget": False, "timeline": False, "vendor": False, "data_handling": False},
        (0.78, 0.04, 0.05, 0.05)),
     ("t14-gated-clear", "test", _fields(
