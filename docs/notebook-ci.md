@@ -444,6 +444,9 @@ with the one the job just produced from scratch. Exit 0 means they agree. The ru
    `text/plain`, streams, tables, every other output type (including `image/svg+xml`). The executor makes these byte-stable (`coalesce_streams`, no timings, fixed
    metadata, LF); differences are reported as `notebook.cells[i].outputs[j]...: committed X, fresh
    Y`, at most a dozen.
+   Separately, the number of outputs holding a non-empty `image/*` value (PNG, JPEG or SVG) may not
+   be lower in the fresh run than in the committed notebook (`image outputs dropped: N committed, M in
+   the fresh run`, #655); the command line always prints both counts.
 3. **The figures are compared by what they show.** PNG and JPEG bytes differ with the matplotlib version, the
    platform even at one version, and the pixel size, so equal bytes are not required, but ignoring the
    images would let a changed teaching chart pass. Each pair is therefore compared as follows
@@ -747,13 +750,14 @@ multimodal track. Check the repository's usage report for totals over time.
 
 ## The recipe guard allowlist
 
-`tests/test_recipe_guard.py` (#165) parametrises ten contract rules across fourteen per-recipe
-check ids — the current scaffold shape, no private issue citations, the strong-form
+`tests/test_recipe_guard.py` (#165) parametrises one test per rule per recipe, each rule under its
+own check id; the check table at the top of that module is the list (it is not counted here, so
+this sentence cannot go stale). The rules include the current scaffold shape, no private issue citations, the strong-form
 `test_stored_answers_are_not_all_right`, every printed metric line's disclosure label (both that
 a validation line carries both labels and that any metric line carries at least the pipeline-check
-one), figure disclosure labels, print-what-you-plot, Next-steps links both forward (a link resolves)
+one), figure disclosure labels, print-what-you-plot, a committed image in every `plot_*` cell, Next-steps links both forward (a link resolves)
 and inbound (every recipe is linked from some other recipe), the review outcome value and reason
-string, the README sources and live budget note, and the README install line — over every
+string, the README sources and live budget note, the README install line, and more — each over every
 published recipe at once, so each is enforced by `Tests (py3.10)`/`Tests (py3.14)` on every pull
 request rather than re-derived by a reviewer by hand — except the inbound half of the Next-steps
 check, `next_steps_inbound_links` (#203): a new recipe's own pull request can never satisfy it (no

@@ -127,7 +127,7 @@ check id                              rule -> detection
                                        ``plot_risk_coverage`` call has, in the same code
                                        cell, a ``print`` of the plotted object itself or of
                                        something a loop over it prints.
-``plot_cells_have_images``             #232, docs/notebook-style.md "Print what you plot":
+``plot_cells_have_images``            #232, docs/notebook-style.md "Print what you plot":
                                        every code cell that calls a ``plot_*`` function has at
                                        least one non-empty ``image/*`` output committed in that
                                        same cell, so a figure cannot vanish (a ``print`` after
@@ -136,10 +136,23 @@ check id                              rule -> detection
                                        level ``test_recipe_figure_presence.py`` guard of #256
                                        would pass a cell that lost its figure while another
                                        holds one). No exemption list: a published recipe that
-                                       fails is a real gap. Not seen: a figure that is committed
-                                       but no longer produced by a fresh run (the freshness
-                                       tool's job), and a plot call in a markdown cell or a
-                                       string.
+                                       fails is a real gap. Not seen (#655): a figure that is
+                                       committed but no longer produced by a fresh run (the
+                                       freshness tool's job: it fails on a drop in image
+                                       outputs); a plot call in a markdown cell or a string;
+                                       a figure that is not made by a ``plot_*`` call: a
+                                       matplotlib ``Figure`` built directly (recipe 77's
+                                       ``evaluation-chart``) or a helper image shown with
+                                       ``display()`` (recipes 69 and 77), which only the
+                                       notebook-level ``test_recipe_figure_presence.py``
+                                       sees; a ``plot_*`` function reached through an import
+                                       alias (``as prc``), an assigned alias, ``getattr`` or
+                                       ``functools.partial``; and a wrapper defined in one
+                                       cell and called from another (the defining cell is
+                                       selected, the calling cell is not). None of these
+                                       spellings occurs in a published recipe; they are
+                                       listed, not detected, because a static name rule that
+                                       chased them would risk false positives.
 ``next_steps_links_exist``            G1(f) clause 1, docs/recipe-template.md: every
                                        ``../NN-slug/`` link in the notebook resolves to a
                                        published recipe.
@@ -3588,6 +3601,50 @@ def test_a_cell_that_does_not_call_a_plot_function_needs_no_image(source):
 def test_a_markdown_cell_naming_a_plot_call_needs_no_image():
     cell = {"cell_type": "markdown", "source": "plot_risk_coverage(curve)"}
     assert _plot_cells_without_images([cell]) == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    ["plotted = 1\nplotting(rows)", "plot(rows)", "plotly(rows)", "x.plot(rows)"],
+    ids=["plotting", "bare-plot", "plotly", "plot-method"],
+)
+def test_the_plot_underscore_prefix_is_pinned(source):
+    """Widening the prefix from ``plot_`` to ``plot`` would select these cells (#655)."""
+    assert not _cell_calls_a_plot_function(source)
+    assert _plot_cells_without_images([_plot_cell([], source=source)]) == []
+
+
+def test_a_bare_plot_underscore_call_is_the_shortest_selected_name():
+    assert _cell_calls_a_plot_function("plot_x(1)")
+    assert _cell_calls_a_plot_function("style.plot_x(1)")
+
+
+# Figure sources the guard does not see (#655). Each is listed under "Not seen" in the check table
+# at the top of this module (the second element is the words that line must contain), not detected:
+# a static name rule that chased them would risk false positives on a published recipe.
+UNSEEN_PLOT_SOURCES = {
+    "import alias": (
+        "from jev_cookbook.style import plot_risk_coverage as prc\nprc(curve)",
+        "import alias",
+    ),
+    "assigned alias": ("f = style.plot_risk_coverage\nf(curve)", "assigned alias"),
+    "getattr": ('getattr(style, "plot_risk_coverage")(curve)', "getattr"),
+    "functools.partial": ("functools.partial(style.plot_risk_coverage, curve)()", "partial"),
+    "direct Figure": ("fig = Figure()\nax = fig.subplots()\nfig", "Figure"),
+    "display of a helper image": ("display(helpers.render_image(row))", "display"),
+    "cross-cell wrapper": ("draw(curve)", "wrapper defined in one"),
+}
+
+
+@pytest.mark.parametrize("name", list(UNSEEN_PLOT_SOURCES))
+def test_each_unseen_figure_source_is_listed_in_the_check_table_and_stays_unseen(name):
+    """If one of these becomes detected, move it out of the table's "Not seen" line and into the
+    covered rule, with a must-fail test; if the line loses a source, this fails."""
+    source, words = UNSEEN_PLOT_SOURCES[name]
+    assert _plot_cells_without_images([_plot_cell([], source=source)]) == []
+    row = __doc__.split("``plot_cells_have_images``", 1)[1].split("``next_steps_links_exist``")[0]
+    assert "Not seen (#655)" in row
+    assert re.search(words, re.sub(r"\s+", " ", row))
 
 
 def test_an_unparsable_plot_cell_is_still_checked():

@@ -695,6 +695,77 @@ def test_differences_helper_names_the_path():
     assert fresh_tool.differences({"a": 1}, {"a": True}) != []  # 1 and True are different types
 
 
+# -- the figure count may not drop (#655) ---------------------------------------------------------------
+
+
+def _figure_notebook(images):
+    """A notebook of ``images`` code cells, each with one display_data image output."""
+    cells = [
+        {
+            "cell_type": "code",
+            "id": f"fig{n}",
+            "metadata": {},
+            "source": "plot_answer_probabilities(answer)",
+            "execution_count": n + 1,
+            "outputs": [
+                {"output_type": "display_data", "data": {"image/png": "stored"}, "metadata": {}}
+            ],
+        }
+        for n in range(images)
+    ]
+    return {"cells": cells, "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+
+
+def _dropped(committed, fresh):
+    return [p for p in fresh_tool.check(committed, fresh)[0] if "image outputs dropped" in p]
+
+
+def test_a_drop_in_the_number_of_image_outputs_is_a_problem():
+    found = _dropped(_figure_notebook(3), _figure_notebook(2))
+    assert len(found) == 1 and "3 committed, 2 in the fresh run" in found[0]
+
+
+def test_a_drop_to_no_image_outputs_is_a_problem():
+    assert _dropped(_figure_notebook(1), _figure_notebook(0))
+
+
+@pytest.mark.parametrize("fresh_images", [2, 3])
+def test_an_equal_or_larger_image_count_is_not_a_drop(fresh_images):
+    assert _dropped(_figure_notebook(2), _figure_notebook(fresh_images)) == []
+
+
+def test_the_cli_always_prints_the_image_counts(tmp_path):
+    path = tmp_path / "same.ipynb"
+    path.write_text(json.dumps(_figure_notebook(2)), encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(TOOL), str(path), str(path)], capture_output=True, text=True
+    )
+    assert "image outputs: 2 committed, 2 in the fresh run" in result.stdout
+
+
+def test_only_a_non_empty_image_value_counts_as_an_image_output():
+    notebook = _figure_notebook(1)
+    notebook["cells"][0]["outputs"].append(
+        {"output_type": "display_data", "data": {"image/png": "", "text/plain": "x"}}
+    )
+    notebook["cells"][0]["outputs"].append({"output_type": "stream", "name": "stdout", "text": "x"})
+    assert fresh_tool.image_output_count(notebook) == 1
+    svg = {"output_type": "display_data", "data": {"image/svg+xml": "<svg/>"}}
+    notebook["cells"][0]["outputs"].append(svg)
+    assert fresh_tool.image_output_count(notebook) == 2
+
+
+def test_the_cli_fails_on_a_drop_in_image_outputs(tmp_path):
+    committed, fresh = tmp_path / "committed.ipynb", tmp_path / "fresh.ipynb"
+    committed.write_text(json.dumps(_figure_notebook(2)), encoding="utf-8")
+    fresh.write_text(json.dumps(_figure_notebook(1)), encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(TOOL), str(committed), str(fresh)], capture_output=True, text=True
+    )
+    assert result.returncode == 1
+    assert "STALE: image outputs dropped: 2 committed, 1 in the fresh run" in result.stdout
+
+
 # -- text cells and metadata cannot smuggle an image in any spelling (#307 fix round 2) ---------------
 
 SPELLINGS = {
