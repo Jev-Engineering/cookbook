@@ -32,6 +32,10 @@ longer fits, the job's ``timeout-minutes``: never shorten a guard below what the
 legitimately take.
 ``test_every_hang_guard_fits_in_the_ci_test_job`` in tests/test_new_recipe.py checks this against
 the file, not a copy of the number, and its failure message (``fit_problem``) names both numbers.
+This models one guard firing in a job, with the rest of the suite covered by the reserve. It
+does not guarantee that the job survives multiple guarded subprocesses hanging in the same run;
+the three users share the kernel start path. The constant checks below do not measure current
+suite duration: re-measure when the suite grows.
 
 This is a plain module (not a test file), loaded by path like the other helpers in tests/.
 """
@@ -43,6 +47,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 CI_WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
+EXECUTOR_TOOL = REPO / "tools" / "execute_notebook.py"
 CI_TEST_JOB = "test"
 
 SLOW_START = "Kernel didn't respond"
@@ -83,20 +88,25 @@ def ci_test_job_seconds(workflow: Path = CI_WORKFLOW) -> int:
 def fits_in_the_ci_test_job(guard: int, job_seconds: int | None = None) -> bool:
     """Whether a hang guard of ``guard`` seconds can fire before the job is killed, given that the
     rest of the suite (``SUITE_SECONDS``) has run in the same job."""
-    job = ci_test_job_seconds() if job_seconds is None else job_seconds
-    return guard + SUITE_SECONDS <= job
+    return fit_problem("", guard, job_seconds) is None
 
 
-def fit_problem(user: str, guard: int, job_seconds: int | None = None) -> str:
-    """The failure message for a guard that does not fit, naming the numbers to update."""
+def fit_problem(user: str, guard: int, job_seconds: int | None = None) -> str | None:
+    """None if the guard fits; otherwise the failure message, naming the numbers to update."""
     job = ci_test_job_seconds() if job_seconds is None else job_seconds
+    total = guard + SUITE_SECONDS
+    if total <= job:
+        return None
+    budget_path = Path(__file__).resolve().relative_to(REPO).as_posix()
+    workflow_path = CI_WORKFLOW.relative_to(REPO).as_posix()
+    executor_path = EXECUTOR_TOOL.relative_to(REPO).as_posix()
     return (
         f"{user}: hang guard {guard} s + SUITE_SECONDS {SUITE_SECONDS} s = "
-        f"{guard + SUITE_SECONDS} s exceeds the CI {CI_TEST_JOB!r} job's timeout-minutes "
+        f"{total} s exceeds the CI {CI_TEST_JOB!r} job's timeout-minutes "
         f"({job} s). Re-measure the Tests job duration and update MEASURED_JOB_SECONDS and "
         f"SUITE_SECONDS together (and the measurement in the module docstring) in "
-        f"tests/executor_budget.py, or raise timeout-minutes in .github/workflows/ci.yml; do not "
-        f"shorten the guard below what tools/execute_notebook.py may legitimately take."
+        f"{budget_path}, or raise timeout-minutes in {workflow_path}; do not "
+        f"shorten the guard below what {executor_path} may legitimately take."
     )
 
 
