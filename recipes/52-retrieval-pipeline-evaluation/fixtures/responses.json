@@ -880,6 +880,30 @@
       }
     }
   },
+  "1eeba376c07d71e95c82fc082102c525cee9a105c246a843af4a1c627d31e409": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "verdict": {
+        "type": "choice",
+        "choice": "not_enough_evidence",
+        "probabilities": {
+          "supported": 0.1,
+          "contradicted": 0.07,
+          "not_enough_evidence": 0.83
+        },
+        "confidence": 0.7449999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
   "1ff56cb8e457ebecbb8487959b5ac071cbe272fa26866bccd27d3d4f6c49f802": {
     "model": "synthetic",
     "usage": {
@@ -1881,51 +1905,6 @@
       }
     }
   },
-  "40f412270c396356f47372f7026fbc56dec85a963ba75d998ee4a667a81af2e1": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "keep": {
-        "type": "choice",
-        "choice": "does_not_bear",
-        "probabilities": {
-          "bears_on_claim": 0.22,
-          "does_not_bear": 0.78
-        },
-        "confidence": 0.56,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      },
-      "relevance": {
-        "type": "score",
-        "score": 1.03,
-        "probabilities": {
-          "0": 0.15,
-          "1": 0.7,
-          "2": 0.12,
-          "3": 0.03
-        },
-        "confidence": 0.67,
-        "legend": {
-          "0": "The passage is about a different place, product, person or topic than the claim.",
-          "1": "The passage is about the same topic as the claim but states no fact the claim depends on.",
-          "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
-          "3": "The passage states, on its own, enough to show the claim true or to show it false."
-        },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
   "40f54a5a3c4450ddb0a690f4295b2a1c20d413e9ffc0ae21f5ec7a808d9ff39a": {
     "model": "synthetic",
     "usage": {
@@ -2249,6 +2228,37 @@
       }
     }
   },
+  "47a9c5e773dd02db4af196259a1f35c3583effb450e1ef1edf207cb630f8ef3a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.03,
+        "probabilities": {
+          "0": 0.15,
+          "1": 0.7,
+          "2": 0.12,
+          "3": 0.03
+        },
+        "confidence": 0.67,
+        "legend": {
+          "0": "The passage is about a different place, product, person or topic than the claim.",
+          "1": "The passage is about the same topic as the claim but states no fact the claim depends on.",
+          "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
+          "3": "The passage states, on its own, enough to show the claim true or to show it false."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
   "481a43f47801951d94444882a76c95663a328845900eec2c10b73ad21e9831d4": {
     "model": "synthetic",
     "usage": {
@@ -2295,51 +2305,6 @@
     }
   },
   "486acc908dd229a6ddf2fccbe382d385f7c7ce164e595b0db8b478ecd3bd364c": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "keep": {
-        "type": "choice",
-        "choice": "does_not_bear",
-        "probabilities": {
-          "bears_on_claim": 0.22,
-          "does_not_bear": 0.78
-        },
-        "confidence": 0.56,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      },
-      "relevance": {
-        "type": "score",
-        "score": 1.03,
-        "probabilities": {
-          "0": 0.15,
-          "1": 0.7,
-          "2": 0.12,
-          "3": 0.03
-        },
-        "confidence": 0.67,
-        "legend": {
-          "0": "The passage is about a different place, product, person or topic than the claim.",
-          "1": "The passage is about the same topic as the claim but states no fact the claim depends on.",
-          "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
-          "3": "The passage states, on its own, enough to show the claim true or to show it false."
-        },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "496f724a56dd909f0738b1279ce61a806d61c20fab36e593545bf0be2a03172a": {
     "model": "synthetic",
     "usage": {
       "input_tokens": null,
@@ -3171,6 +3136,37 @@
       }
     }
   },
+  "69e11b5766533c0be59a8bfafb052c4809f0e72720cbc871c94bdd947157c712": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.03,
+        "probabilities": {
+          "0": 0.15,
+          "1": 0.7,
+          "2": 0.12,
+          "3": 0.03
+        },
+        "confidence": 0.67,
+        "legend": {
+          "0": "The passage is about a different place, product, person or topic than the claim.",
+          "1": "The passage is about the same topic as the claim but states no fact the claim depends on.",
+          "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
+          "3": "The passage states, on its own, enough to show the claim true or to show it false."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
   "6d9ebbc67525feccfb1a02c03257467a48248985ed0a14af23c2fb86d6e242ad": {
     "model": "synthetic",
     "usage": {
@@ -3438,6 +3434,51 @@
       }
     }
   },
+  "74265f22ec06f57e547dff1cb7ad3a08a84f1c51cecce11e1228ee8b605d1a66": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "keep": {
+        "type": "choice",
+        "choice": "does_not_bear",
+        "probabilities": {
+          "bears_on_claim": 0.22,
+          "does_not_bear": 0.78
+        },
+        "confidence": 0.56,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "relevance": {
+        "type": "score",
+        "score": 1.03,
+        "probabilities": {
+          "0": 0.15,
+          "1": 0.7,
+          "2": 0.12,
+          "3": 0.03
+        },
+        "confidence": 0.67,
+        "legend": {
+          "0": "The passage is about a different place, product, person or topic than the claim.",
+          "1": "The passage is about the same topic as the claim but states no fact the claim depends on.",
+          "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
+          "3": "The passage states, on its own, enough to show the claim true or to show it false."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
   "7504fc30ef28338106d992896335a35044b205fbabd984f705b96c1f5552f4a4": {
     "model": "synthetic",
     "usage": {
@@ -3523,37 +3564,6 @@
           "not_enough_evidence": 0.12
         },
         "confidence": 0.7299999999999999,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "79cc5c50604028313c382699bb6bccb190cbece48ddd6348a50a8d56aa344046": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "relevance": {
-        "type": "score",
-        "score": 1.03,
-        "probabilities": {
-          "0": 0.15,
-          "1": 0.7,
-          "2": 0.12,
-          "3": 0.03
-        },
-        "confidence": 0.67,
-        "legend": {
-          "0": "The passage is about a different place, product, person or topic than the claim.",
-          "1": "The passage is about the same topic as the claim but states no fact the claim depends on.",
-          "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
-          "3": "The passage states, on its own, enough to show the claim true or to show it false."
-        },
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -3685,37 +3695,6 @@
           "3": 0.03
         },
         "confidence": 0.57,
-        "legend": {
-          "0": "The passage is about a different place, product, person or topic than the claim.",
-          "1": "The passage is about the same topic as the claim but states no fact the claim depends on.",
-          "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
-          "3": "The passage states, on its own, enough to show the claim true or to show it false."
-        },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "81e867757142ac43c67531f4655ff011529afef1756ea178c6218e181bb27bae": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "relevance": {
-        "type": "score",
-        "score": 1.03,
-        "probabilities": {
-          "0": 0.15,
-          "1": 0.7,
-          "2": 0.12,
-          "3": 0.03
-        },
-        "confidence": 0.67,
         "legend": {
           "0": "The passage is about a different place, product, person or topic than the claim.",
           "1": "The passage is about the same topic as the claim but states no fact the claim depends on.",
@@ -5326,29 +5305,6 @@
       }
     }
   },
-  "c516ee0c08ada49f09051d7509a32e5418c77fb06ddb746013fb6489c6ed503d": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "keep": {
-        "type": "choice",
-        "choice": "does_not_bear",
-        "probabilities": {
-          "bears_on_claim": 0.22,
-          "does_not_bear": 0.78
-        },
-        "confidence": 0.56,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
   "c5bb107db9448ff2be98c406d1891ce30fc07e31933c94b610698f7a7bdc9f09": {
     "model": "synthetic",
     "usage": {
@@ -5448,6 +5404,29 @@
           "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
           "3": "The passage states, on its own, enough to show the claim true or to show it false."
         },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c92d352caf6ae3e6f9cd2d273de472c015ae55f0f4b14bce403d06a75418aca8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "keep": {
+        "type": "choice",
+        "choice": "does_not_bear",
+        "probabilities": {
+          "bears_on_claim": 0.22,
+          "does_not_bear": 0.78
+        },
+        "confidence": 0.56,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -5600,29 +5579,6 @@
           "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
           "3": "The passage states, on its own, enough to show the claim true or to show it false."
         },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "cf5bb77a7cb2e3828f2c8e2e645439bf9470dc730bedce436a2ffa05b6103f83": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "keep": {
-        "type": "choice",
-        "choice": "does_not_bear",
-        "probabilities": {
-          "bears_on_claim": 0.22,
-          "does_not_bear": 0.78
-        },
-        "confidence": 0.56,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -5950,22 +5906,21 @@
       }
     }
   },
-  "d82d0adf6f53ad0a760e0a3a2e6267eaa717278360c32416600860ff341dec3a": {
+  "daf93b089532e8f3f6de9f9f49a36373ee6a33b1786960e5da48714311392518": {
     "model": "synthetic",
     "usage": {
       "input_tokens": null,
       "output_tokens": null
     },
     "answers": {
-      "verdict": {
+      "keep": {
         "type": "choice",
-        "choice": "not_enough_evidence",
+        "choice": "does_not_bear",
         "probabilities": {
-          "supported": 0.1,
-          "contradicted": 0.07,
-          "not_enough_evidence": 0.83
+          "bears_on_claim": 0.22,
+          "does_not_bear": 0.78
         },
-        "confidence": 0.7449999999999999,
+        "confidence": 0.56,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -6274,6 +6229,51 @@
           "not_enough_evidence": 0.12
         },
         "confidence": 0.7599999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e4def850daf010f9786ac2c7c66af53ffc5f0a35959b38f788e0019a352e9ea5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "keep": {
+        "type": "choice",
+        "choice": "does_not_bear",
+        "probabilities": {
+          "bears_on_claim": 0.22,
+          "does_not_bear": 0.78
+        },
+        "confidence": 0.56,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "relevance": {
+        "type": "score",
+        "score": 1.03,
+        "probabilities": {
+          "0": 0.15,
+          "1": 0.7,
+          "2": 0.12,
+          "3": 0.03
+        },
+        "confidence": 0.67,
+        "legend": {
+          "0": "The passage is about a different place, product, person or topic than the claim.",
+          "1": "The passage is about the same topic as the claim but states no fact the claim depends on.",
+          "2": "The passage states a fact the claim depends on, but only part of what the claim needs; a second passage would be needed to settle the claim.",
+          "3": "The passage states, on its own, enough to show the claim true or to show it false."
+        },
         "provenance": {
           "source": "synthetic",
           "model": null,
