@@ -615,37 +615,6 @@
       }
     }
   },
-  "6f728f4ae7ac097dca7c44cf09fb52825e8d00ee106db061c3730e45557dabda": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "specificity": {
-        "type": "score",
-        "score": 1.3466666666666667,
-        "probabilities": {
-          "0": 0.17333333333333334,
-          "1": 0.48,
-          "2": 0.17333333333333334,
-          "3": 0.17333333333333334
-        },
-        "confidence": 0.30666666666666664,
-        "legend": {
-          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
-          "1": "Names a general policy area, but no specific control or standard.",
-          "2": "Names a specific control or standard, with no detail on how it is verified.",
-          "3": "Names a specific control or standard and says how it is verified or audited."
-        },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
   "778cc9697686055bb6003a17539dd586e9f8841f350b7a1e4cc7ec9525dd951a": {
     "model": "synthetic",
     "usage": {
