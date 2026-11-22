@@ -69,6 +69,11 @@ and risk 0.1000. Across the rows where the binding holds and the model's answers
 outcome (N=8), coverage is 0.3750, accuracy is 0.6667 and risk is 0.3333. Of the 10 whole-set
 answers, Python denies seven and the composed rule labels three as executed.
 
+The coverage/risk plot compares `always_review`, the mechanism and `permission_only` as
+separate, unconnected policy points. They use different decision rules rather than successive
+thresholds of one rule, and each point reports its policy's own coverage and risk on the same
+`test` split.
+
 ## Pull request rules
 
 This recipe's pull request changes only `recipes/41-approval-scope-review/`. The root `README.md` is generated; per
