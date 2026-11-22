@@ -806,7 +806,9 @@ def test_a_listed_file_that_resolves_outside_assets_is_refused(tmp_path, monkeyp
     recipe = build(tmp_path)
     outside = tmp_path / "outside.png"
     outside.write_bytes(png_bytes(80))
-    monkeypatch.setattr("jev_cookbook.vision.resolve_asset_path", lambda path, *, root: outside)
+    monkeypatch.setattr(
+        "jev_cookbook.fixtures._assets.resolve_asset_path", lambda path, *, root: outside
+    )
     found = problems(recipe)
     assert any("scene-0.png: [asset-path]" in m and "inside assets/" in m for m in found)
     assert not any("[hash-mismatch]" in m for m in found)
@@ -956,7 +958,9 @@ def test_the_rule_does_not_depend_on_what_the_operating_system_makes_of_the_path
     finding must be the same either way, so make it accept everything and look again."""
     recipe = build(tmp_path)
     edit_inputs(recipe, lambda rows: rows[0]["fields"].update(image=bad))
-    monkeypatch.setattr("jev_cookbook.vision.resolve_asset_path", lambda path, *, root: recipe)
+    monkeypatch.setattr(
+        "jev_cookbook.fixtures._assets.resolve_asset_path", lambda path, *, root: recipe
+    )
     expect(recipe, "asset-path", repr(bad), "e0")
 
 
