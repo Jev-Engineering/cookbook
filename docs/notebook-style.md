@@ -243,8 +243,9 @@ came with them:
   either or both axes. `ConfusionMatrix` does not change: it stays one
   vocabulary, so its "gold option / predicted option" wording stays true, and a two-vocabulary
   table is not a `ConfusionMatrix`. Abbreviation is judged on each axis on its own. A
-  rectangular table's figure starts from its cell counts and grows until no label or title
-  runs past the figure edge; a square table's figure is sized exactly as before.
+  table's own figure starts from its cell counts and grows if a label or title runs past
+  the figure edge, for square and rectangular tables alike. Text that already fits keeps
+  the figure's size. When an `ax` is supplied, its caller controls the figure size.
 - Abbreviating a label past 14 characters stays the default presentation. Wrapping or
   rotating every long label would move each committed matrix that has one (recipe 47 among
   them); only an axis on which abbreviation would merge two different labels gives it up.

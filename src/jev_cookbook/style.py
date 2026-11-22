@@ -30,6 +30,7 @@ import textwrap
 import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
@@ -782,9 +783,9 @@ def plot_confusion_matrix(
     ``labels``, and the titles default to ``"Gold"`` (rows) and ``"Predicted"`` (columns).
     Passing explicit ``labels`` together with both axis overrides raises ``ValueError``;
     implicit labels from a matrix object may be overridden on both axes.
-    A rectangular table's figure (when ``ax`` is not given) is sized from its cell counts and
-    then grown until no label, tick or title runs past the figure edge; a square table's
-    figure is sized exactly as before.
+    A table's own figure (when ``ax`` is not given) is sized from its cell counts and then
+    grown if a label, tick or title runs past the figure edge, for square and rectangular
+    tables alike. A figure whose text already fits keeps its size.
 
     A label longer than 14 characters is abbreviated to its first 11 plus ``...``. If that
     would make two different labels on an axis render as the same tick, no label on that axis
@@ -846,13 +847,22 @@ def plot_confusion_matrix(
         heading = ax.set_title(title) if title else None
     if own_figure and n_rows != n_cols:
         _grow_to_fit_text(fig, ax, heading)
+    elif own_figure:
+        # Measuring runs the layout engine, which changes how the figure's first draw
+        # comes out. Probe a copy, and keep the original (so a square that already fits is
+        # rendered exactly as before) unless the copy had to grow.
+        probe = deepcopy(fig)
+        probe_ax = probe.axes[0]
+        _grow_to_fit_text(probe, probe_ax, probe_ax.title if heading is not None else None)
+        if not np.array_equal(probe.get_size_inches(), fig.get_size_inches()):
+            fig = probe
     return _track(fig)
 
 
 def _grow_to_fit_text(
     fig: Figure, ax: Axes, heading: Text | None, rounds: int = 4, pad_px: float = 2.0
 ) -> None:
-    """Enlarge a rectangular matrix until its tick labels, axis labels and title fit.
+    """Enlarge a confusion matrix until its tick labels, axis labels and title fit.
 
     Cell annotations sit inside the axes. Exclude them while computing constrained layout,
     and measure only the decorations that can overflow the figure. Executing the layout
