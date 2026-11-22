@@ -243,11 +243,11 @@ answer while `recall_at_budget` accepted both; that difference is gone.) `mean_n
 `mean_recall_at_budget` sum the per-query values with `math.fsum`, so the result does not depend
 on the order of the queries. A query given to `mean_ndcg`, `mean_recall_at_budget` or
 `top_k_query_accuracy` is read once with `tuple(q)`, so a one-shot iterable works, and a query of
-the wrong length raises a `ValueError` naming the expected
-shape. `top_k_query_accuracy` takes only `(gold_relevant, scores)` pairs, and a three-tuple (the
-`eligible` form) raises a `ValueError` that names the missing `eligible` and says when
-`mean_recall_at_budget` is, and is not, the same metric. A non-iterable query raises `ValueError`
-with a bounded preview; errors while consuming a query's iterator propagate unchanged.
+the wrong length raises a `ValueError` naming the expected shape. `top_k_query_accuracy` takes only
+`(gold_relevant, scores)` pairs, and a three-tuple (the `eligible` form) raises a `ValueError` that
+names the missing `eligible` and says when `mean_recall_at_budget` is, and is not, the same metric.
+A non-iterable query raises `ValueError` with a bounded preview; errors while consuming a query's
+iterator propagate unchanged.
 
 **`top_k_query_accuracy` is not `recall_at_budget` under another name.** The two differ whenever
 a query has more than one relevant item: with two relevant items among three and the top-scored

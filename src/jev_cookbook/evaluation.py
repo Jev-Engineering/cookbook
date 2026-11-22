@@ -1836,9 +1836,9 @@ def accepted_and_correct(
     returns the label the rule would have answered with, which for a review result is the
     label it held back (the spelling recipes 11, 18 and 22 already use). The order is
     ``(accepted, correct)``, the order :func:`evaluate_outcomes` takes them, so
-    ``evaluate_outcomes(*accepted_and_correct(...))``
-    is the whole accounting. Pass what the rule actually returned: ``accepted_when`` reads the
-    rule's own outcome, it never reapplies a confidence gate.
+    ``evaluate_outcomes(*accepted_and_correct(...))`` is the whole accounting. Pass what the rule
+    actually returned: ``accepted_when`` reads the rule's own outcome, it never reapplies a
+    confidence gate.
 
     Args:
         results: The rule's results, one per example, of any type.
