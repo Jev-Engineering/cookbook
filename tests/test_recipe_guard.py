@@ -6237,6 +6237,30 @@ def _locally_defined_function_names(tree: ast.AST) -> set[str]:
     return {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
 
 
+def _extraction_helper_names(tree: ast.AST) -> set[str]:
+    """Local helpers whose literal strings cannot supply an objective fallback.
+
+    Refuse every definition of a name if any definition holds a whole-token objective
+    spelling, including a docstring, default or unreachable branch. This conservative
+    check does not try to prove which branch runs or follow computed/global strings.
+    A direct assertion remains available for helpers outside this extraction shape.
+    """
+    refused: set[str] = set()
+    for function in ast.walk(tree):
+        if not isinstance(function, ast.FunctionDef):
+            continue
+        for node in ast.walk(function):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            if any(
+                _objective_token_present(spelling, node.value)
+                for spelling in ALL_OBJECTIVE_SPELLINGS
+            ):
+                refused.add(function.name)
+                break
+    return _locally_defined_function_names(tree) - refused
+
+
 def _extraction_checked(name: str, func: ast.FunctionDef, after: int = -1) -> bool:
     """True if ``func.body`` has, as a top-level statement later than ``func.body[after]``, the
     bare statement ``assert <name> is not None`` (either operand order: ``name is not None`` or
@@ -6394,8 +6418,10 @@ def _spellings_pinned_by_assertions(
          ``"min_coverage"``, or ``"f1-gate"`` (which contains the token f1) with another
          spelling, is refused. Only that one spelling is credited, never the raw literals.
 
-      The helper's own body is not read, so a helper that falls back to another spelling
-      inside its body is not detected (#540)."""
+      The recipe-level caller supplies only ``_extraction_helper_names``: a local helper
+      holding an objective token in a literal string is refused, even in a dead branch or
+      docstring. This prevents a literal fallback inside the helper from donating a false
+      pin. Computed strings and transitive calls are outside this bounded analysis."""
     pinned: set[str] = set()
     frozen_taint = _Taint(tainted, _embedded_texts(func, tainted))
     nonempty = _asserted_nonempty_names(func)
@@ -6502,7 +6528,7 @@ def _pinned_objective_spellings(recipe_dir_: Path) -> set[str]:
         taint_producing_names = (
             _locally_source_reading_function_names(tree, text) | production_wrapper_names
         )
-        locally_defined = _locally_defined_function_names(tree)
+        locally_defined = _extraction_helper_names(tree)
         for func in _test_function_defs(tree):
             tainted = _tainted_names_in_function(func, text, taint_producing_names)
             pinned |= _spellings_pinned_by_assertions(func, tainted, locally_defined)
