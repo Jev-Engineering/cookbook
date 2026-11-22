@@ -157,7 +157,7 @@ def test_checkpoint_answered_agrees_with_what_the_run_does(choice, top, turn):
         len(queue) == 0 and "turn budget reached" not in rules
     )
     if turn == helpers.MAX_TURNS:
-        assert len(queue) == 0
+        assert len(queue) == int(a.confidence < 0.5 or choice == "unclear")
         assert len(actions) == 1
 
 
@@ -226,12 +226,12 @@ def test_the_turn_budget_stops_whatever_the_answer():
                 assert run.stop_reason == "turn budget reached"
 
 
-def test_a_below_threshold_answer_at_the_budget_turn_is_stopped_not_queued():
+def test_a_below_threshold_answer_at_the_budget_turn_is_stopped_and_queued():
     queue, actions = ReviewQueue(), ActionLog()
     answers = [(7, answer("advancing", 0.84)), (8, answer("complete", 0.30))]
     run = helpers.supervise("R", answers, 0.5, queue=queue, actions=actions)
     assert (run.stopped_at, run.stop_reason) == (8, "turn budget reached")
-    assert len(queue) == 0
+    assert _queue_rows(queue) == [("R", 8, "complete", "confidence below the threshold")]
     assert [(e["kind"], e["step"], e["rule"]) for e in actions.to_dicts()] == [
         ("stop", 8, "turn budget reached")
     ]
@@ -242,7 +242,7 @@ def test_a_gold_stall_at_the_budget_turn_is_detected_with_delay_zero(label):
     gold = [(7, "advancing"), (8, label)]
     onset = helpers.stall_onset(gold)
     assert onset == helpers.MAX_TURNS
-    found = helpers.detection(helpers.label_run("R", gold), onset)
+    found = helpers.detection(helpers.label_run("R", gold), gold)
     assert (found.outcome, found.delay) == ("detected", 0)
 
 
@@ -255,7 +255,7 @@ def test_a_confident_stall_answer_at_the_budget_turn_counts_for_detection():
         ("stop", 8, "repeating at the turn budget")
     ]
     assert run.first_stall_intervention == 8
-    assert helpers.detection(run, 8).outcome == "detected"
+    assert helpers.detection(run, [(7, "advancing"), (8, "repeating")]).outcome == "detected"
     # A confident regressing keeps its own stall reason; an advancing one is only the budget.
     regress = helpers.supervise(
         "R",
@@ -285,7 +285,7 @@ def test_a_confident_stall_answer_at_the_budget_turn_counts_for_detection():
         actions=ActionLog(),
     )
     assert weak.first_stall_intervention is None
-    assert helpers.detection(weak, 8).outcome == "missed"
+    assert helpers.detection(weak, [(7, "advancing"), (8, "repeating")]).outcome == "missed"
 
 
 def test_checkpoint_answered_agrees_with_every_step_of_multi_checkpoint_runs():
@@ -385,12 +385,11 @@ def test_the_test_split_supervision_on_the_committed_fixtures():
         "R-204": (3, "regressing: progress was lost"),
         "R-205": (5, "task complete"),
         "R-206": (5, "task complete"),
+        "R-207": (8, "turn budget reached"),
     }
     labels = load_labels(RECIPE)
     found = {
-        ref: helpers.detection(
-            runs[ref], helpers.stall_onset([(e.fields["turn"], labels[e.id]) for e in group])
-        )
+        ref: helpers.detection(runs[ref], [(e.fields["turn"], labels[e.id]) for e in group])
         for ref, group in by_ref.items()
     }
     assert {ref: (d.outcome, d.delay) for ref, d in found.items()} == {
@@ -400,6 +399,7 @@ def test_the_test_split_supervision_on_the_committed_fixtures():
         "R-204": ("detected", 0),
         "R-205": ("no stall", None),
         "R-206": ("missed", None),
+        "R-207": ("no stall", None),
     }
     assert _action_rows(actions) == [
         ("stop", "R-201", 4, "complete", "task complete"),
@@ -410,24 +410,24 @@ def test_the_test_split_supervision_on_the_committed_fixtures():
         ("stop", "R-204", 3, "regressing", "regressing: progress was lost"),
         ("stop", "R-205", 5, "complete", "task complete"),
         ("stop", "R-206", 5, "complete", "task complete"),
+        ("stop", "R-207", 8, "unclear", "turn budget reached"),
     ]
     assert _queue_rows(queue) == [
         ("R-205", 3, "complete", "confidence below the threshold"),
         ("R-206", 2, "unclear", "progress unclear from the turns shown"),
         ("R-206", 3, "repeating", "confidence below the threshold"),
         ("R-206", 4, "repeating", "confidence below the threshold"),
+        ("R-207", 8, "unclear", "progress unclear from the turns shown"),
     ]
     assert all(not e["executed"] for e in actions.to_dicts())
 
 
 def test_the_validation_split_supervision_on_the_committed_fixtures():
-    """The validation split, the only fixture path through the turn budget stop."""
+    """The validation split, including a below-gate answer at the turn budget stop."""
     by_ref, runs, queue, actions = _fixture_runs("validation", frozen_threshold())
     labels = load_labels(RECIPE)
     found = {
-        ref: helpers.detection(
-            runs[ref], helpers.stall_onset([(e.fields["turn"], labels[e.id]) for e in group])
-        )
+        ref: helpers.detection(runs[ref], [(e.fields["turn"], labels[e.id]) for e in group])
         for ref, group in by_ref.items()
     }
     # R-104's stall point is turn 5, where the delete's breakage first shows in the results.
@@ -463,13 +463,14 @@ def test_the_validation_split_supervision_on_the_committed_fixtures():
         ("R-104", 4, "complete", "confidence below the threshold"),
         ("R-106", 4, "repeating", "confidence below the threshold"),
         ("R-106", 5, "unclear", "progress unclear from the turns shown"),
+        ("R-106", 8, "complete", "confidence below the threshold"),
     ]
 
 
 def test_detection_outcomes():
     run = helpers.label_run("R", [(2, "advancing"), (3, "repeating"), (4, "repeating")])
     assert run.stall_interventions == (3, 4)
-    found = helpers.detection(run, 3)
+    found = helpers.detection(run, [(2, "advancing"), (3, "repeating"), (4, "repeating")])
     assert (found.outcome, found.delay, found.intervened, found.false_alarm) == (
         "detected",
         0,
@@ -478,21 +479,27 @@ def test_detection_outcomes():
     )
     # An intervention before the onset is a false alarm; a later one at or after the onset is
     # still the detection, so the early one cannot hide it.
-    found = helpers.detection(run, 4)
+    found = helpers.detection(run, [(2, "advancing"), (3, "advancing"), (4, "repeating")])
     assert (found.outcome, found.delay, found.intervened, found.false_alarm) == (
         "detected",
         0,
         4,
         3,
     )
-    on_clean = helpers.detection(run, None)
+    on_clean = helpers.detection(run, [(2, "advancing"), (3, "advancing"), (4, "complete")])
     assert (on_clean.outcome, on_clean.false_alarm) == ("no stall", 3)
     quiet = helpers.label_run("R", [(2, "advancing"), (3, "complete")])
-    assert (helpers.detection(quiet, 2).outcome, helpers.detection(quiet, 2).false_alarm) == (
+    assert (
+        helpers.detection(quiet, [(2, "repeating"), (3, "complete")]).outcome,
+        helpers.detection(quiet, [(2, "repeating"), (3, "complete")]).false_alarm,
+    ) == (
         "missed",
         None,
     )
-    assert (helpers.detection(quiet, None).outcome, helpers.detection(quiet, None).false_alarm) == (
+    assert (
+        helpers.detection(quiet, [(2, "advancing"), (3, "complete")]).outcome,
+        helpers.detection(quiet, [(2, "advancing"), (3, "complete")]).false_alarm,
+    ) == (
         "no stall",
         None,
     )
@@ -511,7 +518,9 @@ def test_an_early_change_of_strategy_does_not_hide_a_later_stop_at_the_onset():
     run = helpers.supervise("R", answers, 0.5, queue=ReviewQueue(), actions=ActionLog())
     assert run.stall_interventions == (3, 5)
     assert run.stop_reason == "still repeating after a strategy change"
-    found = helpers.detection(run, 5)
+    found = helpers.detection(
+        run, [(2, "advancing"), (3, "advancing"), (4, "advancing"), (5, "repeating")]
+    )
     assert (found.outcome, found.intervened, found.delay, found.false_alarm) == (
         "detected",
         5,
@@ -537,17 +546,14 @@ def test_detected_plus_missed_is_the_number_of_transcripts_with_a_stall_point():
         "D": gold_runs["D"],
     }
     for runs in (gold_runs, other):
-        found = [
-            helpers.detection(runs[ref], helpers.stall_onset(items))
-            for ref, items in labelled.items()
-        ]
+        found = [helpers.detection(runs[ref], items) for ref, items in labelled.items()]
         stalled = sum(d.onset is not None for d in found)
         detected = sum(d.outcome == "detected" for d in found)
         missed = sum(d.outcome == "missed" for d in found)
         assert stalled == 3
         assert detected + missed == stalled
         assert all(d.outcome == "no stall" for d in found if d.onset is None)
-    assert [d.false_alarm for d in (helpers.detection(other["C"], None),)] == [2]
+    assert [d.false_alarm for d in (helpers.detection(other["C"], labelled["C"]),)] == [2]
 
 
 def test_the_stall_onset_is_the_first_stall_label():
@@ -604,7 +610,7 @@ def test_the_threshold_pool_holds_the_answers_the_gate_decides():
     assert helpers.choose_threshold(answers[:1] + [unclear], gold[:1] + ["advancing"], [2, 3]) == (
         base
     )
-    with pytest.raises(ValueError, match="same length"):
+    with pytest.raises(ValueError, match="zip.*shorter"):
         helpers.threshold_pool(answers, gold, [2])
 
 
