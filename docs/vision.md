@@ -243,8 +243,15 @@ such a label up front, so fix the fixture.
 ## Presence, confidence and evaluation
 
 A Box returns one rectangle even when its target is absent. Determine presence
-with a companion question before treating a rectangle as a detection.
-[Box documentation](https://docs.typesafe.ai/primitives/box)
+with a **Companion Noul** before treating a rectangle as a detection: a
+[Noul](https://docs.typesafe.ai/primitives/noul) in the same request that asks whether the
+target is in the image, with the box ignored when its answer is low. S10 (the
+[Box documentation](https://docs.typesafe.ai/primitives/box)) gives this pairing; the name comes
+from the [Companion Noul pattern](https://docs.typesafe.ai/patterns/companion-noul) page, which
+has no source ID in the catalog yet. The name applies to a catalog entry that lists `Noul` in its
+decision types. Ranks 80 and 83 list `Box` and `Choice` only, so they check presence through their
+`Choice` outcomes (absent and ambiguous for 80, no-match and uncertain for 83) and have no
+Companion Noul.
 
 `box_confidence(answer)` returns the supplied confidence, including a reported `0.0`
 or `1.0`, or `None` if missing/null (absence is never turned into a number);
@@ -271,6 +278,39 @@ them before evaluating the test split. Keep reviews in the recipe's review queue
 and account for them in `localization_report`: `report.review_rate` (`n_review` over `n_total`)
 is the overall review rate, counting presence reviews and rectangle-gate reviews over all
 examples. `evaluation.evaluate_outcomes` covers only the presence question's reviews; a review is not a claim that the target is absent.
+
+### Several instances of the target
+
+A Box answers with one rectangle, so an image that may hold several of the target needs a
+plan before the question is written. S10 gives the first step: describe the one you want so that
+only it fits (its example is "the mug nearest the sink in `photo`"). What else is open depends on
+the decision types the recipe's catalog entry lists:
+
+- An entry that lists `Noul` may ask a uniqueness `Noul` in the same request as the Box, as recipe 77
+  does (`unique`: exactly one visible control matches the target name and kind, with no second equally
+  plausible match).
+- An entry that lists only `Box` and `Noul` (ranks 78, 79, 81, 82 and 84) includes a look-alike hard
+  case among its examples, with its gold label (`present`, and the `box` of the intended instance).
+  A case the description and the uniqueness `Noul` leave unresolved goes to review.
+- S10's other route is a `Choice` with the options `none`, `one` and `several` next to the Box, and
+  when the answer is `several`, splitting the image into regions and asking again on each. It is open
+  only to an entry whose decision types include `Choice`: ranks 80, 83 and 98. The other entries
+  cannot add a `Choice`.
+
+### Padding a box and confidence
+
+`expand_box(box, fraction)` pads each side by a fraction of the box. The padding example on the
+S10 page ("Using confidence") pads each edge by a fixed fraction of the image when the box's
+confidence is below a threshold; the two are different amounts, and `expand_box` has no confidence
+trigger of its own. The S10 page gives no recommended threshold and says to tune it on your own
+images.
+
+A padding trigger compares a confidence with a bound the recipe chooses, so under
+[CONTRIBUTING.md](../CONTRIBUTING.md) it is a confidence gate: freeze the bound with
+`select_confidence_threshold` on `validation`, import it by name, and never type it in as a constant.
+That function selects a threshold for the coverage and accuracy of the answered subset, not for
+whether a crop cuts off part of the target, so a recipe that pads should say what the frozen value
+does and does not measure. This section does not rule on any other way of freezing a padding threshold.
 
 ### Gold labels
 
