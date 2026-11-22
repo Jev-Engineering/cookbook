@@ -68,6 +68,50 @@ arm_b = AuditedBackend(get_backend(fixtures="fixtures/b.json"), label="arm-b")
 print(audit_json(arm_a, arm_b))
 ```
 
+### Declared replay-only comparison lanes
+
+Owner decision [#371](https://github.com/Jev-Engineering/cookbook/issues/371#issuecomment-6545320824)
+permits a separately declared replay-only lane alongside an audited live-capable lane:
+
+```python
+from jev_cookbook import AuditedBackend, ReplayBackend, audit_json, get_backend
+
+current = AuditedBackend(get_backend(fixtures="fixtures/responses.json"), label="current")
+saved = AuditedBackend(
+    ReplayBackend.from_json("fixtures/responses-saved.json"), label="saved", replay_only=True
+)
+```
+
+The final code cell is `print(audit_json(current, saved))`. Each lane still has a ledger;
+there is no unaudited exception. The shared wrapper accepts only an exact `ReplayBackend`
+for `replay_only=True`, snapshots its validated answers, and refuses subsequent setting changes.
+It never consults live configuration or a recorder. A fake backend with `mode="recorded"`, a
+live backend and a replay subclass are rejected before delegation. Ordinary audited backends
+retain their existing settings and forwarding behavior.
+
+The guard requires the spelling above: direct imports, a top-level binding, an explicit literal
+label, literal `True`, and `ReplayBackend.from_json` with one literal recipe-relative path.
+Aliases, computed paths, keyword expansion, other constructors and raw replay objects are not
+accepted. The path must match the declaration and resolve inside the recipe. This is a narrow
+notebook convention, not a sandbox for arbitrary Python or a proof about unseen helper code.
+
+Declare the saved lane with `"replay_only": true` alongside its `requests`, `fixtures`, and
+optional `distinct` and `profile`. Its `at_most` must equal `requests`: saved answers cannot
+change the branch. Both live-capable and replay-only lanes must exercise exactly their declared
+fixture inventories, and repeated logical calls must be declared. Replay-only calls are excluded
+from the live total, worst-case total and per-backend cap. Their logical counts remain visible
+in the generated README note and final audit. Existing declarations and audit entries without
+replay-only lanes keep their previous format.
+
+A replay-only audit entry adds `"replay_only": true` and a `source` object with `mode`, `model`
+and `recorded_dates`, derived from the saved answers and checked against the declared fixture
+file. Synthetic answers stay synthetic; saved recorded answers keep their original model and
+capture dates. Replaying a recorded answer is not new inference, and its stored usage is not
+newly incurred usage. No runtime latency, HTTP attempts, price or paid call is inferred from
+this ledger. Print each result's lane label and own mode beside any report; do not relabel the
+saved lane from the current lane's mode. Synthetic comparisons remain pipeline checks. The
+separate model-comparison rules, recording requirements and review gates still apply.
+
 The live budget belongs to one backend object (`JEV_COOKBOOK_LIVE_MAX_REQUESTS` is the cap of
 each, not of the run), so a second backend is a second budget and is named, counted and declared
 as such rather than merged into one number.
@@ -148,17 +192,15 @@ constructions above, one top-level binding per audited backend, and the final st
 Rejected, because each is a backend the ledger cannot see: protected-name rebinding; detached
 summary strings; importing `get_backend`, `ReplayBackend`, `ScriptedBackend`, `LiveBackend` or
 `AuditedBackend` under another name; any other use of those names or of `.get_backend` and the like
-as an attribute (so `ReplayBackend.from_json(...)` is rejected as well as `ReplayBackend(...)`);
+as an attribute (except the declared replay-only form above);
 a string equal to one of them; a `getattr` whose attribute is not written out as a string literal
 (`getattr(backend, "recorded_dates", ())`, the measured cell's own line, is allowed; `getattr(m, name)`
 and `getattr(m, "get_" + "backend")` are not); and `globals`, `eval`, `exec`, `__import__`,
 `importlib`, `vars`, `__builtins__`, `operator.attrgetter`/`methodcaller`, `.getattr`,
 `__getattr__`, `__getattribute__` and `__dict__`, which can reach one without naming it. That list
 is not exhaustive: a lookup primitive outside it, fed a name assembled at run time, is not seen,
-and nothing here proves otherwise. This is deliberate: a backend of any kind
-that is not wrapped is not counted, so an audited notebook has no unaudited lane yet, including a
-never-live `ReplayBackend` comparison lane (how such a lane is declared is open and belongs to the
-first recipe that needs it). `one_backend_per_budget` separately fails a recipe with more
+and nothing here proves otherwise. Every lane must be wrapped and counted, including
+a replay-only comparison lane, which uses the explicit validated declaration above. `one_backend_per_budget` separately fails a recipe with more
 `get_backend` call sites than audited backends, counting aliases, attributes, bare references and
 `getattr` strings; a call reached many times through one site is only visible to the ledger.
 
@@ -465,12 +507,13 @@ automated check sets. Recipe 50 is the pattern: `get_backend` for `jev` only, `R
 for the other lanes, and one responses file per lane (see
 [fixtures.md](fixtures.md#comparison-recipes-responses-tagjson)).
 
-Decision (#290): nothing enforces this. A check could count `get_backend` calls in a recipe, but
+For legacy unaudited notebooks, decision (#290) remains guidance only. A check could count `get_backend` calls in a recipe, but
 a count cannot tell whether a second backend was meant to go live, so it would stand in for
 intent the source does not carry; a recipe may also legitimately call it once or twice. The rule
 is guidance, read here, in the `get_backend` docstring and in [live.md](live.md), and held by
 review. An explicit keyword on `get_backend` that separates "may go live" from "never live" would
-be a public API change and a separately reviewed design.
+be a public API change and a separately reviewed design. Audited comparison notebooks instead
+use the replay-only wrapper and declaration above, implementing owner decision #371.
 
 ## Backend attributes
 

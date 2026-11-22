@@ -41,6 +41,7 @@ from jev_cookbook.accounting import (
     render_budget_note,
     repeated_keys,
 )
+from jev_cookbook.backends import ReplayBackend
 from jev_cookbook.live import DEFAULT_MAX_REQUESTS
 
 # The README sentence shapes older recipes state their count in; outside the rendered block
@@ -120,6 +121,8 @@ class BackendEvidence(NamedTuple):
     label: str
     keys: tuple[str, ...]
     profile_totals: dict[str, int]
+    replay_fixtures: str | None = None
+    source: dict | None = None
 
 
 def _source(cell: dict) -> str:
@@ -152,7 +155,7 @@ def audited_evidence(cells: list[dict]) -> list[BackendEvidence] | None:
     trees = [ast.parse(_source(cell)) for cell in code]
     nodes = [node for tree in trees for node in ast.walk(tree)]
     output_lines = [line for cell in code for line in _stdout(cell).splitlines()]
-    shared = {"AuditedBackend", "audit_json", "get_backend"}
+    shared = {"AuditedBackend", "audit_json", "get_backend", "ReplayBackend"}
     attempted = any(
         isinstance(node, ast.Name)
         and node.id in {"AuditedBackend", "audit_json"}
@@ -182,7 +185,7 @@ def audited_evidence(cells: list[dict]) -> list[BackendEvidence] | None:
         ("jev_cookbook", "AuditedBackend"),
         ("jev_cookbook.accounting", "AuditedBackend"),
     }, "request audit: import the shared AuditedBackend directly"
-    assert imports.get("get_backend") in {
+    assert imports.get("get_backend", ("jev_cookbook", "get_backend")) in {
         ("jev_cookbook", "get_backend"),
         ("jev_cookbook.backends", "get_backend"),
     }, "request audit: import the shared get_backend directly"
@@ -204,26 +207,65 @@ def audited_evidence(cells: list[dict]) -> list[BackendEvidence] | None:
     labels = []
     wrappers = set()
     factories = set()
+    replay_paths = []
     for creation in creations:
         wrapper = creation.value
-        assert len(wrapper.args) == 1 and len(wrapper.keywords) <= 1, (
-            "request audit: construct AuditedBackend(get_backend(...), label=...) directly"
-        )
+        keywords = {keyword.arg: keyword.value for keyword in wrapper.keywords}
+        assert (
+            len(wrapper.args) == 1
+            and len(keywords) == len(wrapper.keywords)
+            and set(keywords) <= {"label", "replay_only"}
+        ), "request audit: construct AuditedBackend with explicit label/replay_only keywords"
         label = DEFAULT_LABEL
-        if wrapper.keywords:
-            (keyword,) = wrapper.keywords
+        if "label" in keywords:
+            value = keywords["label"]
             assert (
-                keyword.arg == "label"
-                and isinstance(keyword.value, ast.Constant)
-                and isinstance(keyword.value.value, str)
-                and LABEL.fullmatch(keyword.value.value)
+                isinstance(value, ast.Constant)
+                and isinstance(value.value, str)
+                and LABEL.fullmatch(value.value)
             ), "request audit: label must be a string literal"
-            label = keyword.value.value
+            label = value.value
         labels.append(label)
         factory = wrapper.args[0]
-        assert _is_call_of(factory, "get_backend") and isinstance(factory.func, ast.Name), (
-            "request audit: wrap get_backend directly, without a separate raw backend alias"
-        )
+        path = None
+        if "replay_only" in keywords:
+            value = keywords["replay_only"]
+            assert isinstance(value, ast.Constant) and value.value is True, (
+                "request audit: replay_only must be the literal True"
+            )
+            assert "label" in keywords, "request audit: replay-only needs an explicit label"
+            assert imports.get("ReplayBackend") in {
+                ("jev_cookbook", "ReplayBackend"),
+                ("jev_cookbook.backends", "ReplayBackend"),
+            }, "request audit: import the shared ReplayBackend directly"
+            assert (
+                isinstance(factory, ast.Call)
+                and isinstance(factory.func, ast.Attribute)
+                and isinstance(factory.func.value, ast.Name)
+                and factory.func.value.id == "ReplayBackend"
+                and factory.func.attr == "from_json"
+                and len(factory.args) == 1
+                and not factory.keywords
+                and isinstance(factory.args[0], ast.Constant)
+                and type(factory.args[0].value) is str
+            ), "request audit: replay-only requires ReplayBackend.from_json(<literal path>)"
+            path = factory.args[0].value
+            assert (
+                path
+                and not path.startswith(("/", "\\"))
+                and ".." not in Path(path).parts
+                and "\\" not in path
+                and ":" not in path
+                and Path(path).as_posix() == path
+                and path != "."
+            ), "request audit: replay-only path must be a literal path inside the recipe"
+        else:
+            assert (
+                "get_backend" in imports
+                and _is_call_of(factory, "get_backend")
+                and isinstance(factory.func, ast.Name)
+            ), "request audit: wrap get_backend directly, without a separate raw backend alias"
+        replay_paths.append(path)
         wrappers.add(wrapper)
         factories.add(factory)
     assert len(set(labels)) == len(labels), (
@@ -247,12 +289,26 @@ def audited_evidence(cells: list[dict]) -> list[BackendEvidence] | None:
                     assert name in approved_imports and node in statements, (
                         "request audit: import replaced a protected binding"
                     )
-                    assert statements.index(node) < statements.index(creations[0]), (
-                        "request audit: shared imports must precede backend construction"
-                    )
+                    first_use = creations[0]
+                    if local == "ReplayBackend":
+                        # A constructor import is harmless until used. ReplayBackend
+                        # must precede its first replay lane, not an earlier live lane.
+                        first_use = next(
+                            (
+                                creation
+                                for creation, path in zip(creations, replay_paths, strict=True)
+                                if path is not None
+                            ),
+                            None,
+                        )
+                    if first_use is not None:
+                        assert statements.index(node) < statements.index(first_use), (
+                            "request audit: shared imports must precede backend construction"
+                        )
     targets = {creation.targets[0] for creation in creations}
     approved_names = {wrapper.func for wrapper in wrappers} | {
-        factory.func for factory in factories
+        factory.func if isinstance(factory.func, ast.Name) else factory.func.value
+        for factory in factories
     }
     literal_getattrs = {
         node.func for node in nodes if isinstance(node, ast.Call) and _literal_getattr(node)
@@ -367,8 +423,8 @@ def audited_evidence(cells: list[dict]) -> list[BackendEvidence] | None:
     )
     evidence = []
     rebuilt = []
-    for label, entry in zip(labels, entries, strict=True):
-        evidence_entry, canonical = _verified_entry(label, entry)
+    for label, entry, path in zip(labels, entries, replay_paths, strict=True):
+        evidence_entry, canonical = _verified_entry(label, entry, path)
         evidence.append(evidence_entry)
         rebuilt.append(canonical)
     assert lines[0] == AUDIT_PREFIX + canonical_json(
@@ -377,8 +433,12 @@ def audited_evidence(cells: list[dict]) -> list[BackendEvidence] | None:
     return evidence
 
 
-def _verified_entry(label: str, entry: object) -> tuple[BackendEvidence, dict]:
+def _verified_entry(
+    label: str, entry: object, replay_path: str | None = None
+) -> tuple[BackendEvidence, dict]:
     core = {"label", "decide_calls", "distinct_requests", "calls"}
+    if replay_path is not None:
+        core |= {"replay_only", "source"}
     assert type(entry) is dict and core <= set(entry) <= core | {"profile_totals"}, (
         "request audit: invalid audit fields"
     )
@@ -429,7 +489,25 @@ def _verified_entry(label: str, entry: object) -> tuple[BackendEvidence, dict]:
     }
     if totals:
         canonical["profile_totals"] = totals
-    return BackendEvidence(label, tuple(keys), totals), canonical
+    source = None
+    if replay_path is not None:
+        assert entry["replay_only"] is True, "request audit: missing replay-only source label"
+        source = entry["source"]
+        assert type(source) is dict and set(source) == {"mode", "model", "recorded_dates"}, (
+            "request audit: invalid replay source fields"
+        )
+        assert source["mode"] in {"synthetic", "recorded"}, (
+            "request audit: replay source cannot be live or scripted"
+        )
+        assert type(source["model"]) is str and source["model"], (
+            "request audit: replay source needs its original model"
+        )
+        assert type(source["recorded_dates"]) is list and all(
+            type(date) is str for date in source["recorded_dates"]
+        ), "request audit: invalid replay capture dates"
+        canonical["replay_only"] = True
+        canonical["source"] = source
+    return BackendEvidence(label, tuple(keys), totals, replay_path, source), canonical
 
 
 def _check_image_profile(profile: dict) -> None:
@@ -457,14 +535,32 @@ def check_against_declaration(
         f"the notebook audits {sorted(measured)}"
     )
     for label, backend in declared.items():
-        keys = list(measured[label].keys)
+        item = measured[label]
+        assert backend.replay_only == (item.replay_fixtures is not None), (
+            "request audit: declaration and construction disagree about replay-only"
+        )
+        if backend.replay_only:
+            assert backend.fixtures == item.replay_fixtures, (
+                "request audit: replay-only construction must use its declared fixture path"
+            )
+            path = (recipe_dir / backend.fixtures).resolve()
+            assert path.is_relative_to(recipe_dir.resolve()), (
+                "request audit: replay-only fixtures resolve outside the recipe"
+            )
+            replay = ReplayBackend.from_json(path)
+            assert item.source == {
+                "mode": replay.mode,
+                "model": replay.model,
+                "recorded_dates": list(replay.recorded_dates),
+            }, "request audit: replay source differs from fixture provenance"
+        keys = list(item.keys)
         repeats = repeated_keys(keys)
         if backend.distinct == backend.requests and repeats:
             key, times = next(iter(repeats.items()))
             raise AssertionError(
                 f"request audit: backend {label!r} decided the same request {times} times "
-                f"(replay_key {key}; {len(repeats)} repeated key(s) in all) -- a live run pays "
-                "for each; decide it once and reuse the answer, or declare the repeats"
+                f"(replay_key {key}; {len(repeats)} repeated key(s) in all); "
+                "decide it once and reuse the answer, or declare the repeats"
             )
         assert len(keys) == backend.requests, (
             f"request audit: backend {label!r} made {len(keys)} decide() calls, "

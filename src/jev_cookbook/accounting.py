@@ -41,7 +41,7 @@ from typing import Any
 
 from ._canonical import canonical_json
 from .answers import DecisionResult
-from .backends import Assets, Backend, replay_key
+from .backends import Assets, Backend, ReplayBackend, replay_key
 from .live import DEFAULT_MAX_REQUESTS
 from .questions import Question
 
@@ -151,19 +151,35 @@ class AuditedBackend:
     that audits several backends gives each its own label (the live budget is per backend, so a
     second backend is a second budget, which is why it is named rather than merged).
 
+    ``replay_only=True`` accepts only an exact ReplayBackend, snapshots its validated
+    answers, freezes settings, and marks the audit with their original source metadata.
+    Its calls are replay, even when the saved answers have recorded provenance. No live
+    factory or recorder is consulted. The notebook guard requires a direct literal path.
+
     Public backend settings and live recorder attributes are forwarded, including writes
     such as ``max_retries = 0``. Mode, model and recorded dates remain dynamic. No responses,
     request contents, assets, credentials, timestamps or latency appear in the audit.
     """
 
-    __slots__ = ("_backend", "_calls", "_label")
+    __slots__ = ("_backend", "_calls", "_label", "_replay_only")
 
-    def __init__(self, backend: Backend, *, label: str = DEFAULT_LABEL) -> None:
+    def __init__(
+        self, backend: Backend, *, label: str = DEFAULT_LABEL, replay_only: bool = False
+    ) -> None:
         if not isinstance(label, str) or not LABEL.fullmatch(label):
             raise ValueError(f"audit label must match {LABEL.pattern!r}, got {label!r}")
+        if type(replay_only) is not bool:
+            raise TypeError("replay_only must be a bool")
+        if replay_only:
+            if type(backend) is not ReplayBackend:
+                raise TypeError("replay_only requires an exact ReplayBackend")
+            # Own a validated snapshot: later changes to the caller's object cannot change
+            # the delegate, its decide method, provenance or source disclosure.
+            backend = ReplayBackend(backend._stored)
         self._backend = backend
         self._label = label
         self._calls: list[tuple[str, bool, dict[str, int]]] = []
+        self._replay_only = replay_only
 
     @property
     def audit_label(self) -> str:
@@ -185,10 +201,21 @@ class AuditedBackend:
         return getattr(self._backend, name)
 
     def __setattr__(self, name: str, value: Any) -> None:
+        try:
+            locked = object.__getattribute__(self, "_replay_only")
+        except AttributeError:
+            locked = False
+        if locked:
+            raise AttributeError("replay-only backend settings are immutable")
         if name in self.__slots__:
             object.__setattr__(self, name, value)
         else:
             setattr(self._backend, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        if self._replay_only:
+            raise AttributeError("replay-only backend settings are immutable")
+        object.__delattr__(self, name)
 
     def __enter__(self) -> AuditedBackend:
         self._backend.__enter__()
@@ -231,6 +258,13 @@ class AuditedBackend:
         }
         if totals:
             entry["profile_totals"] = totals
+        if self._replay_only:
+            entry["replay_only"] = True
+            entry["source"] = {
+                "mode": self.mode,
+                "model": self.model,
+                "recorded_dates": list(self.recorded_dates),
+            }
         return entry
 
     def audit_json(self) -> str:
@@ -305,6 +339,7 @@ class BackendBudget:
     fixtures: str | None
     profile: tuple[tuple[str, int], ...] = ()
     at_most: int = 0
+    replay_only: bool = False
 
     def __post_init__(self) -> None:
         if self.at_most == 0:
@@ -317,20 +352,20 @@ class RequestBudget:
 
     @property
     def total(self) -> int:
-        """What the run is billed against the committed answers: the sum over backends."""
-        return sum(b.requests for b in self.backends)
+        """Logical calls in live-capable lanes on the committed path, excluding replay-only."""
+        return sum(b.requests for b in self.backends if not b.replay_only)
 
     @property
     def worst_total(self) -> int:
-        """What the run is billed if every answer sends it down its longest path."""
-        return sum(b.at_most for b in self.backends)
+        """Declared logical live-capable calls on the longest path; HTTP retries are separate."""
+        return sum(b.at_most for b in self.backends if not b.replay_only)
 
     @property
     def cap(self) -> int:
         """The smallest ``JEV_COOKBOOK_LIVE_MAX_REQUESTS`` that cannot stop the run: the budget
         is per backend and inclusive, so it is the largest single backend's worst case, not the
         total."""
-        return max(b.at_most for b in self.backends)
+        return max((b.at_most for b in self.backends if not b.replay_only), default=0)
 
 
 def _whole(value: Any, where: str, minimum: int) -> int:
@@ -357,7 +392,7 @@ def parse_budget(data: Any) -> RequestBudget:
     for label, body in declared.items():
         if not LABEL.fullmatch(label):
             raise ValueError(f"{BUDGET_FILE}: backend label {label!r} must match {LABEL.pattern!r}")
-        allowed = {"requests", "fixtures", "distinct", "profile", "at_most"}
+        allowed = {"requests", "fixtures", "distinct", "profile", "at_most", "replay_only"}
         if type(body) is not dict or not {"requests", "fixtures"} <= set(body) <= allowed:
             raise ValueError(
                 f"{BUDGET_FILE}: backend {label!r} needs 'requests' and 'fixtures' "
@@ -383,6 +418,13 @@ def parse_budget(data: Any) -> RequestBudget:
             raise ValueError(
                 f"{BUDGET_FILE}: {label}.fixtures must be null or a path inside the recipe"
             )
+        replay_only = body.get("replay_only", False)
+        if type(replay_only) is not bool:
+            raise ValueError(f"{BUDGET_FILE}: {label}.replay_only must be a bool")
+        if replay_only and (fixtures is None or at_most != requests):
+            raise ValueError(
+                f"{BUDGET_FILE}: {label}: replay-only needs fixtures and at_most == requests"
+            )
         profile = body.get("profile", {})
         if type(profile) is not dict or not all(name in PROFILE_COUNTERS for name in profile):
             raise ValueError(
@@ -393,7 +435,9 @@ def parse_budget(data: Any) -> RequestBudget:
             (name, _whole(amount, f"{label}.profile.{name}", 1))
             for name, amount in sorted(profile.items())
         )
-        backends.append(BackendBudget(label, requests, distinct, fixtures, totals, at_most))
+        backends.append(
+            BackendBudget(label, requests, distinct, fixtures, totals, at_most, replay_only)
+        )
     return RequestBudget(tuple(backends))
 
 
@@ -421,8 +465,11 @@ def render_budget_note(budget: RequestBudget) -> str:
     README contain it unchanged, so a README count cannot be typed, edited or left behind when
     the declaration moves.
     """
-    backends = budget.backends
-    if len(backends) == 1:
+    backends = tuple(b for b in budget.backends if not b.replay_only)
+    replay = tuple(b for b in budget.backends if b.replay_only)
+    if not backends:
+        first = "This notebook has only declared replay-only lanes and makes no live requests"
+    elif len(backends) == 1:
         (only,) = backends
         noun = "request" if only.requests == 1 else "requests"
         first = f"In live mode this notebook makes exactly **{only.requests}** {noun}"
@@ -450,6 +497,15 @@ def render_budget_note(budget: RequestBudget) -> str:
         "against it, retries included, so a lower cap stops the run partway through with "
         "`BudgetExceeded` and a run that retries needs more."
     )
+    if not backends:
+        second = "No live request cap is needed."
+    if replay:
+        lanes = "; ".join(f"`{b.label}` {b.requests}{_detail(b)}" for b in replay)
+        second += (
+            f" Declared replay-only lanes ({lanes}) count logical replay calls separately; "
+            "they make no live requests and add nothing to the live total or cap. "
+            "Their source labels describe saved answers, not new inference."
+        )
     return f"{NOTE_BEGIN}\n{first}. {second}\n{NOTE_END}\n"
 
 
