@@ -645,7 +645,8 @@ The notebook job installs under `.github/constraints-notebooks.txt`, which pins 
 `jupyter_client`, `nbclient`, `nbformat`, `scikit-learn`, `scipy`) to the versions the committed
 template outputs were produced with. Without it every job would take the latest release, and a
 release that changes a `repr`, prints a warning to stderr, or moves figure geometry by more than a
-grid cell would turn every notebook red at once on `main`. `pyproject.toml` stays unpinned, and the
+grid cell would turn every notebook red at once on `main`. `pyproject.toml` does not pin these: its
+core dependencies are unbounded, and only the `ml` extra's scikit-learn is bounded, not pinned. The
 constraints apply to the notebook execution job only.
 
 **Authors install with the same file.** Text outputs are compared exactly against CI's pinned
