@@ -6,7 +6,7 @@ Check whether a proposed change includes sufficient implementation, validation, 
 
 ## What it teaches
 
-Jev supplies three narrow judgments over one change record, sent together in one request: a typed `Noul` for "this record supplies sufficient implementation evidence," a second for "sufficient validation evidence," and a third for "sufficient rollback evidence." The fixtures cover every one of the eight combinations the three propositions can take, so every pair of them is exercised in all four of its own combinations -- each alone, both at once, and neither -- and include the use case's own named hard case: a record that mentions a rollback plan without describing one. Python owns everything else: a business threshold chosen per proposition (by F1, on `validation`), one confidence gate shared by all three (chosen on their pooled decisions), and a single tested function, `helpers.review_checklist`, that composes the three label decisions into one of three outcomes -- `ready`, `gaps` naming exactly which evidence types are missing, or an explicit `review` outcome that lands in a simulated `ReviewQueue`, sorted least-confident first. The evaluation reports precision and recall for each proposition on its own, and, at the level of the whole change record, how often the composed gap list matches the record's gold combination of evidence types exactly. `tests/test_helpers.py` proves all three propositions independently consequential directly, by flipping one stored decision at a time on real fixtures and checking the composed outcome changes.
+Jev supplies three narrow judgments over one change record, sent together in one request: a typed `Noul` for "this record supplies sufficient implementation evidence," a second for "sufficient validation evidence," and a third for "sufficient rollback evidence." The fixtures cover every one of the eight combinations the three propositions can take, so every pair of them is exercised in all four of its own combinations — each alone, both at once, and neither — and include the use case's own named hard case: a record that mentions a rollback plan without describing one. Python owns everything else: a business threshold chosen per proposition (by F1, on `validation`), one confidence gate shared by all three (chosen on their pooled decisions), and a single tested function, `helpers.review_checklist`, that composes the three label decisions into one of three outcomes — `ready`, `gaps` naming exactly which evidence types are missing, or an explicit `review` outcome that lands in a simulated `ReviewQueue`, sorted least-confident first. The evaluation reports precision and recall for each proposition on its own, and, at the level of the whole change record, how often the composed gap list matches the record's gold combination of evidence types exactly. `tests/test_helpers.py` proves all three propositions independently consequential directly, by flipping one stored decision at a time on real fixtures and checking the composed outcome changes.
 
 ## Run it offline
 
@@ -54,8 +54,8 @@ it reports, here and in the notebook.
 
 The committed run replays 40 invented change records with hand-written (synthetic) answers,
 covering every one of the eight combinations the three propositions can take. Six `validation`
-change records are sent to review by the shared confidence gate, including the three records --
-one per proposition -- that mention an evidence type without describing it; on `test`, one such
+change records are sent to review by the shared confidence gate, including the three records —
+one per proposition — that mention an evidence type without describing it; on `test`, one such
 record (a mention of a rollback plan with no description) clears the gate on all three
 propositions and is confidently wrong: its composed outcome reads `ready` when the gold
 combination has a gap on rollback evidence alone. On `test` the composed checklist reports

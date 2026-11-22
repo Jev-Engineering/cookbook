@@ -17,8 +17,8 @@ original retrieval order. The notebook shows three typed answers up close (a dir
 on-topic but non-specific passage, and a passage written to claim its own relevance without
 stating anything that answers the query), then the rule and the lexical baseline, then an
 evaluation that reports exact-level agreement and mean absolute error against the human rubric,
-the coverage, accuracy and risk the frozen confidence gate buys, and two ranking metrics -- nDCG
-and top-1 accuracy -- comparing the reranked order against the lexical baseline's order on every
+the coverage, accuracy and risk the frozen confidence gate buys, and two ranking metrics — nDCG
+and top-1 accuracy — comparing the reranked order against the lexical baseline's order on every
 query in both splits.
 
 ## Run it offline
@@ -38,7 +38,7 @@ replays the stored answers in `fixtures/responses.json`, and imports only the st
 Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
 `Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
 3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
-notebook -- `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
+notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
 [docs/recipe-template.md](../../docs/recipe-template.md) step 6).
 
 ## Switch to live
@@ -68,8 +68,8 @@ a notebook, a fixture, or any other committed file.
 The committed run replays 43 invented (query, passage) relevance judgments with hand-written
 (synthetic) answers, some wrong on purpose: one `validation` passage is wrong at low confidence
 (so the confidence gate this notebook selects on `validation` is a real choice, not a vacuous one),
-and one `test` passage -- written to claim its own relevance without stating anything that answers
-the query -- is wrong *and* confident, above the gate this notebook freezes on `validation`, so the
+and one `test` passage — written to claim its own relevance without stating anything that answers
+the query — is wrong *and* confident, above the gate this notebook freezes on `validation`, so the
 selective-prediction numbers on `test` show a real, non-zero risk rather than a gate that happens
 to look perfect. Exact-level agreement, mean absolute error, the coverage of the frozen confidence
 gate, and the nDCG and top-1 accuracy of the reranked order against the lexical baseline all check
@@ -77,7 +77,7 @@ that the pipeline works; they say nothing about how Jev performs, how fast it is
 costs. Every stored answer was written from its gold label, so the reranked order reproduces that
 order wherever two levels decide a query, and the margin over the baseline is a property of this
 fixture set, not a measurement of a real reranker (the notebook's "Ranking" section says so where
-the comparison is made, and traces the one place -- an adversarial `test` passage -- where this
+the comparison is made, and traces the one place — an adversarial `test` passage — where this
 recipe's own design costs it something instead). This recipe has no recorded fixtures.
 
 Top-1 accuracy uses `jev_cookbook.evaluation.top_k_query_accuracy(queries, k=1)` to measure
@@ -91,7 +91,7 @@ graded relevance label.
 
 This recipe's pull request changes only `recipes/17-passage-reranking/`. The root `README.md` is
 generated: its catalog tables are regenerated inside this same pull request by a separate
-integration worker, once this branch is handed over to them -- never by the recipe builder's own
+integration worker, once this branch is handed over to them — never by the recipe builder's own
 commits. While this recipe remains unpublished and that handover has not yet happened,
 `Catalog (README is current)` is expected to be red on its pull request, which is not a defect to
 fix here; once the catalog is regenerated for it, the check turns green and stays that way. No

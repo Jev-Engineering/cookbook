@@ -468,7 +468,7 @@ across Python versions, and name no such guarantee for the rest of the API, `shu
 included. A script that calls `rng.random()` is reproducible on every supported Python for
 exactly that reason; a script that called `rng.shuffle()` would not be.
 
-A script that needs a per-item order -- which candidate to list first, say -- should reach for
+A script that needs a per-item order — which candidate to list first, say — should reach for
 `jev_cookbook.fixtures.stable_permutation`/`stable_shuffle` (`docs/fixtures.md`, "Per-item
 option order") instead of `rng.shuffle()`: build the index or value order from a seed key of
 your own (not from `rng`, which is already committed to `(seed, replay_key)` for the answers

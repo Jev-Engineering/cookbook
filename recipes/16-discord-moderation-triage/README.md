@@ -6,7 +6,7 @@ Classify sample Discord messages as allowed, review-needed, or potentially viola
 
 ## What it teaches
 
-Jev supplies one narrow judgment, a typed `Choice` over three fixed categories Python builds: `review_needed` (the explicit uncertain outcome, for a message whose tone or context a reader cannot be sure of), `potentially_violating`, and `allowed`. Python owns everything else: the community rule and message text Jev sees, the identifiers that never reach the model, and a rule (`helpers.moderate`) that applies one confidence gate to every category alike -- the standard three-path pattern -- before turning the category into one of four simulated moderation actions: `ignore`, `warn`, `hide`, or `escalate` to a person, through `jev_cookbook.simulation`'s `ActionLog` and `ReviewQueue`. `allowed` gets no exemption from the gate: a confidently wrong `allowed` answer leaves a message standing that a person never sees, which is a real consequence, not a free action. Nothing is ever posted, deleted, or sent to a real server. The notebook shows typed answers across this recipe's hard cases (sarcasm, a message that only quotes or reports someone else's abusive words, borderline banter, and a benign message with a trigger word), then the rule and the simulated queue it fills, then an evaluation that reports a confusion matrix, the separate cost of a false allow against a false flag, and the coverage, accuracy and risk the gate produces, chosen on `validation` over every category and frozen before `test`.
+Jev supplies one narrow judgment, a typed `Choice` over three fixed categories Python builds: `review_needed` (the explicit uncertain outcome, for a message whose tone or context a reader cannot be sure of), `potentially_violating`, and `allowed`. Python owns everything else: the community rule and message text Jev sees, the identifiers that never reach the model, and a rule (`helpers.moderate`) that applies one confidence gate to every category alike — the standard three-path pattern — before turning the category into one of four simulated moderation actions: `ignore`, `warn`, `hide`, or `escalate` to a person, through `jev_cookbook.simulation`'s `ActionLog` and `ReviewQueue`. `allowed` gets no exemption from the gate: a confidently wrong `allowed` answer leaves a message standing that a person never sees, which is a real consequence, not a free action. Nothing is ever posted, deleted, or sent to a real server. The notebook shows typed answers across this recipe's hard cases (sarcasm, a message that only quotes or reports someone else's abusive words, borderline banter, and a benign message with a trigger word), then the rule and the simulated queue it fills, then an evaluation that reports a confusion matrix, the separate cost of a false allow against a false flag, and the coverage, accuracy and risk the gate produces, chosen on `validation` over every category and frozen before `test`.
 
 ## Run it offline
 
@@ -51,10 +51,10 @@ through with `BudgetExceeded`. Never put a key in a notebook, a fixture, or any 
 The committed run replays 41 invented Discord messages with hand-written (synthetic) answers, five
 wrong on purpose (the notebook derives this count, and which ones, from the fixtures rather than
 stating it, since this README's own text could drift from the fixtures where the notebook cannot):
-one wrong and confident on `validation`, which the confidence gate -- chosen over every category
-alike, `allowed` included -- is selected to exclude, and four more on `test`: two the gate catches
+one wrong and confident on `validation`, which the confidence gate — chosen over every category
+alike, `allowed` included — is selected to exclude, and four more on `test`: two the gate catches
 (one of them a false allow, caught now that `allowed` is gated like every other category instead
-of being exempt from it), and two it does not -- a false flag that clears the gate (an allowed
+of being exempt from it), and two it does not — a false flag that clears the gate (an allowed
 message wrongly hidden) and a false allow that clears it too (a message that actually violates
 the rule, read confidently as `allowed` and left standing: the cost of a false allow, which gating
 `allowed` does not make impossible, only subject to the same gate every other category gets). Its

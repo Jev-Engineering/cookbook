@@ -7,14 +7,14 @@ Label candidate entity pairs with an allowed relationship type or no-supported-r
 ## What it teaches
 
 A knowledge-graph candidate is an entity pair with one or more retrieved evidence passages. Jev
-answers one `Choice` per passage -- which of four fixed relationship types, if any, that single
-passage states holds between the two entities, with `no_supported_relation` as the fallback --
+answers one `Choice` per passage — which of four fixed relationship types, if any, that single
+passage states holds between the two entities, with `no_supported_relation` as the fallback —
 and never decides whether the relationship is true, only whether this passage supports it.
 Python owns everything else: a confidence gate on each passage, and a deterministic rule that
 composes every passage decision for one entity pair into a single task-level label, sending the
 pair to review when the evidence disagrees or when any passage was not confident enough to
 trust. The hard case this recipe is built around is a pair that is related in exactly the way
-this recipe's own fixtures establish elsewhere, but whose passage here does not say so -- the
+this recipe's own fixtures establish elsewhere, but whose passage here does not say so — the
 gold label follows the passage in front of Jev, never what the pair's relationship happens to be
 in the world.
 
@@ -66,7 +66,7 @@ A recorded recipe states the model version the API returned, the capture date an
 it reports, here and in the notebook.
 
 The offline run replays synthetic answers written for this recipe, so every number the notebook
-prints -- per question and at the task level -- is a check that the confidence gate and the
+prints — per question and at the task level — is a check that the confidence gate and the
 composition behave as designed on this fixture set, not a measurement of how Jev performs.
 
 ## Pull request rules

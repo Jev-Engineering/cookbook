@@ -11,7 +11,7 @@ new ticket: three candidate incident identifiers, retrieved by plain word overla
 own symptoms (no model call), and the explicit fallback `no_match` the use case names for a ticket
 that matches none of them. Python owns everything else: the state Jev sees (the ticket's symptoms
 and affected service, as separate fields), the retrieval, and the rule that links a confident real
-match to its candidate -- the one outcome with a simulated side effect -- reports `no_match` as a
+match to its candidate — the one outcome with a simulated side effect — reports `no_match` as a
 final result whatever its confidence, and sends anything else uncertain to an explicit `review`
 outcome. The notebook shows three typed answers up close (a near duplicate on the wrong service,
 this recipe's central trap; a ticket that matches nothing; and a `validation` ticket whose stored
@@ -38,7 +38,7 @@ replays the stored answers in `fixtures/responses.json`, and imports only the st
 Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
 `Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
 3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
-notebook -- `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
+notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
 [docs/recipe-template.md](../../docs/recipe-template.md) step 6).
 
 ## Switch to live
@@ -85,7 +85,7 @@ recipe has no recorded fixtures.
 
 This recipe's pull request changes only `recipes/18-duplicate-incident-matching/`. The root
 `README.md` is generated: its catalog tables are regenerated inside this same pull request by a
-separate integration worker, once this branch is handed over to them -- never by the recipe
+separate integration worker, once this branch is handed over to them — never by the recipe
 builder's own commits. While this recipe remains unpublished and that handover has not yet
 happened, `Catalog (README is current)` is expected to be red on its pull request, which is not a
 defect to fix here; once the catalog is regenerated for it, the check turns green and stays that

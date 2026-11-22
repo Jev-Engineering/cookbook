@@ -12,8 +12,8 @@ response the normaliser cannot settle is sent to Jev. A question whose accepted 
 number is never sent to Jev at all, settled or not, because TypeSafe's own notes on Jev 1.13
 (S07) say arithmetic belongs in code. Jev supplies one narrow judgment, a typed `Choice` over
 four options the use case names: `match`, `partial_match`, `no_match`, `needs_review`. Python
-decides what a model-chosen answer is allowed to do: a `review` outcome -- whether Jev named
-the `needs_review` option outright or a confidence gate put a response there -- is never
+decides what a model-chosen answer is allowed to do: a `review` outcome — whether Jev named
+the `needs_review` option outright or a confidence gate put a response there — is never
 reported as a final grade, because awarding or withholding a point is a side effect
 CONTRIBUTING.md section 4 keeps in Python's hands; every such response goes into a simulated
 `ReviewQueue` for a human adjudicator instead. The notebook shows both the settled and the

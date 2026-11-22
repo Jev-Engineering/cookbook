@@ -57,7 +57,7 @@ it reports, here and in the notebook.
 The offline run replays 40 hand-written (synthetic) CI log excerpts with synthetic answers, some
 wrong on purpose: two on `test` are both wrong and confident enough to clear the gate, but only
 one of them, a dependency problem misread as a test regression, reaches the reported risk (1 of
-the 12 answered builds, `0.0833`) -- the other confidently names `unknown`, a deferral that
+the 12 answered builds, `0.0833`) — the other confidently names `unknown`, a deferral that
 counts toward review rather than coverage however confident it is. Its accuracy, the confusion
 matrix, the action log and review queue contents, and the coverage, accuracy and risk the frozen
 gate produces are checks that the pipeline works; they say nothing about how Jev performs, how

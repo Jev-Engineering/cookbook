@@ -6,7 +6,7 @@ Screen proposed outbound messages for disclosure concerns against supplied shari
 
 ## What it teaches
 
-Jev answers two independent `Noul` propositions per proposed outbound message, sent together in one request -- the sharing rules supplied for this recipe, each a statement that can be true or false, never a question. Python owns everything else: a business threshold and a confidence gate chosen per rule, then pooled across both rules into one shared gate (`jev_cookbook.evaluation.pool_label_decisions`), a deterministic policy that holds every later message in a thread once an earlier one in it was held, and the final `held`/`allowed` decision. The evaluation reports a missed-disclosure rate, a false-hold rate, and an overall hold rate, for the full pipeline against a baseline that uses the identical business thresholds and the identical number of requests but neither the confidence gate nor thread escalation -- so what each deterministic control buys (and what it does not) is visible rather than assumed. Nothing is ever sent: `allowed` means a message cleared every check in a simulation that executes no action.
+Jev answers two independent `Noul` propositions per proposed outbound message, sent together in one request — the sharing rules supplied for this recipe, each a statement that can be true or false, never a question. Python owns everything else: a business threshold and a confidence gate chosen per rule, then pooled across both rules into one shared gate (`jev_cookbook.evaluation.pool_label_decisions`), a deterministic policy that holds every later message in a thread once an earlier one in it was held, and the final `held`/`allowed` decision. The evaluation reports a missed-disclosure rate, a false-hold rate, and an overall hold rate, for the full pipeline against a baseline that uses the identical business thresholds and the identical number of requests but neither the confidence gate nor thread escalation — so what each deterministic control buys (and what it does not) is visible rather than assumed. Nothing is ever sent: `allowed` means a message cleared every check in a simulation that executes no action.
 
 ## Run it offline
 
@@ -57,13 +57,13 @@ committed file.
 The committed run replays 35 invented messages with hand-written (synthetic) answers, some wrong
 on purpose: a message that embeds an instruction trying to steer the screen into clearing it
 despite stating an unpublished price (one per split, stored confidently wrong, well clear of the
-confidence gate -- the gate cannot catch a confident mistake, only genuine ambiguity), a genuine
+confidence gate — the gate cannot catch a confident mistake, only genuine ambiguity), a genuine
 business-rule miss on each rule (one per split per rule), two messages per split that merely
-resemble a violation without being one, one on each rule -- the `contact` lookalikes
+resemble a violation without being one, one on each rule — the `contact` lookalikes
 (`v11-lookalike`/`t11-lookalike`, contact noul 0.56/0.55) sit close enough to the gate's band that
 it reviews them, while the `pricing` lookalikes (`v10-lookalike`/`t10-lookalike`, pricing noul
 0.57/0.59) sit far below the 0.86 `pricing` threshold and clear outright, so they are not false
-positives under that threshold at all -- one message per split held only because its confidence
+positives under that threshold at all — one message per split held only because its confidence
 sits inside the gate's band (`v16-uncertain`/`t16-uncertain`, contact noul 0.48/0.47), and a
 two-message thread per split where the second message is clean on its own
 content and held only because the first message in its thread already was. Its missed-disclosure

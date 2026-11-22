@@ -13,7 +13,7 @@ on a four-level `Score` rubric. Python never asks Jev to compare skills against 
 rule that composes several of those scores into one task-level decision is code, in
 `helpers.select_skill`: it ranks the candidates by their expected score and selects the top one
 only when its score clears a fixed business cutoff *and* it clearly beats the runner-up by a
-margin threshold chosen on `validation` -- the margin check being the one for the hard case the
+margin threshold chosen on `validation` — the margin check being the one for the hard case the
 use case names, two skills whose descriptions are both genuinely plausible for the task, scored
 close together. Either check failing sends the task to review for a person to clarify, never an
 automatic guess; each check is independently consequential, proved on the committed fixtures by
@@ -51,9 +51,9 @@ of this repository), or record answers with the recorder described in
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry. In live mode this notebook makes exactly one call for
-each of the 150 (task, skill) requests in `fixtures/` -- one relevance `Score` question per
+each of the 150 (task, skill) requests in `fixtures/` — one relevance `Score` question per
 candidate skill a task retrieved, not one call per task, so the count is 50 tasks times 3
-retrieved candidates each -- and no other: every request is decided once (cached by its example
+retrieved candidates each — and no other: every request is decided once (cached by its example
 id) and the stored answer is reused wherever it is shown again. That is more than the live
 backend's default request budget of 25, so set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=150` or higher
 before running this notebook live, or it stops partway through with `BudgetExceeded`. Never put a
@@ -71,13 +71,13 @@ A recorded recipe states the model version the API returned, the capture date an
 it reports, here and in the notebook.
 
 Every answer here is synthetic: the offline run replays answers written for this recipe, so its
-numbers check that the pipeline works -- that the catalog is retrieved from correctly, the
+numbers check that the pipeline works — that the catalog is retrieved from correctly, the
 relevance rubric is asked and read correctly, and `select_skill` composes several answers into
-one decision correctly -- and say nothing about how Jev actually scores skill descriptions for
+one decision correctly — and say nothing about how Jev actually scores skill descriptions for
 relevance. The evaluation covers exact-level agreement and mean absolute error against each
 request's own gold level (per question), and top-1 accuracy among automatically selected tasks,
 risk, and the clarification rate (per task, from `jev_cookbook.evaluation.evaluate_outcomes`,
-since the rule has two independent review branches -- the business cutoff and the margin -- so
+since the rule has two independent review branches — the business cutoff and the margin — so
 a task can be sent to review for either of two separate reasons).
 
 ## Pull request rules

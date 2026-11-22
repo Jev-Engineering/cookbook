@@ -19,7 +19,7 @@ three typed answers up close (a task that could plausibly need two different fol
 that needs none of them, and a validation task whose stored answer is simply wrong), then the
 rule, then an evaluation that reports the accuracy of the selected follow-up across all seven
 options, the coarser accuracy of the ask-or-proceed decision underneath it, and a coverage,
-accuracy and risk computed from what the rule itself did -- not from reapplying a confidence gate
+accuracy and risk computed from what the rule itself did — not from reapplying a confidence gate
 the rule's `no_clarification_needed` branch never uses. The 40 stored answers in `fixtures/` are
 all synthetic.
 
@@ -71,7 +71,7 @@ wrong and confident through the confidence gate (a spend-breakdown request read 
 scope when it is really missing its format), and one wrong but caught by the gate at low
 confidence (an access-level request misread as missing a recipient instead). The fourth is in
 `test` too, and wrong in a different way again: a travel-booking request read as needing nothing
-asked when it is really missing a budget, at a confidence that sits *below* the gate -- a
+asked when it is really missing a budget, at a confidence that sits *below* the gate — a
 confidence-only rule would have caught it, but the `no_clarification_needed` branch never checks
 confidence at all, so it is delivered as a final result anyway. Its accuracy of the selected
 follow-up, confusion matrix, per-option precision and recall, the accuracy of the coarser
@@ -83,7 +83,7 @@ recipe has no recorded fixtures.
 
 This recipe's pull request changes only `recipes/11-clarification-selection/`. The root `README.md`
 is generated: its catalog tables are regenerated inside this same pull request by a separate
-integration worker, once this branch is handed over to them -- never by the recipe builder's own
+integration worker, once this branch is handed over to them — never by the recipe builder's own
 commits. While this recipe remains unpublished and that handover has not yet happened,
 `Catalog (README is current)` is expected to be red on its pull request, which is not a defect to
 fix here; once the catalog is regenerated for it, the check turns green and stays that way. No

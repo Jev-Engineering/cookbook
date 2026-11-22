@@ -299,9 +299,10 @@ Install with the same file before you execute a notebook whose outputs you will 
 **This is the weaker, no-`sudo` variant, and it is honest about why.** The kernel above runs as
 your own user, who already owns the checkout that `tools/check_notebook_fresh.py`,
 `tools/check_hygiene.py` and the committed notebook are read from — there is no boundary here
-stopping a cell from writing any of them, only the `test -z "$(git status --porcelain)"` line
-catching it afterwards (a real backstop: it does fail if a cell wrote into the checkout, the same
-way CI's own backstop would). CI does not rely on a backstop alone; it runs the kernel as a
+stopping a cell from writing any of them, only the before/after `git status --porcelain` comparison
+detecting changes in the reported status afterwards. Further edits to a file that was already
+modified can leave that status unchanged, so this comparison does not detect every checkout
+write. CI does not rely on a backstop alone; it runs the kernel as a
 separate, unprivileged user who cannot write the checkout, the interpreter's site-packages or the
 runner's `$HOME` at all — see "Protecting the checks from the notebook under test" in
 [notebook-ci.md](notebook-ci.md). To reproduce that boundary locally rather than only its

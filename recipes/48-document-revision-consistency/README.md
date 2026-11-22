@@ -6,7 +6,7 @@ Select among externally supplied sentence revisions and check their consistency 
 
 ## What it teaches
 
-A `Choice` selects among a fixed set of externally supplied candidate rewrites for one sentence slot, plus the named `keep_original` fallback. A two-proposition `Noul` battery then checks only the candidate Jev actually picked for consistency with the surrounding paragraph -- a request that always comes *after* the choice, and is skipped entirely whenever the choice itself is gated or names `keep_original`. Python composes both answers, through `helpers.decide`, over `jev_cookbook.simulation.Store`, a versioned key-value store that never deletes: an inconsistent candidate is never written over a slot's live text, and a confident, confidently-consistent candidate becomes a new version rather than erasing the one it replaces. The notebook walks through one slot revised over two rounds -- the second round's own "original sentence" is the first round's applied text, read back from the live store -- including a candidate with an embedded instruction aimed at the model, and a rollback that undoes an applied write without erasing anything.
+A `Choice` selects among a fixed set of externally supplied candidate rewrites for one sentence slot, plus the named `keep_original` fallback. A two-proposition `Noul` battery then checks only the candidate Jev actually picked for consistency with the surrounding paragraph — a request that always comes *after* the choice, and is skipped entirely whenever the choice itself is gated or names `keep_original`. Python composes both answers, through `helpers.decide`, over `jev_cookbook.simulation.Store`, a versioned key-value store that never deletes: an inconsistent candidate is never written over a slot's live text, and a confident, confidently-consistent candidate becomes a new version rather than erasing the one it replaces. The notebook walks through one slot revised over two rounds — the second round's own "original sentence" is the first round's applied text, read back from the live store — including a candidate with an embedded instruction aimed at the model, and a rollback that undoes an applied write without erasing anything.
 
 ## Run it offline
 
@@ -39,7 +39,7 @@ against that budget, including each retry.
 
 This notebook makes **one request per example always** (the revision `Choice`) **plus one more
 exactly when that choice both clears the gate and names a real candidate** (the two-proposition
-consistency `Noul` battery) -- never a fixed count, and never more than once per example for
+consistency `Noul` battery) — never a fixed count, and never more than once per example for
 either request (`decide_choice_once`'s cache guard). This notebook makes exactly **36** calls
 against the committed fixtures and the frozen gates they select. The theoretical worst case, if
 every live answer happened to need stage two, is 44 (22 examples × 2); raise

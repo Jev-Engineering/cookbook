@@ -6,7 +6,7 @@ Select retry, alternative method, or escalation from a bounded recovery catalog 
 
 ## What it teaches
 
-An agent's tool call has already failed. Jev picks one option from a fixed, bounded recovery catalog -- `retry`, `alternative_method`, or `escalate` -- given the execution history so far. Python owns every side effect and every limit: a `jev_cookbook.simulation.Budget` enforces a retry budget and a one-slot alternative-method budget, and a stop condition ends the episode the moment it escalates, whatever Jev answers and in whatever order. The property this recipe shows is that no sequence of answers can ever spend more of either budget than the limit allows, proved by an exhaustive sweep of every possible sequence rather than a sample.
+An agent's tool call has already failed. Jev picks one option from a fixed, bounded recovery catalog — `retry`, `alternative_method`, or `escalate` — given the execution history so far. Python owns every side effect and every limit: a `jev_cookbook.simulation.Budget` enforces a retry budget and a one-slot alternative-method budget, and a stop condition ends the episode the moment it escalates, whatever Jev answers and in whatever order. The property this recipe shows is that no sequence of answers can ever spend more of either budget than the limit allows, proved by an exhaustive sweep of every possible sequence rather than a sample.
 
 ## Run it offline
 
@@ -58,7 +58,7 @@ The offline run replays synthetic answers written for this recipe, so its number
 pipeline works, not how Jev performs. The evaluation covers: raw per-question agreement with the
 gold recovery label; the confidence-only selective-prediction view; the task-level view of what
 the budget-enforced system actually did (`retry`/`alternative_method` counted as answered,
-`escalate` -- chosen or forced -- and any low-confidence answer counted as review); and two
+`escalate` — chosen or forced — and any low-confidence answer counted as review); and two
 zero-request baselines (always answer `retry`; a budget-only heuristic that reads the retry and
 alternative-method budget already used but nothing else) reported at the same cost-and-accuracy
 footing as Jev's own answers.
