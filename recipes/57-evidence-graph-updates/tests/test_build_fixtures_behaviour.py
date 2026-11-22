@@ -1,6 +1,6 @@
 """Behaviour of build_fixtures.py beyond the scaffold's own checks (tests/test_build_fixtures.py
 is fixed by tools/new_recipe.py): --force restores the exact committed bytes, and the first-stage
-settings are frozen once per run."""
+settings are frozen once per run. Unreadable or malformed responses require explicit --force."""
 
 import importlib.util
 import json
@@ -35,6 +35,118 @@ def test_force_restores_the_exact_committed_responses_bytes(tmp_path):
     forced = subprocess.run([sys.executable, str(script), "--force"], capture_output=True)
     assert forced.returncode == 0
     assert responses.read_bytes() == (RECIPE / "fixtures" / "responses.json").read_bytes()
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b'<<<<<<< recorded\n{"answer": {"model": "jev-1.13.0"}}\n=======\n{}\n>>>>>>> synthetic\n',
+        b'{"answer":',
+        b"",
+        b'{"answer": "\xff"}',
+        b"[]\n",
+        b"null\n",
+        b"42\n",
+        b'"synthetic"\n',
+        b"true\n",
+        b'{"answer": null}\n',
+        b'{"answer": {}}\n',
+    ],
+    ids=[
+        "merge-markers",
+        "truncated-json",
+        "empty",
+        "invalid-utf8",
+        "array",
+        "null",
+        "number",
+        "string",
+        "boolean",
+        "non-object-entry",
+        "missing-model",
+    ],
+)
+def test_ambiguous_responses_require_force_and_preserve_the_existing_bytes(tmp_path, raw):
+    copy = _copy(tmp_path)
+    folder = copy / "fixtures"
+    folder.mkdir()
+    responses = folder / "responses.json"
+    responses.write_bytes(raw)
+    for name in ("inputs.jsonl", "labels.jsonl"):
+        (folder / name).write_bytes(b"corrupted")
+
+    command = [sys.executable, str(copy / "build_fixtures.py")]
+    refused = subprocess.run(command, capture_output=True, text=True)
+    assert refused.returncode != 0
+    assert "refusing to overwrite" in refused.stderr
+    assert "--force" in refused.stderr
+    assert "Traceback" not in refused.stderr
+    assert responses.read_bytes() == raw
+    # Refusal protects only responses; inputs and labels still regenerate from ROWS.
+    for name in ("inputs.jsonl", "labels.jsonl"):
+        assert (folder / name).read_bytes() == (RECIPE / "fixtures" / name).read_bytes()
+
+    forced = subprocess.run([*command, "--force"], capture_output=True, text=True)
+    assert forced.returncode == 0, forced.stderr
+    assert responses.read_bytes() == (RECIPE / "fixtures" / "responses.json").read_bytes()
+
+
+def test_valid_synthetic_responses_still_regenerate_without_force(tmp_path):
+    copy = _copy(tmp_path)
+    folder = copy / "fixtures"
+    folder.mkdir()
+    responses = folder / "responses.json"
+    data = json.loads((RECIPE / "fixtures" / "responses.json").read_text("utf-8"))
+    # A readable synthetic response object may have been reformatted.
+    responses.write_text(json.dumps(data), encoding="utf-8")
+    done = subprocess.run(
+        [sys.executable, str(copy / "build_fixtures.py")], capture_output=True, text=True
+    )
+    assert done.returncode == 0, done.stderr
+    assert responses.read_bytes() == (RECIPE / "fixtures" / "responses.json").read_bytes()
+
+
+@pytest.mark.parametrize("force", [False, True], ids=["refused", "explicit-force"])
+def test_simulated_responses_read_failure_requires_force(tmp_path, force):
+    """Inject a read error in a real subprocess; mode bits are unreliable when run as root."""
+    copy = _copy(tmp_path)
+    folder = copy / "fixtures"
+    folder.mkdir()
+    responses = folder / "responses.json"
+    raw = b'{"recorded-answer": {"model": "jev-1.13.0"}}\n'
+    responses.write_bytes(raw)
+    driver = """
+import runpy
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+script = sys.argv[1]
+sys.argv = sys.argv[1:]
+original = Path.read_text
+
+def unreadable(path, *args, **kwargs):
+    if path.name == "responses.json":
+        raise PermissionError("simulated read failure")
+    return original(path, *args, **kwargs)
+
+with patch.object(Path, "read_text", unreadable):
+    runpy.run_path(script, run_name="__main__")
+"""
+    command = [sys.executable, "-c", driver, str(copy / "build_fixtures.py")]
+    done = subprocess.run(
+        [*command, *(["--force"] if force else [])], capture_output=True, text=True
+    )
+    if force:
+        assert done.returncode == 0, done.stderr
+        assert responses.read_bytes() == (RECIPE / "fixtures" / "responses.json").read_bytes()
+    else:
+        assert done.returncode != 0
+        assert "refusing to overwrite" in done.stderr and "--force" in done.stderr
+        assert "Traceback" not in done.stderr
+        assert responses.read_bytes() == raw
+    for name in ("inputs.jsonl", "labels.jsonl"):
+        assert (folder / name).read_bytes() == (RECIPE / "fixtures" / name).read_bytes()
 
 
 def test_build_fixtures_freezes_the_first_stage_once_per_run(tmp_path, monkeypatch):
@@ -129,3 +241,12 @@ def test_a_row_with_candidates_but_no_spec_is_refused_by_name(tmp_path):
     rows = [(*row[:4], None) if row[0] == "v01" else row for row in module.ROWS]
     with pytest.raises(ValueError, match=r"^v01: the mention has candidates"):
         module.requests_for(rows)
+
+
+def test_unresolved_keys_tolerates_a_responses_file_that_is_not_valid_utf8(tmp_path):
+    """The desynchronisation warning is advisory: a responses file whose bytes are not UTF-8
+    must yield no keys, not an exception that replaces the refusal message."""
+    module = _module(tmp_path, "recipe57_build_fixtures_unresolved")
+    responses = tmp_path / "responses.json"
+    responses.write_bytes(b'{"key": "\xff\xfe"}')
+    assert module._unresolved_keys([{"replay_keys": ["key"]}], responses) == []
