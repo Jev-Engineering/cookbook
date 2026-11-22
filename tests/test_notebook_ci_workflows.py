@@ -779,6 +779,9 @@ def ml_extra_bound(pyproject=None):
     assert canonicalize_name(requirement.name) == "scikit-learn", (
         f"the ml extra must be scikit-learn, not {requirement.name}"
     )
+    assert requirement.marker is None, "the ml extra must install on every supported Python version"
+    assert not requirement.extras, "the ml extra must not request scikit-learn extras"
+    assert requirement.url is None, "the ml extra must use version bounds, not a direct URL"
     by_operator = {spec.operator: spec.version for spec in requirement.specifier}
     assert set(by_operator) == {">=", "<"} and len(requirement.specifier) == 2, (
         f"the ml extra must bound scikit-learn as >=LOWER,<UPPER (#358), not {requirement.specifier}"
@@ -829,22 +832,68 @@ def test_a_malformed_pin_or_bound_fails_with_a_clear_message():
             raise AssertionError(f"expected a failure mentioning {message!r}")
 
 
+def test_the_ml_extra_refuses_markers_extras_and_direct_urls():
+    """A range alone cannot establish that both CI legs install the same distribution."""
+    for requirement, message in [
+        ("scikit-learn>=1.7.2,<2; python_version>='3.11'", "every supported Python"),
+        ("scikit-learn[extra]>=1.7.2,<2", "must not request scikit-learn extras"),
+        ("scikit-learn @ https://example.invalid/scikit-learn.whl", "not a direct URL"),
+    ]:
+        try:
+            ml_extra_bound(f'ml = ["{requirement}"]\n')
+        except AssertionError as error:
+            assert message in str(error), str(error)
+        else:
+            raise AssertionError(f"the ml extra must refuse {requirement!r}")
+
+
+def documented_ml_ranges(document):
+    """Find scikit-learn specifier lists, including one-sided and malformed ranges.
+
+    Discovery does not assume either operator order or valid versions: ``Requirement`` below
+    diagnoses syntax, and the docs check requires the same two bounds as pyproject.toml.
+    Plain package names, standalone exact pins and other distributions' ranges are not ml range
+    statements. An exact pin can legitimately explain the separate notebook constraints.
+    """
+    flat = " ".join(document.split())
+    value = r"[^\s,`\"'()\[\]{};]*"
+    bound = rf"[<>=!~]+\s*{value}"
+    found = re.findall(
+        rf"(?<![\w.-])scikit[-_.]+learn\s*{bound}(?:\s*,\s*{bound})*",
+        flat,
+        re.IGNORECASE,
+    )
+    ranges = []
+    for text in found:
+        try:
+            requirement = Requirement(text.rstrip("."))
+        except InvalidRequirement:
+            ranges.append(text)  # the docs check reports the malformed statement
+            continue
+        specs = list(requirement.specifier)
+        if len(specs) == 1 and specs[0].operator == "==" and "*" not in specs[0].version:
+            continue
+        ranges.append(text)
+    return ranges
+
+
 def test_the_docs_state_the_ml_extra_bound():
     """Every place development.md states a scikit-learn range matches pyproject.toml, so raising
     the bound cannot leave a stale copy behind. Other packages' ranges are not the ml bound."""
     lower, upper = ml_extra_bound()
-    flat = " ".join(DEVELOPMENT.split())
-    stated = re.findall(
-        r"(?<![\w.-])(scikit[-_.]+learn\s*>=\s*[0-9][0-9A-Za-z.]*\s*,\s*<\s*[0-9][0-9A-Za-z.]*)",
-        flat,
-        re.IGNORECASE,
-    )
+    stated = documented_ml_ranges(DEVELOPMENT)
     assert stated, "development.md must state the ml extra's bound"
     for text in stated:
         where = f"development.md states {text!r}"
-        requirement = Requirement(text.rstrip("."))  # a bound can end a sentence
+        try:
+            requirement = Requirement(text.rstrip("."))  # a bound can end a sentence
+        except InvalidRequirement:
+            raise AssertionError(f"{where}: not a valid requirement") from None
         assert canonicalize_name(requirement.name) == "scikit-learn", where
         by_operator = {spec.operator: spec.version for spec in requirement.specifier}
+        assert set(by_operator) == {">=", "<"} and len(requirement.specifier) == 2, (
+            f"{where}: must bound scikit-learn as >=LOWER,<UPPER"
+        )
         assert version_of(by_operator[">="], where) == lower, f"{where}, but pyproject has {lower}"
         assert version_of(by_operator["<"], where) == upper, f"{where}, but pyproject has {upper}"
 
@@ -858,6 +907,7 @@ def test_the_docs_bound_check_reads_only_scikit_learn_in_any_spelling(monkeypatc
         "The live extra is `typesafe-sdk>=0.7.5,<0.8`.",
         f"Spaced, `scikit-learn >= {lower}, < {upper}`.",
         f"It ends a sentence: scikit-learn>={lower},<{upper}.",
+        f"Reordered: `Scikit_Learn < {upper}, >= {lower}`.",
     ]:
         monkeypatch.setattr(module, "DEVELOPMENT", DEVELOPMENT + "\n" + extra + "\n")
         test_the_docs_state_the_ml_extra_bound()
@@ -868,6 +918,60 @@ def test_the_docs_bound_check_reads_only_scikit_learn_in_any_spelling(monkeypatc
         assert "but pyproject has" in str(error), str(error)
     else:
         raise AssertionError("a stale scikit-learn range must fail")
+
+
+def test_the_docs_bound_check_refuses_reordered_stale_and_incomplete_ranges(monkeypatch):
+    """Appending another spelling must not let a stale copy hide beside a correct range."""
+    module = sys.modules[__name__]
+    original = DEVELOPMENT
+    for text, message in [
+        ("scikit-learn<2,>=0.1", "but pyproject has"),
+        ("scikit-learn<3,>=1.7.2", "but pyproject has"),
+        ("scikit-learn<2", "must bound scikit-learn"),
+        ("scikit-learn>=1.7.2", "must bound scikit-learn"),
+        ("scikit-learn>=1.7.2,<2.x", "not a valid requirement"),
+        ("scikit-learn<2.x,>=1.7.2", "not a valid requirement"),
+        ("scikit-learn>=1.7.2,<", "not a valid requirement"),
+        ("scikit-learn>=1.7.2,<<2", "not a valid requirement"),
+        ("scikit-learn==1.7.2,<2", "must bound scikit-learn"),
+        ("scikit-learn==1.9.*", "must bound scikit-learn"),
+    ]:
+        monkeypatch.setattr(module, "DEVELOPMENT", original + f"\n`{text}`\n")
+        try:
+            test_the_docs_state_the_ml_extra_bound()
+        except AssertionError as error:
+            assert message in str(error), str(error)
+            assert "development.md states" in str(error), str(error)
+        else:
+            raise AssertionError(f"the docs must refuse {text!r}")
+
+
+def test_the_docs_bound_check_allows_a_notebook_pin_beside_the_ml_range(monkeypatch):
+    """The exact notebook constraint is explanatory context, not another ml-extra range."""
+    lower, upper = ml_extra_bound()
+    pinned = pins()["scikit-learn"]
+    for pin in [f"scikit-learn=={pinned}", f"Scikit_Learn == {pinned}"]:
+        for bound in [f">={lower},<{upper}", f"<{upper},>={lower}"]:
+            document = f"The notebook pin is `{pin}`; the ml extra is `scikit-learn{bound}`."
+            monkeypatch.setattr(sys.modules[__name__], "DEVELOPMENT", document)
+            test_the_docs_state_the_ml_extra_bound()
+
+
+def test_the_docs_bound_check_requires_a_scikit_learn_range(monkeypatch):
+    monkeypatch.setattr(sys.modules[__name__], "DEVELOPMENT", "Only `typesafe-sdk>=0.7.5,<0.8`.")
+    try:
+        test_the_docs_state_the_ml_extra_bound()
+    except AssertionError as error:
+        assert "development.md must state the ml extra's bound" in str(error), str(error)
+    else:
+        raise AssertionError("another distribution's range must not satisfy the ml docs check")
+    monkeypatch.setattr(sys.modules[__name__], "DEVELOPMENT", "Only `scikit-learn==1.9.1`.")
+    try:
+        test_the_docs_state_the_ml_extra_bound()
+    except AssertionError as error:
+        assert "development.md must state the ml extra's bound" in str(error), str(error)
+    else:
+        raise AssertionError("a standalone notebook pin must not satisfy the ml docs check")
 
 
 def test_the_ml_extra_name_is_compared_normalised():
