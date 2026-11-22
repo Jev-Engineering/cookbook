@@ -143,8 +143,12 @@ text is its first glyph cell to its last (ink never leaves it). Tests assert for
 that the changed pixels fit inside the returned box, and for most that they fill it exactly.
 
 Give a primitive `name=` and it is recorded in `canvas.objects[name]` (a name can be used once, so a
-typo cannot silently reuse a box). Composites record their parts as `"<name>.<part>"`. A recipe
-builds its labels from `canvas.objects`, never from numbers it typed.
+typo cannot silently reuse a box). Composites record their parts as `"<name>.<part>"`. Every
+public drawer checks its requested name, and the component names it will create, before drawing.
+A duplicate-name refusal leaves both image bytes and `canvas.objects` unchanged. This includes
+`missing_part`: a replacement cannot reuse the removed object's name. Unnamed drawing remains
+available with `name=None`. These guarantees concern duplicate names, not every possible argument
+or drawing failure. A recipe builds its labels from `canvas.objects`, never from numbers it typed.
 
 ## Primitives
 
@@ -167,7 +171,7 @@ Colours are `PALETTE` names (`"ink"`, `"blue"`, ...) or `(r, g, b)`.
 canvas, and is clipped), and its width at most 1568, so a stray number cannot make the rasteriser
 walk billions of pixels. `ellipse` and `triangle` have the same kind of bound: the top-left corner
 `x`, `y` must be within 8192 pixels of the origin, and `w`, `h` from 1 to 1568 (the largest canvas
-side). Anything else raises `ValueError` before anything is drawn. The composite drawers (`schematic_symbol`'s valve, `error_banner`'s icon) apply the same bound to the shapes they draw and refuse before drawing anything. This holds for the bound, type, colour and direction refusals; `ellipse`, `triangle`, `error_banner` and `schematic_symbol` check a duplicate `name` first, so a refusal draws nothing, while the other drawers still check it after drawing (#539). `error_banner` also checks, before drawing, that its body, icon and message each lie at least partly on the canvas, that the icon's mark fits the visible part of the icon and that the message has a visible character, so every `error_banner` refusal draws nothing. A shape inside the bound may run
+side). Anything else raises `ValueError` before anything is drawn. The composite drawers (`schematic_symbol`'s valve, `error_banner`'s icon) apply the same bound to the shapes they draw and refuse before drawing anything. This holds for the bound, type, colour and direction refusals. Every drawer also checks for duplicate names before drawing, including the names of any recorded parts. `error_banner` also checks, before drawing, that its body, icon and message each lie at least partly on the canvas, that the icon's mark fits the visible part of the icon and that the message has a visible character, so every `error_banner` refusal draws nothing. A shape inside the bound may run
 off the canvas and is clipped, but one wholly outside it still raises `ValueError` ("lies entirely
 outside"). The rasterisers take one step per row, and a `left` or `right` triangle one per pixel of
 its box, so a shape takes at most 1568 row steps (twice that for an ellipse with an outline),
