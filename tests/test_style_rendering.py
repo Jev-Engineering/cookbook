@@ -31,7 +31,8 @@ from matplotlib.patches import Rectangle
 
 from jev_cookbook import style
 
-# Load by path: tests has no __init__.py, and pytest uses importlib collection.
+# Load by path with an explicit module name. tests/ is a package (it has an __init__.py), so a
+# relative import of the sibling would also resolve under --import-mode=importlib.
 _spec = importlib.util.spec_from_file_location(
     "_style_assertions", Path(__file__).with_name("_style_assertions.py")
 )
