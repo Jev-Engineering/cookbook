@@ -14,6 +14,7 @@ import io
 import math
 import re
 import struct
+import unicodedata
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
@@ -1585,6 +1586,8 @@ def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
     recorded rows additionally require capture_date. Live rows may omit capture_date.
     Model-only, computed-only and all-null measurement rows need no additional disclosure.
     Validation leaves the caller's rows and their original numeric rendering unchanged.
+    Control characters, formatting controls and line separators in any rendered cell raise
+    ``ValueError`` naming its column, so one row cannot add lines or shift cells.
     """
     table = [dict(row) for row in rows]
     if not table:
@@ -1616,7 +1619,10 @@ def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
     def cell(row: Mapping[str, Any], column: str) -> str:
         if column not in row:
             return "-"
-        return _NOT_MEASURED if row[column] is None else str(row[column])
+        text = _NOT_MEASURED if row[column] is None else str(row[column])
+        if any(unicodedata.category(char) in {"Cc", "Cf", "Zl", "Zp"} for char in text):
+            raise ValueError(f"{column} contains a control character or line separator")
+        return text
 
     body = [[cell(row, column) for column in columns] for row in table]
     widths = [
