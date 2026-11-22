@@ -954,6 +954,9 @@ Character, byte and token counts must be non-negative integers and N a positive 
 Latency and cost must be finite non-negative numbers. Booleans, negative numbers, non-finite
 numbers and numeric strings are refused. Valid numbers retain their original unrounded text;
 validation does not modify your rows or convert large integer counts to floats.
+Control characters (tabs and newlines included), formatting controls and line separators in a
+rendered cell raise `ValueError` naming the column, so one row cannot create extra lines or
+shift values under another heading.
 
 Any non-null token, latency or cost measurement, including zero, requires a returned model and
 positive N. Recorded measurements also require a capture date; live rows may omit the date,
