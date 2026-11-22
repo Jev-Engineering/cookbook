@@ -51,7 +51,8 @@ def test_no_tin_description_follows_the_condition():
     module = load_module_at(SCRIPT, "recipe69_build_fixtures_for_test_describe")
     shelf = ("n1", "test", "Q-9", None, None, "shelf", 41, ("no_match", 92, "uncertain", 2))
     assert module.describe(shelf) == (
-        "An invented shelf frame under 'shelf' conditions with no tin in it (seed 41)."
+        "An invented empty wall/background under 'shelf' conditions "
+        "with no tin or board in it (seed 41)."
     )
     dim = shelf[:5] + ("dim",) + shelf[6:]
     assert "shelf" not in module.describe(dim).replace("'shelf'", "")

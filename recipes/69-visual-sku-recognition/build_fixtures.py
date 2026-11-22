@@ -308,9 +308,9 @@ def describe(row):
     _ident, _split, _capture, design, hidden, condition, seed, _answer = row
     drawn = design_of(design)
     if drawn is None:
-        scene = "shelf frame" if condition == "shelf" else "frame"
         return (
-            f"An invented {scene} under {condition!r} conditions with no tin in it (seed {seed})."
+            f"An invented empty wall/background under {condition!r} conditions "
+            f"with no tin or board in it (seed {seed})."
         )
     tag = f", a pink SALE tag covering the {hidden}" if hidden else ""
     return (
