@@ -250,7 +250,9 @@ def _nearest(times: list[float], target: float) -> int:
         best, closest = at, abs(times[at] - target)
         if at > 0:
             closest = min(closest, abs(times[at - 1] - target))
-    # step back to the earliest frame whose distance is within the slack of the closest
+    # Step back to the earliest frame within the slack of the closest. This walk is linear
+    # in the tied candidate count: even gaps greater than TIME_EPSILON can have equal rounded
+    # distances from a distant target. Keep the exact comparison for that documented tie rule.
     while best > 0 and abs(times[best - 1] - target) <= closest + TIME_EPSILON:
         best -= 1
     return best
@@ -263,6 +265,7 @@ def frame_at(timestamps: Iterable[float], seconds: float, *, side: str = "before
     ``side="before"`` is the last frame at or before ``seconds``; ``"after"`` the first frame
     at or after it; for these two sides a frame within :data:`TIME_EPSILON` of ``seconds``
     counts as at it.
+
     ``"nearest"`` uses the rule of :func:`sample_frames` for one target: the frames whose
     distance from ``seconds`` is within :data:`TIME_EPSILON` of the smallest distance are tied,
     on either side, and **the earliest tied frame is returned**. An exact midpoint goes to the
@@ -272,9 +275,10 @@ def frame_at(timestamps: Iterable[float], seconds: float, *, side: str = "before
     equivalence near the bound. With smaller valid gaps, ``"nearest"`` can select a frame
     earlier than ``"before"``. For example, at ``1 + 1.6e-9`` in ``[0, 1, 1 + 2.5e-9, 2]``,
     ``"nearest"`` returns 1 and ``"before"`` returns 2.
-    Raises ``ValueError`` when no frame qualifies (for example
-    ``"before"`` a time earlier than the first frame) instead of guessing, because attaching an
-    event to the wrong frame is a silent error.
+
+    Raises ``ValueError`` when no frame qualifies (for example ``"before"`` a time earlier than
+    the first frame) instead of guessing, because attaching an event to the wrong frame is a
+    silent error.
     """
     times = _ordered(timestamps)
     when = _seconds(seconds, "seconds")
