@@ -9,11 +9,12 @@ a committed figure output.
 Hard failure is the default. The issue's orchestrator ruling permits a named exemption
 for a recipe genuinely better served by tables alone, with a stated reason and an
 explicit pytest skip rather than a silent pass. The exemption dict is meant to stay
-nearly empty; a foundation change must justify any addition. A stale exemption fails once a figure is
-present, so it cannot hide a later accidental loss of that figure.
+nearly empty; a foundation change must justify any addition. A stale exemption fails once a
+figure is present, so it cannot hide a later accidental loss of that figure.
 """
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -29,14 +30,17 @@ PUBLISHED = [
     for recipe in CATALOG["recipes"]
     if (RECIPES_DIR / recipe["slug"] / "notebook.ipynb").is_file()
 ]
-# Measured on main 438ff98: 57 published notebooks, exactly one with zero committed
-# image/png outputs and zero ``plot_`` call sites (recipe 56). This is a recorded known
-# gap in a recipe merged after #256 was filed, not a table-only design decision. The
-# entry fails as stale as soon as a figure is committed, so adding the figure removes it.
+# Measured on main 438ff98: 56 published notebooks plus the unpublished _template. 55
+# published recipes have a committed image/png (recipes 28, 41 and 43 have exactly 1);
+# recipe 56 has 0 image/png outputs and 0 ``plot_`` call sites. Its entry is a
+# time-bounded known gap, not a table-only design decision (orchestrator ruling on #256,
+# comment 7073850527). It fails as stale as soon as a figure is committed, so adding
+# the figure removes it. No other recipe may use this route without its own ruling.
 NAMED_FIGURELESS_EXEMPTIONS: dict[str, str] = {
     "56-adversarial-harness-evaluation": (
-        "published without any figure (0 image/png outputs, 0 plot_ call sites); "
-        "known gap recorded under #256, to be closed by committing a figure"
+        "recipe 56 is chart-shaped (threshold and gate choices) but was published with no "
+        "figure: a known gap, not a table-only design choice; adding the figure is tracked "
+        "by #622, which removes this entry"
     ),
 }
 
@@ -50,6 +54,22 @@ def _has_committed_png(recipe_dir: Path) -> bool:
         if cell["cell_type"] == "code"
         for output in cell.get("outputs", [])
     )
+
+
+def _must_fail_not_skip(recipe_dir: Path, match: str) -> None:
+    """Expect an assertion failure; reaching the exemption skip is a hard failure.
+
+    ``pytest.raises(AssertionError)`` does not catch ``pytest.skip``, so a deleted
+    check would otherwise turn its test into a green skip.
+    """
+    try:
+        _require_committed_png(recipe_dir)
+    except pytest.skip.Exception as skipped:
+        pytest.fail(f"expected a failure, but the exemption skip was reached: {skipped}")
+    except AssertionError as failure:
+        assert re.search(match, str(failure)), str(failure)
+    else:
+        pytest.fail("expected a failure, but the guard passed")
 
 
 def _require_committed_png(recipe_dir: Path) -> None:
@@ -108,8 +128,8 @@ def test_removing_the_png_from_a_passing_published_recipe_fails(tmp_path):
         _require_committed_png(recipe_dir)
 
 
-def _write_notebook(tmp_path: Path, cells: list[dict]) -> Path:
-    recipe_dir = tmp_path / "figure-presence-probe"
+def _write_notebook(tmp_path: Path, cells: list[dict], name: str = "figure-presence-probe") -> Path:
+    recipe_dir = tmp_path / name
     recipe_dir.mkdir()
     (recipe_dir / "notebook.ipynb").write_text(json.dumps({"cells": cells}), "utf-8")
     return recipe_dir
@@ -191,8 +211,7 @@ def test_a_reasonless_exemption_cannot_turn_a_missing_figure_into_a_skip(
 ):
     recipe_dir = _write_notebook(tmp_path, [])
     monkeypatch.setitem(NAMED_FIGURELESS_EXEMPTIONS, recipe_dir.name, reason)
-    with pytest.raises(AssertionError, match="exemption needs a stated reason"):
-        _require_committed_png(recipe_dir)
+    _must_fail_not_skip(recipe_dir, "exemption needs a stated reason")
 
 
 def test_an_exemption_for_an_unknown_recipe_fails(monkeypatch):
@@ -201,11 +220,46 @@ def test_an_exemption_for_an_unknown_recipe_fails(monkeypatch):
         test_figureless_exemptions_name_published_recipes()
 
 
-def test_a_figure_makes_its_exemption_stale(tmp_path, monkeypatch):
-    slug = "41-approval-scope-review"
-    recipe_dir = tmp_path / slug
+def _copy_notebook(tmp_path, slug, dest_name=None):
+    recipe_dir = tmp_path / (dest_name or slug)
     recipe_dir.mkdir()
     shutil.copyfile(RECIPES_DIR / slug / "notebook.ipynb", recipe_dir / "notebook.ipynb")
+    return recipe_dir
+
+
+def test_a_figure_makes_its_exemption_stale(tmp_path, monkeypatch):
+    slug = "41-approval-scope-review"
+    recipe_dir = _copy_notebook(tmp_path, slug)
     monkeypatch.setitem(NAMED_FIGURELESS_EXEMPTIONS, slug, "A table-only design")
-    with pytest.raises(AssertionError, match="remove the stale figureless exemption"):
+    _must_fail_not_skip(recipe_dir, "remove the stale figureless exemption")
+
+
+def test_the_real_recipe_56_exemption_goes_stale_when_a_figure_is_added(tmp_path):
+    slug = "56-adversarial-harness-evaluation"
+    assert slug in NAMED_FIGURELESS_EXEMPTIONS
+    recipe_dir = _copy_notebook(tmp_path, slug)
+    # As committed, the exemption applies: a skip, not a failure.
+    with pytest.raises(pytest.skip.Exception):
         _require_committed_png(recipe_dir)
+    notebook_path = recipe_dir / "notebook.ipynb"
+    notebook = json.loads(notebook_path.read_text("utf-8"))
+    cell = next(cell for cell in notebook["cells"] if cell["cell_type"] == "code")
+    cell.setdefault("outputs", []).append(
+        {"output_type": "display_data", "data": {"image/png": "stored-png"}, "metadata": {}}
+    )
+    notebook_path.write_text(json.dumps(notebook), "utf-8")
+    _must_fail_not_skip(recipe_dir, "remove the stale figureless exemption")
+
+
+@pytest.mark.parametrize(
+    "lookalike",
+    [
+        "56-adversarial-harness-evaluationX",
+        "56-adversarial-harness-evaluation-x",
+        "56-adversarial-harness",
+        "x56-adversarial-harness-evaluation",
+    ],
+)
+def test_a_lookalike_slug_is_not_exempt(tmp_path, lookalike):
+    recipe_dir = _write_notebook(tmp_path, [], name=lookalike)
+    _must_fail_not_skip(recipe_dir, "no committed image/png output")
