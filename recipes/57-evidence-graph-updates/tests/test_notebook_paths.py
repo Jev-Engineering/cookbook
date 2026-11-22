@@ -193,3 +193,30 @@ def test_no_notebook_function_is_rebound_after_it_is_defined():
                     rebound |= {node.id} & functions
     assert functions, "the notebook defines no function"
     assert rebound == set()
+
+
+@pytest.mark.parametrize("model", ["offline-recorded-stand-in", "offline-live-stand-in"])
+def test_counterfactual_cell_marks_only_invented_answers_synthetic(notebook, model):
+    """Local stand-ins for recorded/live answers exercise the actual cell; no API is called.
+    Both backend paths use recorded Provenance, while hand-set probabilities are synthetic."""
+    original, snapshot = {}, {}
+
+    def use_recorded_stand_ins(ns):
+        from jev_cookbook import NoulAnswer, Provenance
+
+        provenance = Provenance.recorded(model, "2026-11-19")
+        original.update(supported=NoulAnswer(0.91, provenance), ended=NoulAnswer(0.92, provenance))
+        snapshot.update({name: answer.to_dict() for name, answer in original.items()})
+        ns["test_second"]["t01"] = original
+
+    ns = notebook("evaluation-nouls", before={"evaluation-nouls": use_recorded_stand_ins})
+    for name, companion in (("supported", "ended"), ("ended", "supported")):
+        flipped = ns["flipped"][name]
+        assert flipped[name].noul == 0.0
+        assert flipped[name].provenance.to_dict() == {
+            "source": "synthetic", "model": None, "date": None,
+        }  # fmt: skip
+        assert flipped[companion] is original[companion]
+        assert flipped[companion].provenance.model == model
+    assert {name: answer.to_dict() for name, answer in original.items()} == snapshot
+    assert ns["test_second"]["t01"] is original

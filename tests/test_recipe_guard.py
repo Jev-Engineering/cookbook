@@ -127,6 +127,19 @@ check id                              rule -> detection
                                        ``plot_risk_coverage`` call has, in the same code
                                        cell, a ``print`` of the plotted object itself or of
                                        something a loop over it prints.
+``plot_cells_have_images``             #232, docs/notebook-style.md "Print what you plot":
+                                       every code cell that calls a ``plot_*`` function has at
+                                       least one non-empty ``image/*`` output committed in that
+                                       same cell, so a figure cannot vanish (a ``print`` after
+                                       the plot call, a lost output) while every other check
+                                       stays green. Per cell, not per notebook (the notebook-
+                                       level ``test_recipe_figure_presence.py`` guard of #256
+                                       would pass a cell that lost its figure while another
+                                       holds one). No exemption list: a published recipe that
+                                       fails is a real gap. Not seen: a figure that is committed
+                                       but no longer produced by a fresh run (the freshness
+                                       tool's job), and a plot call in a markdown cell or a
+                                       string.
 ``next_steps_links_exist``            G1(f) clause 1, docs/recipe-template.md: every
                                        ``../NN-slug/`` link in the notebook resolves to a
                                        published recipe.
@@ -3428,6 +3441,158 @@ def test_every_plot_call_has_a_printed_table(recipe):
                         f"cell {cell.get('id', '?')} {fn}({name}, ...) prints nothing of {name}"
                     )
     assert not violations, "; ".join(violations)
+
+
+# --------------------------------------------------------------------------------------------
+# check 5b (#232): every plot_* cell has a committed image output
+# --------------------------------------------------------------------------------------------
+
+_PLOT_CALL_TEXT = re.compile(r"\bplot_[A-Za-z0-9_]*\s*\(")
+
+
+def _cell_calls_a_plot_function(source: str) -> bool:
+    """True if ``source`` calls any ``plot_*`` function (a name or an attribute). Parsed, so a
+    comment or a string that merely mentions one does not count; a cell that does not parse
+    (a magic) falls back to the text pattern, which can only over-select."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return bool(_PLOT_CALL_TEXT.search(source))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+            if isinstance(name, str) and name.startswith("plot_"):
+                return True
+    return False
+
+
+def _cell_has_image_output(cell: dict) -> bool:
+    return any(
+        output.get("output_type") in {"display_data", "execute_result"}
+        and any(
+            mime.startswith("image/") and value
+            for mime, value in (output.get("data") or {}).items()
+        )
+        for output in cell.get("outputs") or []
+    )
+
+
+def _plot_cells_without_images(cells: list[dict]) -> list[str]:
+    return [
+        f"cell {cell.get('id', index)}: calls a plot_* function but has no committed image/* output"
+        for index, cell in enumerate(cells)
+        if cell.get("cell_type") == "code"
+        and _cell_calls_a_plot_function(cell_source(cell))
+        and not _cell_has_image_output(cell)
+    ]
+
+
+@pytest.mark.parametrize("recipe", guarded("plot_cells_have_images"))
+def test_every_plot_cell_has_a_committed_image(recipe):
+    """#232: for every code cell calling a ``plot_*`` function, require a committed ``image/*``
+    output in that cell. Static, no execution; keyed on the property (an image was committed),
+    not on PNG. See the table at the top of this module for what it does not see."""
+    if not (recipe_dir(recipe) / "notebook.ipynb").is_file():
+        pytest.skip("no notebook")
+    violations = _plot_cells_without_images(notebook_cells(recipe_dir(recipe)))
+    assert not violations, "; ".join(violations)
+
+
+def _plot_cell(outputs, source="plot_risk_coverage(curve)\nprint(curve)"):
+    return {"cell_type": "code", "id": "plot-cell", "source": source, "outputs": outputs}
+
+
+_IMAGE_OUTPUT = {"output_type": "display_data", "data": {"image/png": "stored"}, "metadata": {}}
+
+
+def _real_plot_cells(cells):
+    return [
+        c for c in cells if c["cell_type"] == "code" and _cell_calls_a_plot_function(cell_source(c))
+    ]
+
+
+def test_plot_cell_guard_has_a_real_published_plot_cell_to_discriminate_on():
+    cells = notebook_cells(RECIPES_DIR / "41-approval-scope-review")
+    assert _real_plot_cells(cells), "recipe 41 should contain a plot cell"
+    assert _plot_cells_without_images(cells) == []
+
+
+def test_removing_a_real_plot_cells_image_fails_the_plot_cell_guard():
+    cells = json.loads(json.dumps(notebook_cells(RECIPES_DIR / "41-approval-scope-review")))
+    removed = 0
+    for cell in _real_plot_cells(cells):
+        for output in cell.get("outputs", []):
+            for mime in [m for m in output.get("data", {}) if m.startswith("image/")]:
+                del output["data"][mime]
+                removed += 1
+    assert removed, "the mutation must remove a real committed image"
+    assert _plot_cells_without_images(cells)
+
+
+def test_a_plot_cell_whose_image_moved_to_another_cell_fails():
+    # Per cell, not per notebook: the figure exists in the notebook, in the wrong cell.
+    cells = [_plot_cell([]), {"cell_type": "code", "source": "x = 1", "outputs": [_IMAGE_OUTPUT]}]
+    assert len(_plot_cells_without_images(cells)) == 1
+
+
+@pytest.mark.parametrize(
+    "outputs",
+    [
+        [],
+        [{"output_type": "stream", "name": "stdout", "text": "image/png"}],
+        [{"output_type": "display_data", "data": {"text/plain": "<Figure size 1x1>"}}],
+        [{"output_type": "display_data", "data": {"image/png": ""}}],
+        [{"output_type": "stream", "data": {"image/png": "stored"}}],
+    ],
+    ids=["empty-outputs", "text-only-stream", "text-plain-repr", "empty-image", "image-in-stream"],
+)
+def test_a_plot_cell_without_an_image_output_fails(outputs):
+    assert _plot_cells_without_images([_plot_cell(outputs)])
+
+
+def test_a_plot_cell_with_no_outputs_key_fails():
+    cell = _plot_cell([])
+    del cell["outputs"]
+    assert _plot_cells_without_images([cell])
+
+
+@pytest.mark.parametrize(
+    "mime", ["image/png", "image/svg+xml", "image/jpeg"], ids=["png", "svg", "jpeg"]
+)
+@pytest.mark.parametrize("output_type", ["display_data", "execute_result"])
+def test_any_image_mime_in_the_plot_cell_passes(mime, output_type):
+    output = {"output_type": output_type, "data": {mime: "stored"}}
+    assert _plot_cells_without_images([_plot_cell([output])]) == []
+
+
+def test_a_list_source_and_an_attribute_call_are_both_seen():
+    cell = _plot_cell([], source=["style.plot_threshold_sweep(", "    curve)"])
+    assert _plot_cells_without_images([cell])
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "# plot_risk_coverage(curve)",
+        "label = 'plot_risk_coverage(curve)'",
+        "x = 1",
+        "plot_data = 2",
+    ],
+    ids=["comment", "string", "no-plot", "name-not-call"],
+)
+def test_a_cell_that_does_not_call_a_plot_function_needs_no_image(source):
+    assert _plot_cells_without_images([_plot_cell([], source=source)]) == []
+
+
+def test_a_markdown_cell_naming_a_plot_call_needs_no_image():
+    cell = {"cell_type": "markdown", "source": "plot_risk_coverage(curve)"}
+    assert _plot_cells_without_images([cell]) == []
+
+
+def test_an_unparsable_plot_cell_is_still_checked():
+    cell = _plot_cell([], source="%matplotlib inline\nplot_risk_coverage(curve)")
+    assert _plot_cells_without_images([cell])
 
 
 # --------------------------------------------------------------------------------------------
