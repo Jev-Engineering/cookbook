@@ -25,6 +25,10 @@ themselves, so they look right even if `apply_style()` was not called.
 snippets inside a fenced block — uses the ASCII double-hyphen, ` -- `, instead, because source
 files stay ASCII-only; a notebook's code cells follow that rule, and its markdown cells, being
 prose, use `—`.
+The distinction follows Markdown context: fenced and indented code blocks and inline
+code spans remain code inside a markdown cell. Visible link labels are prose; link
+destinations and HTML attributes are markup. The prose check uses CommonMark parsing
+with typography transformations disabled, so it cannot silently convert a violation.
 
 ## Run header
 
