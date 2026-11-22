@@ -335,14 +335,34 @@ def test_long_context_alone_still_refuses_image_assets_and_box_questions():
 
 
 @pytest.mark.parametrize(
-    "model,images", [("jev-1.13.0", True), ("jev-latest", True), ("jev-1.14.0", False)]
+    "model,images",
+    [
+        ("jev-1.13.0", True),
+        ("jev-latest", True),
+        ("jev-preview", True),
+        ("jev-1.14.0", False),
+    ],
 )
-def test_unsupported_live_box_rejected_before_spending(model, images):
-    client = Client()
+def test_unsupported_live_box_rejected_before_spending(fake_sdk, model, images):
+    client = Client(response(0.5))
     backend = LiveBackend(model, client=client, images=images)
-    with pytest.raises(LiveConfigError):
+    with pytest.raises(LiveConfigError, match="Box requires the pinned|images=True"):
         backend.decide(STATE, QUESTIONS, assets=image_assets())
     assert backend.requests_made == 0 and client.calls == []
+
+
+def test_live_box_accepts_only_the_pinned_jev_1_14_0(fake_sdk):
+    backend = LiveBackend("jev-1.14.0", client=Client(response(0.5)), images=True)
+    assert backend.decide(STATE, QUESTIONS, assets=image_assets())["target"].confidence == 0.5
+
+
+@pytest.mark.parametrize("model", ["jev-latest", "jev-preview"])
+def test_live_box_alias_refusal_names_pinned_model_and_sdk_examples(fake_sdk, model):
+    backend = LiveBackend(model, client=Client(), images=True)
+    with pytest.raises(
+        LiveConfigError, match=r"jev-1\.14\.0.*jev-preview.*SDK examples|SDK examples.*jev-preview"
+    ):
+        backend.decide(STATE, QUESTIONS, assets=image_assets())
 
 
 @pytest.mark.parametrize("confidence", [None, 0.0, "absent"])
@@ -350,7 +370,7 @@ def test_live_missing_confidence_is_never_promoted_to_certainty(fake_sdk, confid
     body = response(confidence)
     if confidence == "absent":
         del body["answers"]["target"]["confidence"]
-    backend = LiveBackend("jev-preview", client=Client(body), images=True)
+    backend = LiveBackend("jev-1.14.0", client=Client(body), images=True)
     answer = backend.decide(STATE, QUESTIONS, assets=image_assets())["target"]
     assert answer.confidence == (None if confidence == "absent" else confidence)
 
