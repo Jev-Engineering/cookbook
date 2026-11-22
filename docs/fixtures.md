@@ -407,10 +407,23 @@ shown = stable_shuffle(f"{recipe}:{example_id}", candidates)  # the candidates, 
 
 For a binary choice such as which of two candidates is shown first, use `n = 2`:
 `stable_permutation(seed_key, 2)[0] == 0` says the first candidate keeps its place.
-`stable_permutation`/`stable_shuffle` live in the shared package precisely so every recipe's
-per-item order is derived the same documented-stable way; recipe 12's `shuffled_candidates`
-(candidate order via `stable_shuffle`) and recipe 23's `assign_first_shown` (a pairwise side via
-`stable_permutation(..., 2)`) are the two shapes this takes in practice.
+`stable_permutation`/`stable_shuffle` live in the shared package so every recipe's per-item
+order uses the same documented-stable construction. Recipes importing either helper are listed
+below, with functions that demonstrate their use. The inventory is checked against recipe
+imports and function bodies by
+`tests/test_docs_facts.py`.
+
+| Recipe source | Function | Shared helper |
+| --- | --- | --- |
+| `recipes/12-thesaurus-word-selection/build_fixtures.py` | `shuffled_candidates` | `stable_shuffle` |
+| `recipes/23-pairwise-answer-evaluation/helpers.py` | `assign_first_shown` | `stable_permutation` |
+| `recipes/27-function-selection/helpers.py` | `option_order_for` | `stable_shuffle` |
+| `recipes/32-regression-test-selection/build_fixtures.py` | `build_rows` | `stable_permutation` |
+| `recipes/32-regression-test-selection/build_fixtures.py` | `_demo_rows` | `stable_permutation` |
+| `recipes/57-evidence-graph-updates/helpers.py` | `option_order` | `stable_permutation` |
+
+The candidate-order functions reorder candidates within their examples; `assign_first_shown` uses
+`stable_permutation(..., 2)` to assign a pairwise side.
 
 ## Writing fixtures
 

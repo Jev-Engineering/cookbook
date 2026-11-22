@@ -6,7 +6,7 @@ Evaluate each candidate plan against individual user constraints so deterministi
 
 ## What it teaches
 
-A candidate plan carries four of the user's own constraints -- budget, timeline, vendor, data handling -- and Jev answers one independent `Noul` per (plan, constraint) pair, all four together in one request: does the plan violate this one constraint? Python never asks the model to weigh the four against each other. A deterministic rule in `helpers.py` composes the four answers into exactly one of three outcomes: `ineligible` the moment any one constraint is confidently flagged as violated, whatever any other constraint's own confidence is doing; `review` when nothing is a confirmed violation but at least one judgment is not confident enough to trust; `eligible` only when every constraint is both confidently resolved and confidently clear. The recipe's named hard case -- a plan that satisfies every constraint but one -- makes that precedence concrete: one confident violation is always enough, however clean the other three read. A confidence gate on a Noul is measured here, not derived: the band around 0.5 is exact algebra, but whether it actually changes an outcome depends on how the composition wires it in, so the notebook sweeps a 401-point grid through the real rule, with and without the gate, and reports what changed.
+A candidate plan carries four of the user's own constraints — budget, timeline, vendor, data handling — and Jev answers one independent `Noul` per (plan, constraint) pair, all four together in one request: does the plan violate this one constraint? Python never asks the model to weigh the four against each other. A deterministic rule in `helpers.py` composes the four answers into exactly one of three outcomes: `ineligible` the moment any one constraint is confidently flagged as violated, whatever any other constraint's own confidence is doing; `review` when nothing is a confirmed violation but at least one judgment is not confident enough to trust; `eligible` only when every constraint is both confidently resolved and confidently clear. The recipe's named hard case — a plan that satisfies every constraint but one — makes that precedence concrete: one confident violation is always enough, however clean the other three read. A confidence gate on a Noul is measured here, not derived: the band around 0.5 is exact algebra, but whether it actually changes an outcome depends on how the composition wires it in, so the notebook sweeps a 401-point grid through the real rule, with and without the gate, and reports what changed.
 
 ## Run it offline
 
@@ -37,7 +37,7 @@ and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry.
 In live mode this notebook makes exactly **35** calls, one for each of the 35 examples in
-`fixtures/` -- the 5 `demo` plans plus the 15 `validation` and 15 `test` requests, each decided
+`fixtures/` — the 5 `demo` plans plus the 15 `validation` and 15 `test` requests, each decided
 once and the stored answer reused wherever it is shown again. That is **above** the live
 backend's default request budget of 25: set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=35` (or higher, to
 allow for a retry) before running this notebook live, or it stops partway through with

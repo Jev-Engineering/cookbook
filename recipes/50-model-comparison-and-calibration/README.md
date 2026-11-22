@@ -8,8 +8,8 @@ Compare Jev and alternative decision backends on identical labeled tasks, calibr
 
 A harness that sends the same vendor compliance statement to three decision backends through one
 typed interface (`jev_cookbook.backends.Backend`): Jev, and two fabricated decision adapters,
-`atlas-compact` and `northstar-7b`. Every statement gets one always-sent request -- a `Choice`
-category and two `Noul` propositions, asked together -- and, only when the category answer calls
+`atlas-compact` and `northstar-7b`. Every statement gets one always-sent request — a `Choice`
+category and two `Noul` propositions, asked together — and, only when the category answer calls
 for it, a dependent second request: a `Score` rubric rating how specific the statement is.
 Python combines the typed answers into one outcome, and each backend is calibrated separately,
 on its own validation answers, never on a value borrowed from another backend.
@@ -28,7 +28,7 @@ recipe does not show that, and says nothing about how real Jev answers behave.
 the notebook prints is a pipeline check on synthetic fixtures:
 proof that the harness wires the questions, dispatches them identically to all three backends,
 and turns the typed answers into a composed outcome without crashing. It is not evidence that
-any one backend is more accurate, faster, or cheaper than another -- see "What was and was not
+any one backend is more accurate, faster, or cheaper than another — see "What was and was not
 measured" below for exactly what that means and this section's "Switch to live" for how a real
 comparison would be produced.
 
@@ -75,7 +75,7 @@ than the stored answers. Never put a key in a notebook or a fixture.
 API (a recorded run writes one response per request it actually makes), with a pinned model (`jev-1.13.0`, never an alias) and the UTC date of the
 call, and the recorder would write those responses into `fixtures/responses.json` in place of
 the synthetic ones there now. The notebook's questions, state, and calibration code would not
-change at all -- only the backend. Reporting a real comparison after that would still need a
+change at all — only the backend. Reporting a real comparison after that would still need a
 second step this recipe does not take: recording `atlas-compact` and `northstar-7b` from their
 own real APIs is out of scope here (they are fabricated stand-ins, not real services this
 repository can reach), so a live run of this recipe can only ever produce a recorded number for
@@ -95,10 +95,10 @@ repository can reach), so a live run of this recipe can only ever produce a reco
   none is read as another:
   - **Input rows:** 10 per scored split (20 total; 23 with the 3 `demo` rows).
   - **Requests** (distinct `(state, questions)` pairs, `len(fixtures/responses.json)`): 41, for
-    `jev` alone -- one per row for request A (23), plus one more for each of the 18 rows whose
+    `jev` alone — one per row for request A (23), plus one more for each of the 18 rows whose
     design asks a second request. Because every backend is dispatched through
     `helpers.MemoisingBackend`, each distinct request is forwarded to the backend exactly once,
-    so this is also the number of `decide()` calls a live run would bill -- as a floor, with
+    so this is also the number of `decide()` calls a live run would bill — as a floor, with
     retried and timed-out attempts on top and up to 46 if the live gate asks request B more
     often than the stored design does (see "Switch to live"). The notebook's cell under
     "What a live run of this notebook would cost" prints and asserts both counts; this bullet
@@ -111,7 +111,7 @@ repository can reach), so a live run of this recipe can only ever produce a reco
     path can ask a different count: `jev` and `northstar-7b` both ask request B on the same 8
     rows their own `category` answers name as the gold design does, on both splits, while
     `atlas-compact` asks it on only 7 of the 10 `test` rows (37 questions), one fewer, because
-    its one wrong `test` answer (`t03`) names `other` instead of `business_continuity` -- see
+    its one wrong `test` answer (`t03`) names `other` instead of `business_continuity` — see
     the notebook's "The composition boundary" for exactly this row.
   - **Task-level units:** 10 per scored split (one composed `triage` outcome per row; this
     recipe groups nothing, so this equals the input-row count).

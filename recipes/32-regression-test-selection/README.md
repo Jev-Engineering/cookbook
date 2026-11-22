@@ -61,8 +61,8 @@ it reports, here and in the notebook.
 The committed run replays 163 invented (patch, candidate test) relevance judgments with
 hand-written (synthetic) answers, some wrong on purpose: several `validation` candidates are
 wrong at low confidence (so the confidence gate this notebook selects on `validation` is a real
-choice, not a vacuous one), and two `test` candidates -- each written to advertise regression
-coverage it does not actually have -- are wrong *and* confident, above the gate this notebook
+choice, not a vacuous one), and two `test` candidates — each written to advertise regression
+coverage it does not actually have — are wrong *and* confident, above the gate this notebook
 freezes on `validation`, so the per-candidate selective-prediction numbers on `test` show a
 real, non-zero risk rather than a gate that happens to look perfect, and the task-level recall
 of the gold-relevant tests at the size budget, against the file-path-and-lexical baseline, shows
@@ -77,7 +77,7 @@ proposed suite reproduces that label wherever it decides a patch away from those
 over the baseline is a property of this fixture set, not a measurement of a real suite proposer.
 
 The task-level mean recall is an exact tie with the baseline on `validation` and slightly behind
-it on `test`, once both are ranked under the same deterministic order -- but the shortfall is
+it on `test`, once both are ranked under the same deterministic order — but the shortfall is
 the confidence gate's own cost, not the semantic score's: the gate is selected against exact
 agreement with the gold level, a stricter target than the `relevant`/`not_relevant` decision it
 actually guards, and at that decision it costs coverage and recall while catching nothing on

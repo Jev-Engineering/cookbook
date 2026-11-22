@@ -6,7 +6,7 @@ Route documents through a taxonomy in stages while Python carries competing bran
 
 ## What it teaches
 
-A two-level taxonomy for routing a short support message: first to one of three departments (`account_billing`, `product_technical`, `people_policy`) or an explicit fallback, `unclassified`, then, inside a real department, to one of its own topics. Jev answers one narrow `Choice` at each stage; Python decides how many stages to spend, in `helpers.resolve_path`: if the department answer is confident, it commits to the single top-ranked department (greedy); otherwise it carries the top two real departments forward, asks a topic question for each, and scores every candidate full path, fallback included, as `department_probability * topic_probability`. `helpers.gate_path` then accepts the winning path only when that composite confidence clears a second, independent threshold, sending anything below it to review. The notebook reports leaf accuracy -- exact `department.topic` match -- and request count for this policy against the two baselines the use case names: a greedy single path (the same function, with branching turned off) and a flat classifier that asks one combined question per document. It also reports department-level accuracy separately from full-path leaf accuracy, since the two can disagree, and walks through a document whose two bare topic names coincide across departments, where comparing full paths (not bare names) is what keeps a wrong department from scoring as correct.
+A two-level taxonomy for routing a short support message: first to one of three departments (`account_billing`, `product_technical`, `people_policy`) or an explicit fallback, `unclassified`, then, inside a real department, to one of its own topics. Jev answers one narrow `Choice` at each stage; Python decides how many stages to spend, in `helpers.resolve_path`: if the department answer is confident, it commits to the single top-ranked department (greedy); otherwise it carries the top two real departments forward, asks a topic question for each, and scores every candidate full path, fallback included, as `department_probability * topic_probability`. `helpers.gate_path` then accepts the winning path only when that composite confidence clears a second, independent threshold, sending anything below it to review. The notebook reports leaf accuracy — exact `department.topic` match — and request count for this policy against the two baselines the use case names: a greedy single path (the same function, with branching turned off) and a flat classifier that asks one combined question per document. It also reports department-level accuracy separately from full-path leaf accuracy, since the two can disagree, and walks through a document whose two bare topic names coincide across departments, where comparing full paths (not bare names) is what keeps a wrong department from scoring as correct.
 
 This recipe builds on [`05-document-classification`](../05-document-classification/)'s one-stage `Choice` router and [`38-abstention-and-review-queues`](../38-abstention-and-review-queues/)'s confidence-gated review queue.
 
@@ -39,8 +39,8 @@ and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry.
 This notebook makes exactly **124** calls: four for each of its 31 documents (14 validation, 15
-test, 2 demo) -- the department question, a topic question for each of the two real departments
-that document's own department probabilities rank highest, and the flat baseline's question --
+test, 2 demo) — the department question, a topic question for each of the two real departments
+that document's own department probabilities rank highest, and the flat baseline's question —
 each document decided once per question, never twice. That is far above the live backend's
 default request budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)),
 so set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=124` or higher before running this notebook live, or it
@@ -59,7 +59,7 @@ it reports, here and in the notebook.
 
 The committed run replays 31 invented documents with hand-written (synthetic) answers. Several are
 wrong on purpose: four (two in each split) are cases where the department answer's own top choice,
-by raw probability, is wrong and the second-ranked real department is the correct one -- carrying
+by raw probability, is wrong and the second-ranked real department is the correct one — carrying
 both forward, rather than committing to the first, is what recovers the right answer; one (`test`)
 is confidently wrong at the department stage and happens to land on a topic that shares its bare
 name with the correct answer's own topic, so comparing full paths rather than bare topic names is

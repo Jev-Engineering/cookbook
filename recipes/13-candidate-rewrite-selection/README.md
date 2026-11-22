@@ -11,7 +11,7 @@ candidate-rewrite identifiers, `candidate_1`, `candidate_2` and `candidate_3`, a
 fallback `no_suitable_rewrite` the use case names for an item where none of the three candidates
 both preserves the original sentence's meaning and matches the requested tone. The three
 candidates are generated ahead of time by ordinary Python, from fixed, fabricated candidate sets
--- never by calling a text model -- and Python deliberately varies which position holds the
+— never by calling a text model — and Python deliberately varies which position holds the
 correct rewrite (when one exists) across the fixture set, because a `Choice`'s option order is
 part of its replay key and jev-1.13 is documented to lean toward whichever option comes first.
 Python owns everything else: which candidate sits at which position, the rule that returns a
@@ -39,7 +39,7 @@ The notebook runs from this folder with no network and no API key, replaying `fi
 Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for
 the `Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt`
 (Python 3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to
-execute the notebook -- `.[dev]` above is for `ruff` and `pytest`, which that job does not run;
+execute the notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run;
 see [docs/recipe-template.md](../../docs/recipe-template.md) step 6).
 
 ## Switch to live

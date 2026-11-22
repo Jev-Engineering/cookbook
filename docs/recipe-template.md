@@ -121,9 +121,9 @@ own first use the same way.
   printed literal is hand-written and nothing compares it to the call, and a value-only test pins
   the objective only if no other objective can reach that same value on this recipe's own pool —
   which is not something a value-only test checks, and two objectives have been found to coincide
-  on a real recipe's data. Parse the committed cell source instead -- the template's own
+  on a real recipe's data. Parse the committed cell source instead — the template's own
   `tests/test_helpers.py` has a worked example (its last test function, named for exactly this)
-  -- and tie an assertion to the keyword or objective string the call actually uses: a keyword
+  — and tie an assertion to the keyword or objective string the call actually uses: a keyword
   swap then changes the cell's committed source, so the assertion notices regardless of what
   value the swapped-in objective happens to select on this pool. If the selection lives behind
   a `helpers.py` wrapper rather than inline in the notebook cell, pin the wrapper function's own
@@ -262,19 +262,9 @@ own first use the same way.
   before drawing it from the same `matrix` object; a sweep figure (`plot_threshold_sweep`,
   `plot_risk_coverage`) prints the swept rows (threshold, coverage, accuracy, risk, ...) the same
   way.
-- **A figure's title carries `{check}` only; a `validation` print line carries `{selection}{check}`.**
-  These are two different things: the printed *lines* a `validation` cell prints need both labels
-  (below), but a figure's *title* is always drawn from one split's numbers after that split's
-  selection is already done, so it carries only `{check}` — the pipeline-check disclosure — never
-  `{selection}` as well. The template's own confusion-matrix figure, `title=f"Test split, ... {check}"`,
-  is drawn from `test`, which is never a selection step, so this does not arise there; a recipe
-  that plots a `validation` figure (a threshold sweep used to justify the choice, say) still gives
-  its title only `{check}`, because the figure is read as a pipeline check in that run, not
-  additionally re-labelled as a selection step the way a printed number is. This rule covers the
-  evaluation chart helpers — `plot_confusion_matrix`, `plot_risk_coverage`, `plot_threshold_sweep`
-  — each of which summarises a whole split; it does not reach `plot_answer_probabilities` shown
-  for one answer up close (the template's own `title="One Choice answer"`), which is neither a
-  pipeline check nor a selection step on an aggregate and so need not carry one.
+- **Figure titles** follow the [figure title disclosure convention](notebook-style.md#figure-title-disclosure),
+  including its distinction between aggregate charts and one answer shown up close. That is the
+  single home for this rule; use it when adapting the template's figures.
 - **A number the selection forces says so.** A `validation` number that is fixed by how the threshold was chosen cannot come out otherwise, and labelling it "a selection step" says where it came from, not that. With `target_accuracy=1.0` the threshold is chosen so every answer that names a queue and clears it is right, so "right among those routed automatically" is all of them on `validation` by construction (and a risk of 0.0000 likewise). The template's `evaluation-md` says so in a short passage written for this template's objective; a recipe replaces it with what its own selection forces and does not copy it verbatim (under `min_coverage=x`, for example, coverage of at least x on `validation` is forced, and a different sentence is true), naming every `validation` number so forced, or saying that none is. (#222 gap 3; the published recipes that carry an undisclosed forced metric are swept separately.)
 - **A confusion-matrix column is as wide as the widest label or the widest count.** The template's `evaluation-matrix` cell sizes the columns with `max(width, len(str(matrix.matrix.max())))`, because a format spec never truncates and a count with more digits than the longest label would otherwise push its row out of line with the header. `tests/test_template_matrix_alignment.py` runs that cell on counts wider than every label.
 - **Nothing path-like is printed.** The hygiene scan fails notebook outputs that contain absolute

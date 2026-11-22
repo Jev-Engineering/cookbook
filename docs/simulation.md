@@ -441,7 +441,7 @@ nothing about Jev. When a recipe needs real answers it records them separately (
 `docs/backends.md`).
 
 The example below runs `ToyGrid` for up to 40 model calls. Each step asks one `Choice` question
-whose options Python built from `legal_actions()` -- except when there is only one legal move
+whose options Python built from `legal_actions()` — except when there is only one legal move
 (the agent's starting cell, or either end of the line): a `Choice` needs at least two options
 (see "Single-option Choice" in [docs/backends.md](backends.md)), so Python takes that one move
 directly and spends no call. The script stands in for the model: it prefers

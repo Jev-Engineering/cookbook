@@ -185,6 +185,8 @@ cookbook chart) is closed once it has been displayed, so the inline backend does
 again. That is a global effect on any pyplot figure, and it applies only when the inline backend
 closes figures after display (its default).
 
+### Figure title disclosure
+
 **Title convention.** A figure's `title=` carries the pipeline-check disclosure, `{check}`, when
 it is plotted in a synthetic or scripted run, and no other disclosure label: a figure is read
 once, as a pipeline check or as a result, never additionally re-labelled as a selection step the

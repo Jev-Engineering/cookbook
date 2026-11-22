@@ -130,7 +130,7 @@ A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
 
 `prose_quantities_are_printed` excludes two things from the pool of numbers a quote may be
 backed by: audit lines and hash-like tokens. The first is a line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited route's
-ledger line, #213, [backends.md](backends.md#actual-calls-and-distinct-requests)) -- from **both** of the
+ledger line, #213, [backends.md](backends.md#actual-calls-and-distinct-requests)) — from **both** of the
 pool's sources, not only the one. The direct source is committed output: any line a code cell
 prints starting with the prefix. The second is the recipe's own `tests/*.py` text (CONTRIBUTING.md
 section 6's "a test re-derives it" route is a second way a quoted figure enters the pool), where
@@ -139,14 +139,14 @@ play; both sources are filtered by the one shared helper, `_without_audit_lines`
 the matched line's content is replaced by a literal `"\n"`, line by line, before the digit scan
 sees it, not per cell: a cell that prints a prefixed line alongside another, genuine output line
 still has that other line's own numbers counted. The line itself is kept, with only its content
-replaced -- that is what makes this safe: the text before the matched line and the text after it
+replaced — that is what makes this safe: the text before the matched line and the text after it
 stay separated rather than becoming adjacent, which deleting the line outright would not
 guarantee. That is defensive scope for any cell of any recipe that prints the prefix, not a
-description of a real audited recipe's final cell specifically -- `tests/request_audit.py`'s
+description of a real audited recipe's final cell specifically — `tests/request_audit.py`'s
 `audited_evidence` requires that final cell to hold exactly one statement, printing either
 `backend.audit_json()` (only when exactly one backend is audited) or `audit_json(<every audited
 backend, in creation order>)` (the only accepted form for a multi-backend recipe), and requires
-that cell's entire **stdout** to equal the one shared audit line -- stdout specifically, not
+that cell's entire **stdout** to equal the one shared audit line — stdout specifically, not
 every stream the cell might commit: a stream committed as stderr in that same final cell is a
 different channel this particular check does not look at, and is still just another printed line
 as far as this exclusion's own digit scan is concerned. A `replay_key` is 64 hex
@@ -154,7 +154,7 @@ characters; left in the pool, one such line supplies many spurious digit runs. M
 `tests/test_recipe_guard.py`'s own synthetic `_real_audit_line(22)` (2,267 characters): 346 digit
 runs at all lengths, 133 of them two or three digits (73 two-digit, 60 three-digit), backing 56 of
 the integers 0-100 and 12 of their 21 multiples of five. A different, real line of the same
-length -- #375's migrated template, which is what #376 itself measured -- supplied a different
+length — #375's migrated template, which is what #376 itself measured — supplied a different
 count: 342 digit runs and 71 of 0-100 backed; the hex depends on the requests behind it, so the two
 lines' figures do not match and neither should be read as the other's.
 
@@ -176,9 +176,9 @@ after a quote character) out of the pool. No published recipe's pool changes by 
 
 Neither exclusion costs another check: the ledger's own content is verified far more strictly by
 `readme_budget_note_matches_request_audit`
-(see [backends.md](backends.md#actual-calls-and-distinct-requests)) -- every count recomputed from
+(see [backends.md](backends.md#actual-calls-and-distinct-requests)) — every count recomputed from
 the ordered ledger and checked against `request_budget.json`, the key set against the declared
-fixture inventory, and the line itself against the shared canonical form -- though a `replay_key`'s
+fixture inventory, and the line itself against the shared canonical form — though a `replay_key`'s
 own value is pinned by this check only when the backend declares a fixture inventory; for a
 backend with none declared it checks each key's form and the counts its key list implies, and
 the key values are pinned by the fresh-kernel notebook check instead (see

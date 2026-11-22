@@ -6,7 +6,7 @@ Classify a new memory statement as corroborating, superseding, contradicting, or
 
 ## What it teaches
 
-A memory system holds one short factual statement per topic. A new statement arrives, and Jev classifies its relationship to the existing memory: `corroborating`, `superseding`, `contradicting`, or `unrelated` (the named fallback). Python owns the store and every write to it: `jev_cookbook.simulation.Store`, a versioned key-value store that never deletes, holds every memory, and this recipe's own policy layer (`helpers.reconcile`) decides what write each outcome earns -- a below-gate answer writes nothing, `corroborating`/`superseding` both update the live value while the superseded value stays in history, and `contradicting` never overwrites the live value at all: it records the contested statement under a parallel key and preserves it as an unresolved conflict rather than resolving it by picking a winner. The notebook walks through two stateful hard cases: a statement whose correct classification depends on which version of a memory the store currently holds, and two statements that each read as a clean correction of the other depending on which arrives first.
+A memory system holds one short factual statement per topic. A new statement arrives, and Jev classifies its relationship to the existing memory: `corroborating`, `superseding`, `contradicting`, or `unrelated` (the named fallback). Python owns the store and every write to it: `jev_cookbook.simulation.Store`, a versioned key-value store that never deletes, holds every memory, and this recipe's own policy layer (`helpers.reconcile`) decides what write each outcome earns — a below-gate answer writes nothing, `corroborating`/`superseding` both update the live value while the superseded value stays in history, and `contradicting` never overwrites the live value at all: it records the contested statement under a parallel key and preserves it as an unresolved conflict rather than resolving it by picking a winner. The notebook walks through two stateful hard cases: a statement whose correct classification depends on which version of a memory the store currently holds, and two statements that each read as a clean correction of the other depending on which arrives first.
 
 ## Run it offline
 
@@ -62,15 +62,15 @@ risk of "answer when confidence clears the threshold `select_confidence_threshol
 `validation`"); a confusion matrix among the four outcomes on `test`; the store invariants
 `helpers.reconcile` is built to hold (a below-gate answer writes nothing; `corroborating` and
 `superseding` keep the superseded value reachable in history; `contradicting` leaves the live
-value untouched and records a conflict; the write log alone reconstructs the final snapshot) --
+value untouched and records a conflict; the write log alone reconstructs the final snapshot) —
 proven exhaustively in `tests/test_helpers.py` over every outcome and a grid of confidences, and
 shown as a pipeline check over the real `test` split in the notebook; and three zero-request
 baselines. Two are constant predictions (majority class; always `unrelated`), which on this
-exactly-balanced, four-way test split both sit at exactly 0.2500 by arithmetic alone -- a
+exactly-balanced, four-way test split both sit at exactly 0.2500 by arithmetic alone — a
 structural floor, not two independent comparisons, since no constant prediction can ever score
-otherwise on a balanced pool. The third, `helpers.keyword_overlap_baseline`, is not constant --
+otherwise on a balanced pool. The third, `helpers.keyword_overlap_baseline`, is not constant —
 it earns its answer from the statements' own text (an explicit correction cue, then word
-overlap with the existing memory) -- and is the one capable of actually tying or beating Jev; on
+overlap with the existing memory) — and is the one capable of actually tying or beating Jev; on
 `test` it does not (0.8125 against Jev's 0.9375).
 
 ## Pull request rules

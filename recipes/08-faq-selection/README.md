@@ -18,7 +18,7 @@ answer a confidence check could protect there), and sends anything else uncertai
 `change_email` or `password_reset`, a question no FAQ addresses, and a validation question whose
 stored answer is simply wrong), then the rule, then an evaluation that reports
 top-1 accuracy, `no_match`'s own precision and recall, and a selective accuracy, coverage and
-risk computed from what the rule itself did -- not from reapplying a threshold the rule's
+risk computed from what the rule itself did — not from reapplying a threshold the rule's
 `no_match` branch never uses.
 
 ## Run it offline
@@ -77,7 +77,7 @@ or what it costs. This recipe has no recorded fixtures.
 
 This recipe's pull request changes only `recipes/08-faq-selection/`. The root `README.md` is
 generated: its catalog tables are regenerated inside this same pull request by a separate
-integration worker, once this branch is handed over to them -- never by the recipe builder's own
+integration worker, once this branch is handed over to them — never by the recipe builder's own
 commits. While this recipe remains unpublished and that handover has not yet happened,
 `Catalog (README is current)` is expected to be red on its pull request, which is not a defect to
 fix here; once the catalog is regenerated for it, the check turns green and stays that way. No
