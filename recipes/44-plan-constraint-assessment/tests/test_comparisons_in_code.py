@@ -233,3 +233,39 @@ def test_budget_check_refuses_anything_that_is_not_a_plain_number(cost, limit):
 def test_timeline_check_refuses_anything_that_is_not_an_iso_date(completion, deadline):
     with pytest.raises(ValueError, match="ISO date"):
         helpers.timeline_check(completion, deadline)
+
+
+def test_no_row_has_its_completion_and_deadline_far_apart_so_the_fixed_year_is_safe():
+    """The prose dates carry no year, so build_fixtures reads them all in one fixed year. A pair
+    that crosses a year end (a December deadline, a January completion) would be misordered and
+    judged on time, so every pair must be close enough that it cannot have wrapped."""
+    from datetime import date
+
+    for example in load_inputs(RECIPE):
+        gap = abs(
+            (
+                date.fromisoformat(example.fields["completion"])
+                - date.fromisoformat(example.fields["deadline"])
+            ).days
+        )
+        assert gap <= 60, f"{example.id}: completion and deadline are {gap} days apart"
+
+
+def test_the_fixed_year_limit_is_real_a_year_wrapping_pair_is_misjudged():
+    """Documents the limit the previous test guards: read in one year, a completion of January 5
+    after a deadline of December 28 compares as early, so the check says on time."""
+    module = load_build_fixtures()
+    assert helpers.timeline_check(module._iso("January 5"), module._iso("December 28")) == (
+        helpers.TIMELINE_ON_TIME
+    )
+
+
+def load_build_fixtures():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "recipe44_build_fixtures_for_comparison_test", RECIPE / "build_fixtures.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module

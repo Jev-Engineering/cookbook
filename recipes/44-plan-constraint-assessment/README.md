@@ -58,7 +58,13 @@ The offline run replays 35 hand-written (synthetic) requests with synthetic answ
 on purpose: a confidently wrong `test` answer slips through the frozen gate as a wrongly-approved
 plan (`t09-adversarial-data`), two confidently wrong answers wrongly reject clean plans
 (`t12-falsepositive-vendor`, `t13-falsepositive-budget`; the budget one is a synthetic misread of a check Python computed correctly), and two low-confidence plans go to
-review regardless of which way their gold label actually falls. The business thresholds, the
+review regardless of which way their gold label actually falls. Both are gated on the `budget`
+readback of a bucket Python computed exactly, and so are the other two gated validation plans:
+no answer about prose (vendor or data handling) is gated in these fixtures, so the review path is
+exercised without showing a judgment Jev would be unsure of when the computed buckets are used
+directly. The plan prose Jev reads still carries qualitative budget and timeline remarks ("on
+track", "some risk of a small overage"), with no raw date or amount, some of which contradict the
+computed bucket. The business thresholds, the
 confidence gate and its measured (not derived) effect on outcomes, the per-constraint precision
 and recall, the plan-level coverage, accuracy and risk, the named hard case, and the three
 zero-request baseline comparisons are all checks that the pipeline works; they say nothing about

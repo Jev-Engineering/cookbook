@@ -28,7 +28,10 @@ QUESTIONS = helpers.build_questions()
 
 def _iso(month_day):
     """``"March 14"`` as ``"2026-03-14"``. The prose dates carry no year, so every date here
-    is in the same fixed year; Python then compares real dates, never the text."""
+    is in the same fixed year; Python then compares real dates, never the text. The limit of one
+    fixed year: a December deadline with a January completion would be read as a completion
+    eleven months BEFORE the deadline and judged on time. No row crosses a year end, and
+    tests/test_comparisons_in_code.py fails if one is added; give such a row an explicit year."""
     return datetime.strptime(f"{month_day} 2026", "%B %d %Y").date().isoformat()
 
 
