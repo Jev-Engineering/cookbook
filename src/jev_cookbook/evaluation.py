@@ -1865,7 +1865,7 @@ def accepted_and_correct(
         ``(accepted, correct)``, two lists of ``bool`` the length of ``results``. Empty
         ``results``, a sequence ``gold`` of another length, a mapping ``gold`` without a key a
         result names (or an unhashable key), or a mismatch of ``gold`` and ``key_of`` raise
-        ``ValueError``.
+        ``ValueError``. Any other error raised by a mapping's own ``__getitem__`` propagates.
     """
     fn = "accepted_and_correct"
     rs, gs = _results_and_gold(results, gold, key_of, fn)

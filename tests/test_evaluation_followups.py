@@ -397,3 +397,22 @@ def test_gold_lookup_still_refuses_a_missing_key_by_custom_membership(function):
     gold = RaisingGetitem(KeyError("never reached"), contains=False)
     with pytest.raises(ValueError, match="no gold label for key 'a'"):
         accounting(function, [Result("a", "A")], gold, key_of=lambda r: r.key)
+
+
+class InheritedMembershipGold(Mapping):
+    """Keeps ``Mapping.__contains__``; its own ``__getitem__`` raises a TypeError."""
+
+    def __getitem__(self, key):
+        raise TypeError("custom getitem failure")
+
+    def __iter__(self):
+        return iter(["a"])
+
+    def __len__(self):
+        return 1
+
+
+@pytest.mark.parametrize("function", ACCOUNTING)
+def test_gold_lookup_with_inherited_membership_propagates_a_getitem_typeerror(function):
+    with pytest.raises(TypeError, match="custom getitem failure"):
+        accounting(function, [Result("a", "A")], InheritedMembershipGold(), key_of=lambda r: r.key)
