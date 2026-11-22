@@ -26,6 +26,13 @@ Check ids, the rule each enforces, and how it is detected (also the per-check do
 ====================================  =====================================================
 check id                              rule -> detection
 ====================================  =====================================================
+``fixture_arithmetic``               Every recipes/*/build_fixtures.py (including unpublished
+                                       recipes and _template): AST sum calls need recognized
+                                       integer syntax or direct round(expr, literal 0..10).
+                                       Literal-arithmetic float evidence in **/builtin pow
+                                       requires repeated multiplication. Strings are ignored.
+                                       Not whole-program numeric inference: see the helper
+                                       docstrings and docs/fixtures.md for exact limits.
 ``build_fixtures_scaffold``           G1(a): ``tests/test_build_fixtures.py`` matches
                                        ``tools/new_recipe.py::build_fixtures_test_text`` for
                                        this recipe, byte for byte.
@@ -242,7 +249,9 @@ check id                              rule -> detection
 Scope decisions (see the pull request body for the full reasoning):
 
 * ``guarded()`` parametrises every catalog recipe with a committed notebook, plus
-  ``recipes/_template``. Each published case retains its registered strict expected failure
+  ``recipes/_template``. ``fixture_arithmetic`` is the exception: it checks every builder,
+  including unpublished recipes and the template, without an allowlist or ``guarded()``.
+  Each published case retains its registered strict expected failure
   where applicable. The template case always runs without an expected failure. A check whose
   scope is published recipes only declares its reason with ``skip_template`` at registration.
   The template's declaration, ledger and README paragraph are compared on the audited route
@@ -13260,3 +13269,399 @@ def test_cell_id_citations_explicitly_select_context_on_their_private_scope_modu
 def test_cell_id_citations_conservatively_retain_text_beyond_parser_nesting_limit():
     text = "> " * 25 + "~~~\n" + "> " * 25 + "`python-rule`"
     assert len(_cell_id_citations(text, {"python-rule"}, "prose")) == 1
+
+
+# --------------------------------------------------------------------------------------------
+# Fixture arithmetic: a bounded AST policy, not whole-program numeric type inference.
+# --------------------------------------------------------------------------------------------
+
+
+def _fixture_builtin_aliases(tree: ast.Module) -> dict[str, str]:
+    """Resolve builtin spellings/imports conservatively; any other binding disables credit.
+
+    Binding discovery spans the whole file, including nested scopes. This may deny an integer
+    or rounding exemption unnecessarily, but a locally shadowed ``len``/``round`` cannot grant
+    one. Assignment aliases, getattr, star imports and other modules are not resolved.
+    """
+    names = {name: name for name in ("sum", "round", "len", "int", "bool", "range", "pow")}
+    bindings: dict[str, list[str | None]] = {}
+    type_parameter_nodes = tuple(
+        getattr(ast, name)
+        for name in ("TypeVar", "ParamSpec", "TypeVarTuple")
+        if hasattr(ast, name)
+    )
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bindings.setdefault(node.id, []).append(None)
+        elif isinstance(node, ast.arg):
+            bindings.setdefault(node.arg, []).append(None)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bindings.setdefault(node.name, []).append(None)
+        elif isinstance(node, (ast.MatchAs, ast.MatchStar, ast.ExceptHandler)):
+            if node.name is not None:
+                bindings.setdefault(node.name, []).append(None)
+        elif isinstance(node, ast.MatchMapping):
+            if node.rest is not None:
+                bindings.setdefault(node.rest, []).append(None)
+        elif isinstance(node, type_parameter_nodes):
+            bindings.setdefault(node.name, []).append(None)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                kind = "builtins" if alias.name == "builtins" else None
+                bindings.setdefault(alias.asname or alias.name.split(".")[0], []).append(kind)
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                kind = (
+                    alias.name
+                    if node.level == 0 and node.module == "builtins" and alias.name in names
+                    else None
+                )
+                bindings.setdefault(alias.asname or alias.name, []).append(kind)
+    for name, kinds in bindings.items():
+        names.pop(name, None)
+        if len(kinds) == 1 and kinds[0] is not None:
+            names[name] = kinds[0]
+    return names
+
+
+def _fixture_builtin(node: ast.AST, aliases: dict[str, str]) -> str | None:
+    if isinstance(node, ast.Name):
+        return aliases.get(node.id)
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and aliases.get(node.value.id) == "builtins"
+    ):
+        return node.attr
+    return None
+
+
+def _fixture_integer_expr(node: ast.AST, aliases: dict[str, str]) -> bool:
+    """Integer literals, builtin integer results and integer-only arithmetic; no name inference."""
+    if isinstance(node, ast.Constant):
+        return type(node.value) in (int, bool)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub, ast.Invert)):
+        return _fixture_integer_expr(node.operand, aliases)
+    if isinstance(node, ast.Call):
+        return _fixture_builtin(node.func, aliases) in {"len", "int", "bool"}
+    if isinstance(node, ast.BinOp):
+        if isinstance(node.op, ast.Pow):
+            # int ** negative-int returns float; a name's sign is not inferred.
+            if not (
+                isinstance(node.right, ast.Constant)
+                and type(node.right.value) is int
+                and node.right.value >= 0
+            ):
+                return False
+        elif not isinstance(
+            node.op,
+            (ast.Add, ast.Sub, ast.Mult, ast.FloorDiv, ast.Mod, ast.BitAnd, ast.BitOr, ast.BitXor),
+        ):
+            return False
+        return _fixture_integer_expr(node.left, aliases) and _fixture_integer_expr(
+            node.right, aliases
+        )
+    return False
+
+
+def _fixture_integer_iterable(node: ast.AST, aliases: dict[str, str]) -> bool:
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return all(_fixture_integer_expr(item, aliases) for item in node.elts)
+    if isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp)):
+        return _fixture_integer_expr(node.elt, aliases)
+    return (
+        isinstance(node, ast.Call)
+        and _fixture_builtin(node.func, aliases) == "range"
+        and not node.keywords
+        and 1 <= len(node.args) <= 3
+        and all(_fixture_integer_expr(arg, aliases) for arg in node.args)
+    )
+
+
+def _fixture_integer_sum(node: ast.Call, aliases: dict[str, str]) -> bool:
+    if not 1 <= len(node.args) <= 2 or not _fixture_integer_iterable(node.args[0], aliases):
+        return False
+    starts = node.args[1:] + [kw.value for kw in node.keywords if kw.arg == "start"]
+    return (
+        len(starts) <= 1
+        and all(kw.arg == "start" for kw in node.keywords)
+        and all(_fixture_integer_expr(start, aliases) for start in starts)
+    )
+
+
+def _fixture_directly_rounded(
+    node: ast.AST, parents: dict[ast.AST, ast.AST], aliases: dict[str, str]
+) -> bool:
+    """Only arithmetic between sum and a builtin round(expr, literal 0..10) is credited.
+
+    This is an explicit syntactic concession for existing rounded generators, not proof that
+    rounding any magnitude removes an ulp difference. No credit through another function,
+    a binding, round(..., 100), a shadowed builtin or a round call in a sibling expression.
+    """
+    while node in parents:
+        parent = parents[node]
+        if isinstance(parent, (ast.BinOp, ast.UnaryOp)):
+            node = parent
+            continue
+        return (
+            isinstance(parent, ast.Call)
+            and _fixture_builtin(parent.func, aliases) == "round"
+            and not parent.keywords
+            and len(parent.args) == 2
+            and parent.args[0] is node
+            and isinstance(parent.args[1], ast.Constant)
+            and type(parent.args[1].value) is int
+            and 0 <= parent.args[1].value <= 10
+        )
+    return False
+
+
+def _fixture_literal_numeric_kind(node: ast.AST) -> str | None:
+    """Recognize int/float literal arithmetic only; names, annotations and calls stay unknown."""
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        return type(node.value).__name__
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        return _fixture_literal_numeric_kind(node.operand)
+    if isinstance(node, ast.BinOp) and isinstance(
+        node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod)
+    ):
+        left = _fixture_literal_numeric_kind(node.left)
+        right = _fixture_literal_numeric_kind(node.right)
+        if left is not None and right is not None:
+            return "float" if "float" in (left, right) or isinstance(node.op, ast.Div) else "int"
+    return None
+
+
+def _fixture_arithmetic_violations(source: str) -> list[str]:
+    """Check every expression, including unused functions, without importing the builder.
+
+    Sum is denied unless its iterable AND start are mechanically integer-producing, or the
+    result is directly rounded (defined above). Unknown collections fail conservatively;
+    annotations never certify them. Powers are flagged only with literal-arithmetic float
+    evidence in either operand, for ** and builtin pow. This deliberately does not infer types
+    through names, attributes, imports of numeric libraries, annotations or function returns.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        return [f"line {exc.lineno}: cannot parse build_fixtures.py: {exc.msg}"]
+    aliases = _fixture_builtin_aliases(tree)
+    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+    problems = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and _fixture_builtin(node.func, aliases) == "sum"
+            and not _fixture_integer_sum(node, aliases)
+            and not _fixture_directly_rounded(node, parents, aliases)
+        ):
+            problems.append(
+                f"line {node.lineno}: sum() requires a left-to-right accumulation loop unless "
+                "the iterable/start use recognized integer syntax (integer/bool literals, "
+                "builtin len/int/bool calls, integer-only arithmetic; literal collections, "
+                "comprehensions or range) or the result is directly rounded by builtin "
+                "round(expr, literal 0..10); unknown types are not certified"
+            )
+        operands = []
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+            operands = [node.left, node.right]
+        elif isinstance(node, ast.Call) and _fixture_builtin(node.func, aliases) == "pow":
+            operands = node.args[:2] + [
+                keyword.value for keyword in node.keywords if keyword.arg in {"base", "exp"}
+            ]
+        if any(_fixture_literal_numeric_kind(operand) == "float" for operand in operands):
+            problems.append(
+                f"line {node.lineno}: float power with literal-arithmetic evidence requires "
+                "repeated multiplication; **/builtin pow may depend on platform libm"
+            )
+    return sorted(problems)
+
+
+@pytest.mark.parametrize(
+    "builder", sorted(RECIPES_DIR.glob("*/build_fixtures.py")), ids=lambda p: p.parent.name
+)
+def test_fixture_arithmetic_uses_deterministic_operations(builder):
+    """All builders, including unpublished recipes and _template; no legacy exemptions."""
+    problems = _fixture_arithmetic_violations(builder.read_text(encoding="utf-8"))
+    assert not problems, (
+        f"{builder.relative_to(REPO)}: fixture arithmetic must be deterministic across CI "
+        "interpreters (docs/fixtures.md#floats-in-a-generator):\n  " + "\n  ".join(problems)
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "result = sum([1.0, .35, .1225, .042875])",
+        "def dist(**given: float):\n    return 1.0 - sum(given.values())",
+        "result = sum(probabilities)",
+        "result = sum([1, 2], 0.0)",
+        "result = sum([1, 2], start=.5)",
+        "result = sum([1 / 2, 3 / 4])",
+        "result = sum([2 ** -1, 3])",
+        "result = sum(x for x in values)",
+        "result = sum(float(x) for x in values)",
+        "result = sum(*args)",
+        "result = round(sum(values), 100)",
+        "result = round(sum(values), places)",
+        "result = round(transform(sum(values)), 2)",
+        "result = round(other, 2) + sum(values)",
+        "def round(value, digits):\n    return value\nresult = round(sum(values), 2)",
+        "def len(value):\n    return .5\nresult = sum(len(x) for x in items)",
+        "def f(int):\n    return sum(int(x) for x in values)",
+        "import builtins as b\nresult = b.sum(values)",
+        "from builtins import sum as total\nresult = total(values)",
+        "def unused():\n    return sum([1.0, 2.0])",
+    ],
+)
+def test_fixture_arithmetic_rejects_float_and_uncertified_sums(source):
+    problems = _fixture_arithmetic_violations(source)
+    assert len(problems) == 1
+    assert "sum() requires a left-to-right accumulation loop" in problems[0]
+    assert "recognized integer syntax" in problems[0]
+    assert "unknown types are not certified" in problems[0]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "result = sum([1, 2, -3])",
+        "result = sum((1, 2), start=3)",
+        "result = sum({1, 2}, -3)",
+        "result = sum(range(3))",
+        "result = sum(len(r['passages']) for r in ROWS)",
+        "result = sum([int(x) + bool(x) for x in values])",
+        "result = sum([2 ** 3, 6 // 2, 3 * 4, 7 % 2])",
+        "result = round(remainder * w / sum(weights), 2)",
+        "result = round(remainder - sum(shares[:-1]), 2)",
+        "result = round(1.0 - peak - sum(shares.values()), 10)",
+        "result = round(remainder - sum(probs[o] for o in rest[:-1]), 10)",
+        "import builtins as b\nresult = b.sum(b.len(x) for x in items)",
+        "from builtins import len as size, sum as total\nresult = total(size(x) for x in items)",
+        "text = 'sum([1.0, .35]) and .35 ** k'\n# sum(probabilities)",
+        "total = 0.0\nfor value in values:\n    total += value",
+        "result = 2 ** 5",
+    ],
+)
+def test_fixture_arithmetic_accepts_integer_sums_rounding_strings_and_loops(source):
+    assert _fixture_arithmetic_violations(source) == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "result = .35 ** k",
+        "result = (-.08) ** k",
+        "result = (1 / 3) ** k",
+        "result = (1.0 - .65) ** k",
+        "result = 2 ** .5",
+        "result = pow(.35, k)",
+        "result = pow(base=.35, exp=k)",
+        "import builtins as b\nresult = b.pow(.35, k)",
+        "from builtins import pow as power\nresult = power(.35, k)",
+        "result = round(.35 ** k, 10)",
+    ],
+)
+def test_fixture_arithmetic_rejects_powers_with_literal_float_evidence(source):
+    problems = _fixture_arithmetic_violations(source)
+    assert len(problems) == 1
+    assert "literal-arithmetic evidence requires repeated multiplication" in problems[0]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def f(decay: float, k: int):\n    return decay ** k",
+        "decay = .35\nresult = decay ** k",
+        "result = math.pow(.35, k)",
+        "result = np.sum(probabilities)",
+        "reducer = sum\nresult = reducer(probabilities)",
+        "def sum(values):\n    return .5\nresult = sum(values)",
+        "import builtins as b\nb = other\nresult = b.sum(values)",
+        "result = len([.5]) ** 2",
+    ],
+)
+def test_fixture_arithmetic_numeric_inference_and_alias_limits_are_explicit(source):
+    # These are reviewer work, not a claim that arbitrary numeric Python is deterministic.
+    assert _fixture_arithmetic_violations(source) == []
+
+
+def test_fixture_arithmetic_parse_errors_name_the_builder_requirement():
+    problems = _fixture_arithmetic_violations("result = sum(\n")
+    assert len(problems) == 1
+    assert "line 1: cannot parse build_fixtures.py" in problems[0]
+
+
+@pytest.mark.parametrize("level", [1, 2])
+@pytest.mark.parametrize("use_alias", [False, True])
+@pytest.mark.parametrize(
+    ("builtin", "expression"),
+    [
+        ("len", "sum({call}(x) for x in values)"),
+        ("int", "sum({call}(x) for x in values)"),
+        ("bool", "sum({call}(x) for x in values)"),
+        ("range", "sum({call}(3))"),
+        ("round", "{call}(sum(values), 2)"),
+    ],
+)
+def test_fixture_arithmetic_relative_builtins_cannot_grant_exemptions(
+    level, use_alias, builtin, expression
+):
+    name = "credited" if use_alias else builtin
+    imported = f"{builtin} as {name}" if use_alias else builtin
+    statement = "result = " + expression.format(call=name)
+    absolute = f"from builtins import {imported}\n{statement}"
+    relative = f"from {'.' * level}builtins import {imported}\n{statement}"
+    assert _fixture_arithmetic_violations(absolute) == []
+    problems = _fixture_arithmetic_violations(relative)
+    assert len(problems) == 1
+    assert "sum() requires a left-to-right accumulation loop" in problems[0]
+
+
+@pytest.mark.parametrize(
+    "binding_source",
+    [
+        "match value:\n    case {name}:\n        pass\n",
+        "match values:\n    case [*{name}]:\n        pass\n",
+        "match mapping:\n    case {{**{name}}}:\n        pass\n",
+        "try:\n    pass\nexcept Exception as {name}:\n    pass\n",
+        # Type parameter syntax and AST nodes exist on Python 3.12+ only.
+        *(
+            [
+                "def f[{name}]():\n    pass\n",
+                "def f[*{name}]():\n    pass\n",
+                "def f[**{name}]():\n    pass\n",
+            ]
+            if hasattr(ast, "TypeVar")
+            else []
+        ),
+    ],
+)
+@pytest.mark.parametrize("spelling", ["bare", "imported", "module"])
+@pytest.mark.parametrize(
+    ("builtin", "expression"),
+    [
+        ("len", "sum({call}(x) for x in values)"),
+        ("int", "sum({call}(x) for x in values)"),
+        ("bool", "sum({call}(x) for x in values)"),
+        ("range", "sum({call}(3))"),
+        ("round", "{call}(sum(values), 2)"),
+    ],
+)
+def test_fixture_arithmetic_string_binders_cannot_grant_exemptions(
+    binding_source, spelling, builtin, expression
+):
+    if spelling == "bare":
+        prefix, name, call = "", builtin, builtin
+    elif spelling == "imported":
+        prefix = f"from builtins import {builtin} as credited\n"
+        name, call = "credited", "credited"
+    else:
+        prefix, name, call = "import builtins as b\n", "b", f"b.{builtin}"
+    statement = "result = " + expression.format(call=call)
+    unshadowed = prefix + binding_source.format(name="unrelated") + statement
+    shadowed = prefix + binding_source.format(name=name) + statement
+    assert _fixture_arithmetic_violations(unshadowed) == []
+    problems = _fixture_arithmetic_violations(shadowed)
+    assert len(problems) == 1
+    assert "sum() requires a left-to-right accumulation loop" in problems[0]

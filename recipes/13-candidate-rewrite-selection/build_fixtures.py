@@ -57,7 +57,11 @@ def dist(**given: float) -> dict[str, float]:
     real mass; every other option shares the remainder evenly. Keeps each row below readable as
     "the one or two options that matter", rather than four hand-typed numbers."""
     missing = [o for o in OPTIONS if o not in given]
-    remainder = 1.0 - sum(given.values())
+    # Keep the addition order fixed across CPython versions.
+    total = 0.0
+    for probability in given.values():
+        total += probability
+    remainder = 1.0 - total
     share = remainder / len(missing)
     result = {o: share for o in missing}
     result.update(given)

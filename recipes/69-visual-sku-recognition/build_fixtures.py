@@ -450,7 +450,9 @@ def answers_for(row, provenance: Provenance):
         )
     weights = dict.fromkeys(helpers.OPTIONS, 1)
     weights[top], weights[second] = top_weight, second_weight
-    total = sum(weights.values())  # integers, so any order gives the same total
+    total = 0  # integers, so any order gives the same total
+    for weight in weights.values():
+        total += weight
     probabilities = {option: weight / total for option, weight in weights.items()}
     return {"sku": ChoiceAnswer.from_probabilities(probabilities, provenance)}
 

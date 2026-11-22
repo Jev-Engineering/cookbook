@@ -62,7 +62,11 @@ def dist(candidates: list[str], **given: float) -> dict[str, float]:
     option(s) that carry real mass; every other option shares the remainder evenly."""
     options = [*candidates, helpers.NO_MATCH]
     missing = [o for o in options if o not in given]
-    remainder = 1.0 - sum(given.values())
+    # Keep the addition order fixed across CPython versions.
+    total = 0.0
+    for probability in given.values():
+        total += probability
+    remainder = 1.0 - total
     share = remainder / len(missing) if missing else 0.0
     result = {o: share for o in missing}
     result.update(given)

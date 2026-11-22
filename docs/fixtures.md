@@ -775,8 +775,31 @@ fixtures, not on whoever wrote the fragile line. Two operations to avoid on floa
 
 Rounding the stored value (`round(x, 10)`) also hides the difference, because one unit in the last
 place does not survive it, but prefer a construction that is deterministic to a rounding that
-truncates the output: rounding hides the problem rather than removing it. Nothing checks this
-today; it is a rule for the builder and the reviewer.
+truncates the output: rounding hides the problem rather than removing it.
+
+`tests/test_recipe_guard.py::test_fixture_arithmetic_uses_deterministic_operations` checks the
+AST of every `recipes/*/build_fixtures.py`, including unpublished recipes and the template:
+
+- A builtin `sum()` call needs mechanically integer-producing elements and an integer start:
+  integer/bool literals, `len`/`int`/`bool` calls, integer-only arithmetic, those expressions in
+  a literal collection or comprehension, or `range` with literal integer expressions. Bare
+  names, annotations and unknown collections do not establish integer values; use a loop.
+- A `sum()` in the numeric expression directly passed to builtin `round(expr, digits)` is
+  permitted when `digits` is a literal integer from 0 through 10, preserving existing rounded
+  generators. This is a syntactic exception, not proof that rounding removes every possible
+  difference at every magnitude. A binding or another function between the sum and the round
+  receives no exception.
+- `**` and builtin `pow()` are rejected when either operand has float evidence from literal
+  arithmetic, even inside `round()`. This includes `0.35 ** k` and `(1 / 3) ** k`. Powers through
+  names (`decay ** k`), annotations, attributes and function results are outside this detector.
+
+Builtin spellings and direct `builtins` imports (including import aliases) are recognized.
+A binding anywhere in the file disables recognition of that spelling conservatively; dynamic
+aliases, star imports and numerical-library calls are outside resolution. Comments and string
+literals are ignored. The guard enforces this bounded syntax policy; the builder and reviewer
+still check the broader arithmetic rule and byte stability on both CI interpreters. Recipes
+08, 11, 13, 18 and 22 use an explicit left-to-right loop for their remaining probability mass;
+response fixtures and their existing evidence are preserved.
 
 A generator that writes `responses.json` should not be able to silently replace a `recorded`
 answer with a synthetic one: once a response's provenance is `recorded`, regenerating fixtures
