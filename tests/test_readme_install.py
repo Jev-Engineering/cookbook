@@ -525,3 +525,27 @@ def test_an_unformatted_install_with_options_before_the_target_is_recognised(opt
     text = f'To reproduce the committed outputs, run pip install {options} -e ".[dev,ml]".\n'
     assert len(readme_install.combined_reproduction_installs(text)) == 1
     assert readme_install.combined_reproduction_installs(text.replace(".[dev,ml]", ".[ml]")) == []
+
+
+# Launcher forms pinned after the #641 reviews (seat A): no constraints file on the line, so only
+# the parsed command and the reproduction introduction decide. Each must be refused in a
+# reproduction section and allowed in a tests section.
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "py -m pip install .[dev,ml]",
+        "py -3.14 -m pip install .[dev,ml]",
+        'py -3 -m pip install -e ".[dev,ml]"',
+        'sudo -H pip install -e ".[dev,ml]"',
+        'sudo -E -H python -m pip install -e ".[dev,ml]"',
+    ],
+)
+@pytest.mark.parametrize("formatted", ["fence", "inline"])
+def test_launcher_and_sudo_forms_are_refused_in_a_reproduction_section(command, formatted):
+    block = f"```sh\n{command}\n```\n" if formatted == "fence" else f"`{command}`\n"
+    reproduce = f"To reproduce the committed outputs:\n\n{block}"
+    assert len(readme_install.combined_reproduction_installs(reproduce)) == 1
+    assert readme_install.combined_reproduction_installs(f"To run the tests:\n\n{block}") == []
+    assert readme_install.combined_reproduction_installs(reproduce.replace("dev,ml", "ml")) == []

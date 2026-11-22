@@ -8,11 +8,24 @@ instruction to run tests overrides a reproduction heading for its following bloc
 Intent is deliberately bounded: explicit reproduce wording, regenerate followed by
 committed notebook outputs, purpose phrases about byte/bit equality of outputs, and the
 notebook constraints path. Bare equality assertions about tests, fixture regeneration and
-catalog output regeneration do not establish notebook-reproduction intent. Arbitrary shell
-aliases, variables, dynamic extras and indirect natural-language references remain review
-obligations. Only direct ``pip install [-e|--editable] .[extras]`` commands are recognized.
-No semantic intent is inferred from comments in a code block or raw HTML. Shell wrappers,
-aliases and later commands on a compound shell line remain review obligations.
+catalog output regeneration do not establish notebook-reproduction intent. Comments in a
+code block and raw HTML supply no intent.
+
+Recognized install forms (``_direct_combined_install``): ``pip``/``pip3`` install with any pip
+options before the target (an option's argument, such as ``-c FILE``, is skipped), ``-e`` or
+``--editable``, extras in any order or spacing; a leading ``$``, ``%``, ``>`` or ``PS>`` prompt;
+``sudo`` (with option flags such as ``-H``), ``env``, ``uv`` and ``VAR=value`` prefixes;
+``py -m``, ``py -3.14 -m`` and ``python[3.x] -m`` launchers; backslash continuations. A line that
+holds a dev+ml target and ``constraints-notebooks`` is refused whatever its syntax (main's rule).
+
+Decided limits, not detected and left to review: shell aliases and variables; dynamic extras
+(``.[$EXTRAS]``); an ``echo``/``printf`` argument that does not also name the constraints file;
+raw HTML blocks such as ``<pre>``; two separate targets (``".[dev]" ".[ml]"``); ``sudo`` options
+that take an argument (``sudo -u USER``); ``python -m uv pip``; earlier or later commands on a
+compound line (``cd dir && pip install ...``) unless the line names the constraints file; and
+content beyond CommonMark's nesting bound. The one deliberate reader difference is a trust
+boundary: the privileged scope CLI keeps its stdlib physical-line fence reader
+(``without_code_fences``) and never calls the CommonMark reader used here.
 
 The compatibility helpers below are shared with recipe guard and scaffolder tests.
 """
@@ -42,7 +55,7 @@ _scope_spec.loader.exec_module(_scope)
 # Collapse line wrapping before command matching. Requiring an actual install command
 # avoids treating a quoted back-reference to an extra as an instruction to install it.
 _PROMPT = r"(?:(?:\$|%|>|PS>|PS\s[^>\n]*>)\s+)?"
-_WRAP = r"(?:[A-Za-z_]\w*=\S*\s+|sudo\s+|env\s+|uv\s+)*"
+_WRAP = r"(?:[A-Za-z_]\w*=\S*\s+|sudo(?:\s+-[A-Za-z-]+)*\s+|env\s+|uv\s+)*"
 _PY = r"(?:(?:py|python[\d.]*)(?:\s+-[\d.]+)?\s+-m\s+)?"
 _INSTALL = re.compile(
     r"\bpip[\d.]*\s+install\s+"
