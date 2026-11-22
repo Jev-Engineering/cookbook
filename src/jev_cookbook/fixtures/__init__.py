@@ -153,6 +153,7 @@ class Example:
     replay_keys: tuple[str, ...]
     state: Any = None
     fields: Mapping[str, Any] | None = None
+    replay_lanes: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 def fixtures_dir(recipe_dir: PathLike | None = None) -> Path:
@@ -333,6 +334,19 @@ def _read_inputs(path: Path) -> tuple[list[Example], list[Problem], bool]:
         if repeat:
             problems.append(repeat)
             continue
+        lanes = row.get("replay_lanes", [])
+        names = [lane["responses"] for lane in lanes]
+        lane_keys = {key for lane in lanes for key in lane["keys"]}
+        if lanes and (len(names) != len(set(names)) or lane_keys != set(row["replay_keys"])):
+            problems.append(
+                Problem(
+                    name,
+                    "replay_lanes needs unique response names and exactly the replay_keys union",
+                    number,
+                    row["id"],
+                )
+            )
+            continue
         examples.append(
             Example(
                 id=row["id"],
@@ -340,6 +354,7 @@ def _read_inputs(path: Path) -> tuple[list[Example], list[Problem], bool]:
                 replay_keys=tuple(row["replay_keys"]),
                 state=row.get("state"),
                 fields=row.get("fields"),
+                replay_lanes=tuple((lane["responses"], tuple(lane["keys"])) for lane in lanes),
             )
         )
     return examples, problems, readable
@@ -649,7 +664,8 @@ def _check_responses(
     problems: list[Problem] = []
     referenced: set[str] = set()
     for e in examples:
-        for key in e.replay_keys:
+        keys = dict(e.replay_lanes).get(Path(name).name, ()) if e.replay_lanes else e.replay_keys
+        for key in keys:
             referenced.add(key)
             if key not in responses:
                 msg = f"no response for replay key {key} of this example"
@@ -869,6 +885,36 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     if replays and None not in responses_files:
         # Listed keys need the default file; with no key listed it is simply not needed.
         problems.append(Problem(_display(folder / RESPONSES_FILE), "file is missing"))
+    if any(e.replay_lanes for e in examples):
+        expected = {path.name for path in responses_files.values()}
+        for e in examples:
+            if {name for name, _ in e.replay_lanes} != expected:
+                problems.append(
+                    Problem(
+                        _display(inputs_path),
+                        "replay_lanes must name every response file exactly once on every example",
+                        ident=e.id,
+                    )
+                )
+        # Apply the existing complete-request-set split protection to each declared
+        # lane as well as the shared union; differing unions must not hide a repeated arm.
+        owners: dict[tuple[str, tuple[str, ...]], Example] = {}
+        for e in examples:
+            if e.split not in LABELED_SPLITS:
+                continue
+            for name, keys in e.replay_lanes:
+                if not keys:
+                    continue
+                first = owners.setdefault((name, tuple(sorted(keys))), e)
+                if first.split != e.split:
+                    problems.append(
+                        Problem(
+                            _display(inputs_path),
+                            f"{name} repeats the complete request set of {first.id!r} "
+                            "in a different split",
+                            ident=e.id,
+                        )
+                    )
     scanned = [inputs_path, labels_path, *responses_files.values()]
     for path in responses_files.values():
         raw, parsed, more, usable = _read_responses(path)

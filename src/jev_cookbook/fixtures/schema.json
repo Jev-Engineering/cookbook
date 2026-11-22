@@ -29,6 +29,27 @@
           "description": "The values the recipe's Python builds the state from. Use this instead of state when the recipe assembles the state.",
           "type": "object"
         },
+        "replay_lanes": {
+          "description": "Optional complete per-response-file inventories for a branching comparison. Every example must declare every response file; the union of its lane keys equals replay_keys.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["responses", "keys"],
+            "additionalProperties": false,
+            "properties": {
+              "responses": {
+                "type": "string",
+                "pattern": "^responses(?:-[A-Za-z0-9][A-Za-z0-9_.-]{0,63})?[.]json$"
+              },
+              "keys": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              }
+            }
+          }
+        },
         "replay_keys": {
           "description": "replay_key(state, questions, assets=assets) of every request made for this example (omit assets for text-only requests), as 64 lowercase hex characters. Image paths belong in fields; image bytes are not stored here. Empty when the notebook answers this example without replaying anything (a scripted or simulated recipe). More than one when a later request depends on an earlier answer.",
           "type": "array",
