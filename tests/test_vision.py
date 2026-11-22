@@ -1169,7 +1169,13 @@ def test_comparison_table_prints_not_measured_wherever_a_value_is_none():
 def test_comparison_table_reads_not_measured_for_a_none_in_each_measured_column(column):
     table = vision.comparison_table([{"mode": "recorded", column: None}])
     assert table.splitlines()[-1].split("  ")[-1].strip() == "not measured"
-    assert vision.comparison_table([{"mode": "recorded", column: 5}]).splitlines()[-1].endswith("5")
+    if column == "model":
+        with pytest.raises(ValueError, match="model"):
+            vision.comparison_table([{"mode": "recorded", column: 5}])
+    else:
+        row = {"mode": "recorded", "model": "jev-test-model", "capture_date": "2026-10-31", "n": 1}
+        cells = re.split(r"  +", vision.comparison_table([{**row, column: 5}]).splitlines()[-1])
+        assert cells[2] == "5"
 
 
 def test_comparison_table_shows_a_missing_key_as_a_dash_and_accepts_any_iterable():
@@ -2659,14 +2665,18 @@ def test_prepare_image_reports_damaged_exif_as_a_value_error():
 
 def _arm(label, model, mode="recorded"):
     if mode in ("synthetic", "scripted"):
-        return {**vision.run_record(SimpleNamespace(source="synthetic"), mode=mode), "label": label}
+        return {
+            **vision.run_record(SimpleNamespace(source="synthetic"), mode=mode, n=1),
+            "label": label,
+        }
     result = SimpleNamespace(
         source="recorded",
         model=model,
         usage=RECORDED.usage,
         answers=_accounting_answers(model=model),
     )
-    return {**vision.run_record(result, mode=mode), "label": label}
+    dated = {"capture_date": "2026-10-31"} if mode == "recorded" else {}
+    return {**vision.run_record(result, mode=mode, n=1, **dated), "label": label}
 
 
 PINNED = {"old": "jev-1.13.0", "new": "jev-1.14.0"}

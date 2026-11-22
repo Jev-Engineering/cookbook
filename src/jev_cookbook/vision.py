@@ -20,7 +20,7 @@ from fractions import Fraction
 from numbers import Integral, Real
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
@@ -35,6 +35,9 @@ from .answers import DecisionResult
 from .backends import _check_request, _string_values
 from .evaluation import sum_usage
 from .style import INK, PAPER, PINK
+
+if TYPE_CHECKING:
+    from .live import LedgerLatency
 
 __all__ = [
     "DEFAULT_MAX_TILES",
@@ -1364,6 +1367,14 @@ def load_frames(
 
 # The four modes of a run_record row.
 _MODES = ("synthetic", "scripted", "recorded", "live")
+_MEASUREMENT_FIELDS = ("model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd")
+
+
+class _Unset:
+    """Distinguish omitted split measurements from explicitly supplied None."""
+
+
+_UNSET = _Unset()
 
 
 def _recorded_dates(result: Any) -> set[str]:
@@ -1387,9 +1398,10 @@ def run_record(
     result: Any,
     *,
     mode: str,
-    measured_latency_seconds: float | None = None,
+    measured: LedgerLatency | None = None,
+    measured_latency_seconds: float | None | _Unset = _UNSET,
     measured_cost_usd: float | None = None,
-    capture_date: str | None = None,
+    capture_date: str | None | _Unset = _UNSET,
     n: int | None = None,
 ) -> dict[str, Any]:
     """Make one accounting row without estimating tokens, latency or cost.
@@ -1402,15 +1414,43 @@ def run_record(
     Recorded latency must come from capture, never the elapsed time of replay: read it from
     the recorder's ledger with ``jev_cookbook.live.load_ledger_latency``.
 
+    Pass that ``LedgerLatency`` as ``measured`` to bind its latency, date and returned model.
+    Its date and model must match the result, even when its latency is None. A non-None
+    carrier cannot be combined with either ``measured_latency_seconds`` or ``capture_date``,
+    even explicitly None. ``measured=None`` is equivalent to omission; the effective omitted
+    defaults of both split keywords are None. ``measured_cost_usd`` remains independent.
+    Synthetic/scripted rows refuse any non-None carrier. No call infers ``n``.
+
     ``capture_date`` (a ``YYYY-MM-DD`` calendar date) and ``n`` (a positive integer: how many
     examples the row's numbers cover) become keys of the row only when they are given, so a row
     built without them has exactly the keys it had before they existed. A synthetic or scripted
     row refuses ``capture_date``, because no capture happened, and accepts ``n``. A recorded or
     live row refuses a ``capture_date`` that differs from the date on the result's recorded
-    answers.
+    answers. A non-None ``measured`` carrier also supplies the capture_date key.
     """
     if mode not in _MODES:
         raise ValueError("mode must be synthetic, scripted, recorded or live")
+    if measured is not None:
+        if measured_latency_seconds is not _UNSET or capture_date is not _UNSET:
+            raise ValueError("measured conflicts with measured_latency_seconds or capture_date")
+        from .live import LedgerLatency
+
+        if not isinstance(measured, LedgerLatency):
+            raise TypeError("measured must be a LedgerLatency or None")
+        if mode in ("synthetic", "scripted"):
+            raise ValueError("synthetic/scripted runs cannot report a measured carrier")
+        if (
+            not isinstance(measured.model, str)
+            or not measured.model.strip()
+            or measured.model == "synthetic"
+        ):
+            raise ValueError("measured.model must be a non-empty returned model")
+        capture_date = _capture_date(measured.date)
+        measured_latency_seconds = measured.latency_seconds
+    if measured_latency_seconds is _UNSET:
+        measured_latency_seconds = None
+    if capture_date is _UNSET:
+        capture_date = None
     extra: dict[str, Any] = {}
     if capture_date is not None:
         if mode in ("synthetic", "scripted"):
@@ -1418,9 +1458,7 @@ def run_record(
         extra["capture_date"] = _capture_date(capture_date)
     if n is not None:
         extra["n"] = _positive_int(n, "n")
-    row: dict[str, Any] = dict.fromkeys(
-        ("model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd")
-    )
+    row: dict[str, Any] = dict.fromkeys(_MEASUREMENT_FIELDS)
     row["mode"] = mode
     if mode in ("synthetic", "scripted"):
         if getattr(result, "source", None) != "synthetic":
@@ -1437,6 +1475,8 @@ def run_record(
         or model == "synthetic"
     ):
         raise ValueError("recorded/live mode requires a recorded result with its returned model")
+    if measured is not None and measured.model != model:
+        raise ValueError("measured.model contradicts the result's returned model")
     dates = _recorded_dates(result)
     if "capture_date" in extra:
         if dates != {extra["capture_date"]}:
@@ -1514,10 +1554,44 @@ _TABLE_COLUMNS = (
     "capture_date",
     "n",
 )
-_MEASUREMENT_FIELDS = ("model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd")
 _NOT_MEASURED = "not measured"
 # Columns that hold no measurement: "not measured" would be the wrong word for a missing value.
 _COMPUTED_COLUMNS = ("label", "characters", "utf8_bytes", "n")
+
+
+def _check_comparison_row(row: Mapping[str, Any]) -> None:
+    """Validate reporting data without coercing values used for rendering."""
+    if "label" in row and not isinstance(row["label"], str):
+        raise ValueError("label must be a string")
+    model = row.get("model")
+    if model is not None and (
+        not isinstance(model, str) or not model.strip() or model == "synthetic"
+    ):
+        raise ValueError("model must be a non-empty returned model")
+    if row.get("capture_date") is not None:
+        _capture_date(row["capture_date"])
+    for field in ("characters", "utf8_bytes", "input_tokens", "output_tokens"):
+        value = row.get(field)
+        if value is not None and (
+            isinstance(value, bool) or not isinstance(value, Integral) or value < 0
+        ):
+            raise ValueError(f"{field} must be a non-negative integer")
+    if "n" in row:
+        _positive_int(row["n"], "n")
+    for field in ("latency_seconds", "cost_usd"):
+        value = row.get(field)
+        if value is not None:
+            _number(value, field)
+            # Rendering preserves the original Real, whose sign can be lost by float underflow.
+            if value < 0:
+                raise ValueError(f"{field} must be non-negative")
+    if any(row.get(field) is not None for field in _MEASUREMENT_FIELDS if field != "model"):
+        if model is None:
+            raise ValueError("numeric measurements require a returned model")
+        if "n" not in row:
+            raise ValueError("numeric measurements require a positive n")
+        if row["mode"] == "recorded" and row.get("capture_date") is None:
+            raise ValueError("recorded numeric measurements require a capture_date")
 
 
 def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
@@ -1537,6 +1611,13 @@ def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
     ``synthetic`` or ``scripted`` but whose model, tokens, latency, cost or capture date is not
     ``None`` (such a row did not come from :func:`run_record`), and for a ``None`` in a column
     computed locally (label, mode, characters, utf8_bytes, n), where "not measured" would be wrong.
+    Labels must be strings; non-null models must be nonblank returned model strings, and
+    non-null dates must be canonical calendar dates. Counts must be non-negative integers
+    (n positive); latency and cost must be finite non-negative numbers. Booleans are refused.
+    Any numeric measurement, including zero tokens, latency or cost, requires model and n;
+    recorded rows additionally require capture_date. Live rows may omit capture_date.
+    Model-only, computed-only and all-null measurement rows need no additional disclosure.
+    Validation leaves the caller's rows and their original numeric rendering unchanged.
     """
     table = [dict(row) for row in rows]
     if not table:
@@ -1562,6 +1643,7 @@ def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
             raise ValueError(
                 f"{computed} are computed locally, never measured, so they cannot be None"
             )
+        _check_comparison_row(row)
     columns = [column for column in _TABLE_COLUMNS if any(column in row for row in table)]
 
     def cell(row: Mapping[str, Any], column: str) -> str:

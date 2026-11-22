@@ -825,9 +825,10 @@ price. For a replay of recorded responses, read the latency the recorder capture
 covers) and leave a measurement that was not captured null.
 
 `capture_date` is a `YYYY-MM-DD` calendar date string and `n` a positive integer: the number of
-examples the row's numbers cover. Each is a key of the row only when you pass it, so a row built
-without them has the keys it had before. A synthetic or scripted row takes `n` and refuses
-`capture_date`, because nothing was captured. `2026-02-30`, `20261031` and a `datetime.date`
+examples the row's numbers cover. Without a `measured` carrier, each is a key only when you pass
+it; omitting both keeps exactly the six basic accounting keys. N is never inferred from one
+result, because one result need not represent one example. A synthetic or scripted row takes `n`
+and refuses `capture_date`, because nothing was captured. `2026-02-30`, `20261031` and a `datetime.date`
 object are refused as a capture date, and so is a date other than the one on the result's
 recorded answers.
 
@@ -844,11 +845,21 @@ if measured is None:  # the key has only failed attempts: no response was record
 row = run_record(
     result,
     mode="recorded",
-    measured_latency_seconds=measured.latency_seconds,  # None when no latency was captured
-    capture_date=measured.date,
+    measured=measured,  # binds latency (possibly None), capture date and returned model
     n=1,
 )
 ```
+
+`measured` accepts a `LedgerLatency` or `None`. A carrier's date and model must match the
+result even when its latency is null; malformed fields are refused at this boundary. It adds
+`capture_date` automatically. `measured=None` is equivalent to omission and adds no date.
+Synthetic/scripted rows refuse any non-null carrier. With a non-null carrier, supplying either
+`measured_latency_seconds` or `capture_date` raises, including explicitly passing `None`.
+The split-keyword form shown above remains supported, and `measured_cost_usd` is independent.
+
+Keep one ledger per comparison arm. This carrier binds model, capture date and latency, not a
+replay key or recording identity: two recordings by the same model on the same day cannot be
+distinguished by those fields. Retain the matching response/ledger pair for each arm.
 
 For a ledger line that holds 0.8 seconds captured on 2026-10-31 and a result that reported 61
 input tokens, `row` is:
@@ -890,6 +901,20 @@ raises `ValueError` for no rows, for a key outside that list, for a row whose `m
 `synthetic`, `scripted`, `recorded` and `live`, for a synthetic or scripted row that holds a model,
 tokens, latency, cost or capture date, and for a `None` label, mode, character or byte count or N,
 which are computed locally and so are never "not measured".
+
+Labels must be strings (an empty label is allowed). Non-null models must be nonblank returned
+model strings other than `synthetic`; non-null capture dates must be real `YYYY-MM-DD` dates.
+Character, byte and token counts must be non-negative integers and N a positive integer.
+Latency and cost must be finite non-negative numbers. Booleans, negative numbers, non-finite
+numbers and numeric strings are refused. Valid numbers retain their original unrounded text;
+validation does not modify your rows or convert large integer counts to floats.
+
+Any non-null token, latency or cost measurement, including zero, requires a returned model and
+positive N. Recorded measurements also require a capture date; live rows may omit the date,
+but any supplied date is checked. Model-only rows, computed counts alone, all-null measurements
+and absent measurement fields remain valid without additional metadata. A six-key `run_record`
+row with reported tokens therefore needs explicit N and, for recorded mode, capture date before
+`comparison_table` accepts it. `run_record` itself keeps the six-key compatibility contract.
 
 ```python
 from jev_cookbook.vision import comparison_table, context_size
@@ -951,19 +976,20 @@ from jev_cookbook.vision import comparison_table, model_comparison, run_record
 
 # `old_result` and `new_result` are recorded results replayed from one responses file per arm.
 rows = [
-    {"label": "1.13", **run_record(old_result, mode="recorded", n=1)},
-    {"label": "1.14", **run_record(new_result, mode="recorded", n=1)},
+    {"label": "1.13", **run_record(old_result, mode="recorded", n=1, capture_date="2026-10-31")},
+    {"label": "1.14", **run_record(new_result, mode="recorded", n=1, capture_date="2026-10-31")},
 ]
 print(comparison_table(model_comparison(rows, {"1.13": "jev-1.13.0", "1.14": "jev-1.14.0"})))
 ```
 
-With two invented results that each report 61 input tokens and 0 output tokens, it prints:
+With two invented results recorded on 2026-10-31 that each report 61 input tokens and 0 output
+tokens, it prints:
 
 ```text
-label  mode      model       input_tokens  output_tokens  latency_seconds  cost_usd      n
------  --------  ----------  ------------  -------------  ---------------  ------------  -
-1.13   recorded  jev-1.13.0  61            0              not measured     not measured  1
-1.14   recorded  jev-1.14.0  61            0              not measured     not measured  1
+label  mode      model       input_tokens  output_tokens  latency_seconds  cost_usd      capture_date  n
+-----  --------  ----------  ------------  -------------  ---------------  ------------  ------------  -
+1.13   recorded  jev-1.13.0  61            0              not measured     not measured  2026-10-31    1
+1.14   recorded  jev-1.14.0  61            0              not measured     not measured  2026-10-31    1
 ```
 
 Requesting `jev-latest` for the second arm instead raises `ValueError: arm '1.14' requested
