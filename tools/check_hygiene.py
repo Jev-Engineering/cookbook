@@ -36,7 +36,12 @@ The name check reads the left side with every digit and ``_`` removed, then look
 token, password (or passwd), credential, or ``api`` or ``access`` followed anywhere later by
 ``key``. So a name that breaks a secret word apart with a digit run, extra underscores or another
 word (``api1_key``, ``api_1_key``, ``api__key``, ``api_v2_key``, ``stripe_api_live_key``,
-``access_aws_key``, ``pass_word``) is still a secret name and its value is scored. Bare ``key``,
+``access_aws_key``, ``pass_word``) is still a secret name and its value is scored.
+Matching deliberately has no word boundaries: ordinary names such as ``capital_keys``,
+``rapid_monkey``, ``accessor_keys``, ``bypass_word_filter`` and ``photo_kennel`` also qualify.
+These false positives produce findings on secret-shaped values; they preserve detection of
+the broken-apart secret names above. The ``key`` must follow ``api`` or ``access``, so
+``key_api`` does not qualify. Bare ``key``,
 ``key_id``, ``signature``, ``session``, ``nonce`` and ``salt`` are deliberately not secret names:
 in this repository they name sort keys, dictionary keys and objects (``key=lambda``,
 ``key=value``), and a value assigned to them unquoted is exempt only when it has the one-case
@@ -207,7 +212,7 @@ _IDENT_ASSIGNMENT = re.compile(rf"_*{_NAME_RUN}(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{
 # secret, and ``api`` or ``access`` with any letters between it and a later ``key``
 # (``api_v2_key``, ``stripe_api_live_key``, ``access_aws_key``) does too.
 _NAME_GLUE = re.compile(r"[0-9_]+")
-_SECRET_WORD = re.compile(r"secret|token|passw(?:or)?d|credential", re.IGNORECASE)
+_SECRET_WORD = re.compile(r"secret|token|passw(?:or)?d|credential")
 _KEY_PREFIXES = ("api", "access")
 _LETTER_RUN = re.compile(r"[a-z]+")
 
@@ -246,9 +251,10 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         if _letters_and_digits(v) and not _is_placeholder(v):
             yield "secret-assignment", _mask(v)
     for word in _WORD.findall(line):
-        name = _NAME_GLUE.sub("", word.partition("=")[0])
-        if _IDENT_ASSIGNMENT.fullmatch(word) and not _is_secret_name(name):
-            continue
+        if _IDENT_ASSIGNMENT.fullmatch(word):
+            name = _NAME_GLUE.sub("", word.partition("=")[0])
+            if not _is_secret_name(name):
+                continue
         for part in _RECIPE_PATH.sub(" ", word).split():
             pattern = _TOKEN if _PATH_SHAPED.search(part) else _TOKEN_SLASH
             for t in pattern.findall(part):
