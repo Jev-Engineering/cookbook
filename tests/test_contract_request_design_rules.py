@@ -54,18 +54,43 @@ def test_each_new_bullet_cites_s02_or_s07():
     assert "https://docs.typesafe.ai/primitives/noul" in noul
 
 
+def _norm(text: str) -> str:
+    return " ".join(text.split()).lower()
+
+
 def test_old_undefined_dependency_sentence_is_gone():
-    old = "A question that depends on an earlier answer goes in a later request."
+    old = _norm("a question that depends on an earlier answer goes in a later request")
     for rel in ("CONTRIBUTING.md", "docs/glossary.md"):
-        assert old not in _read(rel), rel
+        assert old not in _norm(_read(rel)), rel
 
 
-def test_template_and_glossary_carry_the_rules():
-    for rel in ("docs/recipe-template.md", "docs/glossary.md"):
-        text = " ".join(_read(rel).split())
-        assert "high value means the condition" in text, rel
-        assert "S07" in text and "S02" in text, rel
-    assert "full-context arm" in " ".join(_read("docs/recipe-template.md").split())
+# Per-file clauses (normalised): counting, numeric, Score, date, Noul direction, state size.
+CLAUSES = {
+    "docs/recipe-template.md": [
+        "counting,",
+        "numeric closeness",
+        "exact magnitudes between `score` levels",
+        "date or time comparison",
+        "high value means the condition",
+        "full-context arm",
+    ],
+    "docs/glossary.md": [
+        "counts,",
+        "numeric comparisons",
+        "exact magnitudes read from a `score`",
+        "date comparisons",
+        "high value means the condition",
+        "carries only what the question needs",
+    ],
+}
+
+
+def test_template_and_glossary_carry_each_rule():
+    for rel, clauses in CLAUSES.items():
+        text = _norm(_read(rel))
+        for clause in clauses:
+            assert clause in text, (rel, clause)
+        assert "s07" in text and "s02" in text, rel
 
 
 def test_no_typesafe_figure_in_the_new_rules():
