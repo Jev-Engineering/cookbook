@@ -140,16 +140,16 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 
 ## Issue labels
 
-Every open issue carries these labels; the label descriptions on GitHub give each one's meaning, and the wording below follows them.
+Every open issue must carry these labels; the label descriptions on GitHub give each one's meaning, and the wording below follows them.
 
 - **`type:`** — exactly one: `type: recipe` (a cookbook notebook recipe), `type: foundation` (shared code, tooling, CI, or docs that recipes depend on) or `type: epic` (a tracking issue that groups other issues).
 - **`priority:`** — exactly one: `priority: p0` (blocks everything else; do first), `priority: p1` (next up once unblocked), `priority: p2` (scheduled after p1 work) or `priority: p3` (last wave).
 - **`size:`** — exactly one on every issue that is not an epic: `size: S` (about half a day for one agent or person), `size: M` (about a day), `size: L` (two to three days; consider splitting the work) or `size: XL` (several days; plan checkpoints).
 - **`status:`** — exactly one on every issue that is not an epic: `status: ready` (no open blockers; can be picked up), `status: blocked` (waiting on the issues listed under Dependencies), `status: in progress` (claimed; a branch or pull request exists) or `status: needs human` (an agent stopped here; a person has to decide).
-- **Recipe issues** also carry a `level:` label (`level: 1 beginner` to `level: 5 expert`), one `decision:` label for each decision type the recipe uses (`decision: choice`, `decision: noul`, `decision: score`, `decision: box`), plus `decision: combination` when it uses two or more, and the `cat:` label of its category. All of these equal the recipe's entry in `catalog/recipes.json`.
+- **Recipe issues** must also carry a `level:` label (`level: 1 beginner` to `level: 5 expert`), one `decision:` label for each decision type the recipe uses (`decision: choice`, `decision: noul`, `decision: score`, `decision: box`), plus `decision: combination` when it uses two or more, and the `cat:` label of its category. All of these equal the recipe's entry in `catalog/recipes.json`.
 - **`needs: live run`** (real conclusions need recorded live inference; an offline run is a harness check only) and **`needs: simulator`** (depends on the simulation and state primitives) apply where they fit.
 
-A hold, a campaign or any other temporary marker is recorded in an issue or pull-request comment, never as a new label. Create, rename or delete a label only when the repository owner decides to, and use the spellings above.
+A hold, a campaign or any other temporary marker is recorded in an issue or pull-request comment, never as a new label. Use the spellings above. Deleting the stray `status:blocked` label is an owner decision.
 
 ## Sources
 
