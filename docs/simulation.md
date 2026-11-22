@@ -73,6 +73,29 @@ actions.to_dicts()  # every entry has "executed": False
 An `answer` is a typed answer object or its `to_dict()`, kept next to the reason so the notebook
 can show what triggered the review. `ActionLog` never executes anything.
 
+### A backlog for "noted, no action" items
+
+Reusing a second `ReviewQueue` as a notes backlog is intended; there is no separate backlog
+container. Keep it separate from work that requires a person to answer: for example, name the
+queues `notes` and `reviews`, and give each entry a reason that explains its role. A note might
+say "no matching asset; noted, no action", while a review might say "confidence below the
+threshold". The queue only stores records: submitting an item neither performs an action nor
+contacts a reviewer, and its `pending` status does not decide whether the recipe answered the
+question.
+
+Use the notes backlog for optional follow-up on a complete answer such as `no_match`, not for a
+deferral such as `unknown` or `needs_review` that still asks a person to answer the question.
+Those deferrals belong in `reviews` and count toward review. A complete-answer fallback may be
+delivered at any confidence only when it passes all three parts of
+[CONTRIBUTING.md section 4](../CONTRIBUTING.md#4-python-owns-every-side-effect); recording it as a
+note alone does not establish that exemption. See [evaluation.md](evaluation.md#selective-prediction)
+for how delivered answers count toward coverage even when also noted in a backlog.
+
+Print the backlog entries with the information they carry, label them explicitly "noted, no
+action", and say plainly that nothing was changed. Do not record a note as an action in the
+`ActionLog`. Writes to the notes queue still follow the named-helper, test and side-effect
+declaration conventions below, just like writes to the review queue.
+
 ## Writing to the queue, the log and the store from a recipe
 
 A recipe that uses a `ReviewQueue`, an `ActionLog`, a `Store`, a `Transactor` or a `Simulator`
