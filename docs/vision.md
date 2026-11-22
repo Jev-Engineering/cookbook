@@ -242,13 +242,13 @@ such a label up front, so fix the fixture.
 
 ## Presence, confidence and evaluation
 
-A Box returns one rectangle even when its target is absent. Determine presence
-with a **Companion Noul** before treating a rectangle as a detection: a
-[Noul](https://docs.typesafe.ai/primitives/noul) in the same request that asks whether the
-target is in the image, with the box ignored when its answer is low. S10 (the
+A Box returns one rectangle even when its target is absent. Determine presence with a
+**Companion Noul** before treating a rectangle as a detection: a
+[Noul](https://docs.typesafe.ai/primitives/noul) in the same request that asks whether the target
+is in the image, with the box ignored when its answer is low. S10 (the
 [Box documentation](https://docs.typesafe.ai/primitives/box)) gives this pairing; the name comes
-from the [Companion Noul pattern](https://docs.typesafe.ai/patterns/companion-noul) page, which
-has no source ID in the catalog yet. The name applies to a catalog entry that lists `Noul` in its
+from the [Companion Noul pattern](https://docs.typesafe.ai/patterns/companion-noul) page, which has
+no source ID in the catalog yet. The name applies to a catalog entry that lists `Noul` in its
 decision types. Ranks 80 and 83 list `Box` and `Choice` only, so they check presence through their
 `Choice` outcomes (absent and ambiguous for 80, no-match and uncertain for 83) and have no
 Companion Noul.
@@ -306,11 +306,17 @@ trigger of its own. The S10 page gives no recommended threshold and says to tune
 images.
 
 A padding trigger compares a confidence with a bound the recipe chooses, so under
-[CONTRIBUTING.md](../CONTRIBUTING.md) it is a confidence gate: freeze the bound with
-`select_confidence_threshold` on `validation`, import it by name, and never type it in as a constant.
-That function selects a threshold for the coverage and accuracy of the answered subset, not for
-whether a crop cuts off part of the target, so a recipe that pads should say what the frozen value
-does and does not measure. This section does not rule on any other way of freezing a padding threshold.
+[CONTRIBUTING.md](../CONTRIBUTING.md) it is a confidence gate, as the orchestrator ruling recorded
+on #659 states. Freeze the bound on `validation` with `select_confidence_threshold`, imported by name
+from `jev_cookbook.evaluation`, and never type it in as a constant. The function chooses on whatever
+per-example `correct` flags it is given, so pass one flag per present `validation` example: whether
+the unpadded crop contains the whole gold box. `target_accuracy` then sets the required crop
+completeness. State that this flag, not localization accuracy, is what the frozen value measures.
+
+A pad sends nothing to review, so it adds nothing to the check that a gate's review carries the
+reason `confidence below the threshold`; a Box recipe still needs its presence or rectangle gate to
+produce that review. A recipe whose only threshold is a pad reports, in its committed output, the
+frozen pad threshold and how many `test` examples the pad fired on.
 
 ### Gold labels
 

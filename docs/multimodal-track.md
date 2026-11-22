@@ -28,10 +28,11 @@ The catalog retains all forty proposals, including negative, unknown and review 
 the task needs them. Multiframe recipes use chronologically ordered PNG or JPEG still frames;
 Python owns decoding, sampling, timestamps and duration calculations. Localization recipes ask
 for one target rectangle per `Box` question and check whether the target is present before using
-the coordinates: an entry that lists `Noul` pairs the Box with a Companion Noul (the pairing is in S10;
-the name is from the [Companion Noul pattern](https://docs.typesafe.ai/patterns/companion-noul) page),
-while ranks 80 and 83 check presence through their `Choice`. See
-[Presence, confidence and evaluation](vision.md#presence-confidence-and-evaluation). The upstream image and Box contracts are in [S09: Images](https://docs.typesafe.ai/images)
+the coordinates: an entry that lists `Noul` pairs the Box with a Companion Noul (the pairing is in
+S10; the name is from the [Companion Noul pattern](https://docs.typesafe.ai/patterns/companion-noul)
+page), while ranks 80 and 83 check presence through their `Choice`. See
+[Presence, confidence and evaluation](vision.md#presence-confidence-and-evaluation). The upstream
+image and Box contracts are in [S09: Images](https://docs.typesafe.ai/images)
 and [S10: Box](https://docs.typesafe.ai/primitives/box).
 
 ## Suggested first additions
