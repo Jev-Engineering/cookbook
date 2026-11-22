@@ -1433,7 +1433,7 @@ def test_a_script_generator_must_exist_in_the_recipe_and_name_the_function(tmp_p
     assert problems(tmp_path) == []
 
 
-def test_a_shared_generator_must_name_a_real_function():
+def test_a_shared_generator_must_name_a_source_word():
     c = si.Canvas(300, 300)
     for bad in ("jev_cookbook.synthetic_images:nope", "jev_cookbook.no_such_module:x", "os:system"):
         c.provenance(bad, {})

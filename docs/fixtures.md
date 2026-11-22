@@ -600,8 +600,8 @@ and checked against the schema by `tests/test_fixtures_assets.py`):
 | `attestations` | All five keys, as booleans: `synthetic` true; `real_photo`, `real_brand`, `real_person`, `third_party_content` false. They state that the image is drawn by code and contains no real photograph, brand or logo, person, or third-party artwork or screenshot. |
 | `shared_across_splits` | Optional boolean, default `false`; see the last rule below. |
 
-The validator checks both forms by source word: the UTF-8 source must mention the name as a
-whole word. A comment or constant can satisfy that check; it is not proof of a callable or that
+The validator and `synthetic_images.manifest_entry` use the same source-word check for both
+forms: the UTF-8 source must mention the name as a whole word. A comment or constant can satisfy that check; it is not proof of a callable or that
 the code drew the image. Recipe script paths must stay inside the recipe directory: an escaping
 symlink is rejected before its source is read. Recipe tests and review establish the generator's
 behavior. Package targets must be regular source files in the installed `jev_cookbook` directory,

@@ -1,4 +1,4 @@
-"""The fixture validator checks generators as source words without executing the source."""
+"""Public generator checks agree on source words without executing the source."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def recipe(tmp_path):
 
 
 def manifest(recipe, generator, *, copies=1):
-    """Hand-write the manifest entry that the validator checks."""
+    """Hand-write the entry so validator tests do not depend on producer acceptance."""
     data = (recipe / "assets" / "scene.png").read_bytes()
     entry = {
         "path": "assets/scene.png",
@@ -76,6 +76,10 @@ def manifest(recipe, generator, *, copies=1):
     return entries
 
 
+def producer(recipe, generator):
+    return si.manifest_entry(recipe, "assets/scene.png", generator, {}, "A plain synthetic square.")
+
+
 def messages(recipe):
     return [str(problem) for problem in validate_recipe(recipe)]
 
@@ -93,21 +97,25 @@ def messages(recipe):
         ("# _draw_scene draw_scene_ édraw_scene\n", False),
     ],
 )
-def test_script_generator_uses_whole_words(recipe, text, accepted):
+def test_script_producer_and_public_validator_use_whole_words(recipe, text, accepted):
     (recipe / "build.py").write_text(text, "utf-8")
     generator = "build.py:draw_scene"
     manifest(recipe, generator)
     found = messages(recipe)
     if accepted:
         assert found == []
+        assert producer(recipe, generator)["generator"] == generator
     else:
         assert len(found) == 1 and "[generator]" in found[0] and "draw_scene" in found[0]
+        with pytest.raises(ValueError, match="draw_scene"):
+            producer(recipe, generator)
 
 
-def test_package_noncallable_source_word_is_accepted(recipe):
+def test_package_noncallable_source_word_has_the_same_public_acceptance(recipe):
     generator = "jev_cookbook.synthetic_images:SCENES"
     manifest(recipe, generator)
     assert messages(recipe) == []
+    assert producer(recipe, generator)["generator"] == generator
 
 
 @pytest.fixture
@@ -137,6 +145,7 @@ def test_neither_package_target_nor_parent_is_executed(recipe, package_root, mon
     monkeypatch.delitem(sys.modules, "jev_cookbook.paint", raising=False)
     monkeypatch.delitem(sys.modules, "jev_cookbook.paint.scene", raising=False)
     assert messages(recipe) == []
+    assert producer(recipe, generator)["generator"] == generator
     assert not marker.exists()
     assert "jev_cookbook.paint" not in sys.modules
     assert "jev_cookbook.paint.scene" not in sys.modules
@@ -144,7 +153,9 @@ def test_neither_package_target_nor_parent_is_executed(recipe, package_root, mon
 
 @pytest.mark.parametrize("kind", ["script", "package"])
 @pytest.mark.parametrize("failure", ["missing", "directory", "undecodable", "unreadable"])
-def test_bad_sources_are_findings(recipe, package_root, monkeypatch, kind, failure):
+def test_bad_sources_are_findings_and_producer_value_errors(
+    recipe, package_root, monkeypatch, kind, failure
+):
     source = recipe / "build.py" if kind == "script" else package_root / "draw.py"
     generator = "build.py:draw_scene" if kind == "script" else "jev_cookbook.draw:draw_scene"
     if failure == "directory":
@@ -164,6 +175,8 @@ def test_bad_sources_are_findings(recipe, package_root, monkeypatch, kind, failu
     manifest(recipe, generator)
     found = messages(recipe)
     assert len(found) == 1 and "[generator]" in found[0]
+    with pytest.raises(ValueError, match="draw|build"):
+        producer(recipe, generator)
 
 
 @pytest.mark.parametrize(
@@ -181,6 +194,8 @@ def test_invalid_references_keep_the_manifest_field_category(recipe, generator):
     manifest(recipe, generator)
     found = messages(recipe)
     assert len(found) == 1 and "[manifest-field]" in found[0]
+    with pytest.raises(ValueError):
+        producer(recipe, generator)
 
 
 @pytest.mark.parametrize("kind", ["script", "package"])
@@ -212,6 +227,8 @@ def test_cache_reused_within_validation_but_fresh_after_same_stat_edit(
     found = messages(recipe)
     assert len(found) == 4 and all("[generator]" in text for text in found)
     assert reads == [source, source]
+    with pytest.raises(ValueError, match="draw_scene"):
+        producer(recipe, generator)
 
 
 def test_cache_keeps_function_answers_distinct(recipe, package_root):
@@ -245,10 +262,33 @@ def test_namespace_and_archive_targets_are_explicitly_unsupported(
     manifest(recipe, generator)
     found = messages(recipe)
     assert len(found) == 1 and "[generator]" in found[0] and "is not a module" in found[0]
+    with pytest.raises(ValueError, match="not a module"):
+        producer(recipe, generator)
+
+
+def test_producer_keeps_recipe_script_containment(recipe, tmp_path, monkeypatch):
+    outside = tmp_path / "outside.py"
+    outside.write_text("# draw_scene\n", "utf-8")
+    try:
+        (recipe / "linked.py").symlink_to(outside)
+    except (OSError, NotImplementedError):
+        pytest.skip("this platform cannot create symbolic links")
+    original = Path.read_text
+
+    def guarded(path, *args, **kwargs):
+        assert path.resolve() != outside, "escaped source must be rejected before reading it"
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", guarded)
+    for generator in (f"{outside}:draw_scene", "../outside.py:draw_scene", "linked.py:draw_scene"):
+        with pytest.raises(ValueError):
+            producer(recipe, generator)
 
 
 @pytest.mark.parametrize("contained", [False, True])
-def test_script_symlink_must_stay_inside_the_recipe(recipe, tmp_path, monkeypatch, contained):
+def test_producer_and_validator_agree_on_script_symlink_containment(
+    recipe, tmp_path, monkeypatch, contained
+):
     source = (recipe if contained else tmp_path) / "target.py"
     source.write_text("# draw_scene\n", "utf-8")
     try:
@@ -267,6 +307,9 @@ def test_script_symlink_must_stay_inside_the_recipe(recipe, tmp_path, monkeypatc
     found = messages(recipe)
     if contained:
         assert found == []
+        assert producer(recipe, generator)["generator"] == generator
     else:
         assert len(found) == 1
         assert "[generator]" in found[0] and "not a readable file in the recipe" in found[0]
+        with pytest.raises(ValueError):
+            producer(recipe, generator)

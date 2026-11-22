@@ -368,11 +368,12 @@ canvas's `generator` and `parameters`. For an example scene the generator is
 the manifest's `generator` field allows for shared code. For your own scene call
 `canvas.provenance("build_fixtures.py:draw_shelf", {...})` as above, with a generator that exists in
 the recipe and arguments that rebuild the image. `manifest_entry(...)` is also available on its own,
-with the signature of the helper shown in fixtures.md (which it extends by checking that the
-generator exists). The fixture validator confirms that a script generator exists in the recipe and
-mentions the function name, and that a `jev_cookbook.*` generator names a module of the package
-whose source mentions it; it does not run or import either, so the recipe's own test rebuilds the
-image (next block).
+with the signature of the helper shown in fixtures.md. It and the fixture validator check that
+a recipe script or installed regular `jev_cookbook.*` source module mentions the name as a whole
+word, without importing the target or its parents. A comment or constant can satisfy the check;
+it does not prove that the name is callable or that the code drew the image. Every package
+directory must have `__init__.py`; namespace packages and zip installs are unsupported. The
+recipe's own test rebuilds the image (next block).
 
 ```python
 import json
