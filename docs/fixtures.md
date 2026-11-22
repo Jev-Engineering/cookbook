@@ -310,9 +310,15 @@ leaked-credential report). What the scanner flags and exempts:
 
 - **Key-name and header style values.** `authorization: <value>` (8 or more characters),
   `Bearer <value>` (16 or more) and `<name> = <value>` or `<name>: <value>` (16 or more letters,
-  digits and `_ - . / + =`, with at least one letter and one digit), where `<name>` contains
-  `api_key`, `api-key`, `apikey`, `secret`, `token`, `password`, `passwd`, `access_key`,
-  `access-key` or `credential`. These three rules **exempt a value that contains a marker**:
+  digits and `_ - . / + =`, with at least one letter and one digit). The assignment name is
+  read with digits and underscores removed, then checked for `secret`, `token`, `password`
+  (or `passwd`), `credential`, or `api` or `access` followed anywhere later by `key`.
+  Thus `api1_key`, `api__key`, `api_v2_key`, `access_aws_key` and `pass_word` still name a
+  secret. Header-style hyphens are treated as underscores (`api-key`, `access-key`). Matching
+  has no word boundaries: ordinary names such as `capital_keys`, `rapid_monkey`,
+  `bypass_word_filter` and `photo_kennel` also qualify and can produce false positives.
+  `key_api` does not qualify because `key` comes first. These three rules
+  **exempt a value that contains a marker**:
   `your`, `example`, `xxx`, `redacted`, `placeholder`, `changeme`, `dummy`, `<`, `>`, `{`, `}`,
   `$`, `...`, `…` or `***` (in any case). `password: EXAMPLE-Summer2024Holiday` passes.
 - **Vendor-shaped strings are always flagged, marker or not:** `sk-` followed by 20 or more
@@ -325,10 +331,13 @@ leaked-credential report). What the scanner flags and exempts:
   `EXAMPLE_` but goes on as a long mixed run of this kind is flagged by this rule, marker or not.
   The one exception: a bare `name=VALUE` assignment (both sides runs joined by `_`, the
   value also by `.`, where a run is letters of one case optionally followed by digits, as in
-  `STAGE1` or `SHA256`, or digits alone; no quotes, and a name that does not contain api key,
-  secret, token, password, access key or credential), such as the keyword arguments
-  `startup_timeout=KERNEL_START_TIMEOUT` and `instructions=_STAGE1_INSTRUCTIONS`, is not scored
-  by this rule.
+  `STAGE1` or `SHA256`, or digits alone; no quotes, and a name that does not name a secret
+  under the same digit-and-underscore normalization and ordered `api`/`access` ... `key`
+  rule above), such as the keyword arguments `startup_timeout=KERNEL_START_TIMEOUT` and
+  `instructions=_STAGE1_INSTRUCTIONS`, is not scored by this rule. Bare `key`, `key_id`,
+  `signature`, `session`, `nonce` and `salt` are deliberately not secret names. `key` occurs
+  in code for sort keys, dictionary keys and objects (`key=lambda`, `key=value`); the other
+  bare names are excluded for the same reason, without claiming they occur in the repository.
 
 So write a fake credential that is short (under the lengths above), low-entropy (a repeated chunk
 or plain words), or clearly not vendor-prefixed; truncate prefixes (`sk-...` is under the length

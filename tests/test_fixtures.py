@@ -1459,6 +1459,8 @@ FAKE_AWS = "AKIA" + "ABCDEFGH" + "IJKLMNOP"
         (FAKE_SK, "sk-prefixed-key"),
         (FAKE_GH, "github-token"),
         (FAKE_ASSIGN, "secret-assignment"),
+        ("api_v2_key=" + "a1" + "BcD3eF4gH5jK6mN7p", "secret-assignment"),
+        ("pass_word=" + "a1" + "BcD3eF4gH5jK6mN7p", "secret-assignment"),
         (FAKE_BEARER, "bearer-token"),
         (FAKE_AWS, "aws-access-key-id"),
     ],
@@ -1565,6 +1567,50 @@ def test_the_fake_credential_example_in_the_doc_is_accepted(recipe):
     assert messages(recipe) == []
 
 
+@pytest.mark.parametrize("name", ["api_v2_key", "pass_word", "to_ken", "api-key", "access-key"])
+def test_a_normalized_secret_field_with_a_short_value_is_refused(recipe, name):
+    value = "a1" + "BcD3eF4gH5jK6mN7p"
+    assert len(value) == 19
+    data = good_set()
+    data["labels"][2]["label"] = {name: value}
+    write(recipe, data)
+    expect(recipe, "labels.jsonl:3: looks like a key or token [secret-assignment]")
+    assert all(value not in message for message in messages(recipe))
+
+
+UNICODE_ASSIGNMENTS = [
+    (name, "a1" * 9 + "b")
+    for name in [
+        "pa\u017f\u017fword",
+        "api_\u212aey",
+        "ap\u0130_key",
+        "ap\u0131_key",
+        "credent\u0131al",
+    ]
+] + [("token", "a1" + character * 17) for character in ["\u0130", "\u0131", "\u017f", "\u212a"]]
+
+
+@pytest.mark.parametrize(("name", "value"), UNICODE_ASSIGNMENTS)
+@pytest.mark.parametrize("storage", ["escaped-string", "literal-field"])
+def test_fixture_assignments_keep_unicode_ignorecase_refusals(recipe, name, value, storage):
+    data = good_set()
+    data["labels"][2]["label"] = f"{name}={value}" if storage == "escaped-string" else {name: value}
+    write(recipe, data)
+    if storage == "literal-field":
+        text = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in data["labels"])
+        (recipe / "fixtures" / "labels.jsonl").write_text(text, encoding="utf-8")
+    expect(recipe, "labels.jsonl:3: looks like a key or token [secret-assignment]")
+    assert all(value not in message for message in messages(recipe))
+
+
+@pytest.mark.parametrize("prefix", ["token=" * 40 + "EXAMPLE- ", "token=EXAMPLE-token="])
+def test_a_later_fixture_assignment_survives_an_overlapping_placeholder(recipe, prefix):
+    data = good_set()
+    data["labels"][2]["label"] = prefix + "token=" + "a1" * 9 + "b"
+    write(recipe, data)
+    expect(recipe, "labels.jsonl:3: looks like a key or token [secret-assignment]")
+
+
 def test_a_field_called_token_is_not_needed_and_prose_is_not_flagged(recipe):
     data = good_set()
     data["labels"][0]["label"] = "billing question about a refund token of goodwill"
@@ -1597,9 +1643,10 @@ SCANNER_FUNCTIONS = (
     "_entropy",
     "_letters_and_digits",
     "_is_secret_name",
+    "_assignment_value_ranges",
 )
 SCANNER_PATTERNS = (
-    "_AUTH_HEADER", "_BEARER", "_ASSIGNMENT", "_WORD", "_TOKEN", "_TOKEN_SLASH",
+    "_AUTH_HEADER", "_BEARER", "_ASSIGNMENT", "_ASSIGNMENT_VALUE", "_WORD", "_TOKEN", "_TOKEN_SLASH",
     "_PATH_SHAPED", "_RECIPE_PATH", "_DATA_URI", "_ANSI", "_IDENT_ASSIGNMENT", "_NAME_GLUE", "_SECRET_WORD", "_LETTER_RUN",
 )  # fmt: skip
 
@@ -1622,9 +1669,18 @@ def test_the_packaged_scanner_has_the_same_rules_as_the_repository_scanner():
     assert scan_module._PLACEHOLDER_MARKERS == hygiene._PLACEHOLDER_MARKERS
     assert scan_module._ENTROPY_THRESHOLD == hygiene._ENTROPY_THRESHOLD
     assert scan_module._KEY_PREFIXES == hygiene._KEY_PREFIXES
+    assert scan_module._ASCII_CASE_EQUIVALENTS == hygiene._ASCII_CASE_EQUIVALENTS
     for name in SCANNER_FUNCTIONS:
         ours_source = inspect.getsource(getattr(scan_module, name))
         assert ours_source == inspect.getsource(getattr(hygiene, name)), name
+
+
+@pytest.mark.parametrize(("name", "value"), UNICODE_ASSIGNMENTS)
+def test_unicode_assignment_refusals_match_the_repository_scanner(name, value):
+    hygiene = load_repository_scanner()
+    sample = f"{name}={value}"
+    assert scan_text(sample) == hygiene.scan_text(sample)
+    assert "secret-assignment" in {rule for _, rule, _ in scan_text(sample)}
 
 
 def test_the_packaged_scanner_flags_one_sample_per_rule_like_the_repository_scanner():
@@ -1634,6 +1690,8 @@ def test_the_packaged_scanner_flags_one_sample_per_rule_like_the_repository_scan
         (FAKE_SK, "sk-prefixed-key"),
         (FAKE_GH, "github-token"),
         (FAKE_ASSIGN, "secret-assignment"),
+        ("api_v2_key=" + "a1" + "BcD3eF4gH5jK6mN7p", "secret-assignment"),
+        ("pass_word=" + "a1" + "BcD3eF4gH5jK6mN7p", "secret-assignment"),
         (FAKE_BEARER, "bearer-token"),
         (FAKE_AWS, "aws-access-key-id"),
         ("-----BEGIN RSA PRIVATE" + " KEY-----", "private-key-block"),

@@ -1507,6 +1507,181 @@ def test_a_mutant_that_accepts_key_before_api_loses_the_exemption(scanner, monke
     assert "high-entropy-token" in {rule for _, rule, _ in scanner.scan_text(line)}
 
 
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("name", BROKEN_APART_SECRET_NAMES + ["api-key", "access-key"])
+@pytest.mark.parametrize(
+    "template",
+    ["{name}={value}", '{name}: "{value}"', "os.environ['{name}'] = '{value}'"],
+)
+def test_short_assignments_share_the_normalized_secret_name_rule(scanner, name, template):
+    # Nineteen characters cannot trigger the 32-character entropy rule by themselves.
+    value = _random_token(17)
+    assert len(value) == 19
+    text = template.format(name=name, value=value)
+    findings = scanner.scan_text(text)
+    assert "secret-assignment" in {rule for _, rule, _ in findings}
+    assert all(value not in snippet for _, _, snippet in findings)
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize(
+    "name",
+    ["pa\u017f\u017fword", "api_\u212aey", "ap\u0130_key", "ap\u0131_key", "credent\u0131al"],
+)
+def test_assignment_names_keep_unicode_ignorecase_refusals(scanner, name):
+    value = "a1" * 9 + "b"
+    assert scanner._is_secret_name(scanner._NAME_GLUE.sub("", name))
+    findings = scanner.scan_text(f"{name}={value}")
+    assert "secret-assignment" in {rule for _, rule, _ in findings}
+    assert all(value not in snippet for _, _, snippet in findings)
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("character", ["\u0130", "\u0131", "\u017f", "\u212a"])
+def test_assignment_values_keep_unicode_ignorecase_refusals(scanner, character):
+    value = "a1" + character * 17
+    findings = scanner.scan_text(f"token={value}")
+    assert "secret-assignment" in {rule for _, rule, _ in findings}
+    assert all(value not in snippet for _, _, snippet in findings)
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("name", BARE_NAMES_OUT_OF_SCOPE + ["key_api", "key_access"])
+def test_short_assignments_to_non_secret_names_stay_quiet(scanner, name):
+    assert scanner.scan_text(f"{name}={_random_token(17)}") == []
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("value", ["a1" * 7 + "a", "a" * 19, "1" * 19, "EXAMPLE-" + "a1" * 6])
+def test_normalized_assignment_names_keep_value_limits_and_placeholders(scanner, value):
+    assert scanner.scan_text(f"api_v2_key={value}") == []
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("prefix", ["ordinary=", "ordinary=constant ", "api_key=EXAMPLE-value123 "])
+def test_an_earlier_assignment_does_not_hide_a_normalized_secret_name(scanner, prefix):
+    findings = scanner.scan_text(f"{prefix}pass_word={_random_token(17)}")
+    assert "secret-assignment" in {rule for _, rule, _ in findings}
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("name", ["token", "api_v2_key"])
+@pytest.mark.parametrize("separator", ["=", ": "])
+def test_assignment_value_threshold_is_exactly_sixteen_characters(scanner, name, separator):
+    # With ": " the value run is exactly the value, so a changed regex minimum is visible.
+    rules = {rule for _, rule, _ in scanner.scan_text(f"{name}{separator}" + "a1" * 8)}
+    assert "secret-assignment" in rules
+    rules = {rule for _, rule, _ in scanner.scan_text(f"{name}{separator}" + "a1" * 7 + "a")}
+    assert "secret-assignment" not in rules
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+def test_a_line_with_two_secret_assignments_reports_one_secret_assignment(scanner):
+    line = f"token={_random_token(17)} password={_random_token(17)}"
+    rules = [rule for _, rule, _ in scanner.scan_text(line)]
+    assert rules.count("secret-assignment") == 1
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("repeats", [10, 20, 40, 80])
+def test_overlapping_placeholder_assignments_inspect_only_linear_value_characters(
+    scanner, repeats, monkeypatch
+):
+    original = scanner._ASSIGNMENT_VALUE
+    visited = {
+        "value_matches": 0,
+        "letter_digit_checks": 0,
+        "placeholder_checks": 0,
+        "character_passes": 0,
+    }
+
+    class CountedValues:
+        def finditer(self, *args):
+            for match in original.finditer(*args):
+                visited["value_matches"] += match.end() - match.start()
+                yield match
+
+        def match(self, *args):
+            match = original.match(*args)
+            if match is not None:
+                visited["value_matches"] += match.end() - match.start()
+            return match
+
+    def count_characters(function, counter):
+        def counted(value):
+            visited[counter] += len(value)
+            return function(value)
+
+        return counted
+
+    def counted_enumerate(iterable, *args, **kwargs):
+        for index, item in enumerate(iterable, *args, **kwargs):
+            if isinstance(iterable, str):
+                visited["character_passes"] += 1
+            yield index, item
+
+    monkeypatch.setattr(scanner, "_ASSIGNMENT_VALUE", CountedValues())
+    monkeypatch.setattr(scanner, "enumerate", counted_enumerate, raising=False)
+    for name, counter in [
+        ("_letters_and_digits", "letter_digit_checks"),
+        ("_is_placeholder", "placeholder_checks"),
+    ]:
+        monkeypatch.setattr(scanner, name, count_characters(getattr(scanner, name), counter))
+    line = "token=" * repeats + "EXAMPLE-" + ("a1" * 9 + "b")
+    assert scanner.scan_text(line) == []
+    # Counts captured/visited characters, not elapsed time. Rescanning every suffix makes
+    # the first counter 3*n*n + 24*n and violates this bound even at these small sizes.
+    assert 0 < visited["value_matches"] <= len(line)
+    assert sum(visited.values()) <= 3 * len(line)
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize(
+    ("prefix", "value", "refused"),
+    [
+        ("token=" * 40 + "EXAMPLE-", "a1" * 9 + "b", False),
+        ("token=" * 40 + "EXAMPLE-", " token=" + "a1" * 9 + "b", True),
+        ("token=EXAMPLE-token=", "a1" * 9 + "b", True),
+        ("EXAMPLE-token=", "a1" * 9 + "b", True),
+        ("token=", "a1" + "=" * 17, True),
+        ("token=", "\u0130" * 9 + "PLACEHOLDER" + "a1" * 9 + "b", False),
+        ("token=\u0130EXAMPLE-token=", "a1" * 9 + "b", True),
+        ("token=", "place\u017fholder" + "a1" * 9 + "b", True),
+    ],
+)
+def test_shared_assignment_runs_preserve_suffix_refusals(scanner, prefix, value, refused):
+    rules = {rule for _, rule, _ in scanner.scan_text(prefix + value)}
+    assert ("secret-assignment" in rules) is refused
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "token=" * 4 + "EXAMPLE-" + "a1" * 9 + "b",
+        "EXAMPLE-token=" + "a1" * 9 + "b",
+        "a1" + "=" * 17,
+        "\u0130EXAMPLE-token=" + "a1" * 9 + "b",
+        "\u0130" * 9 + "PLACEHOLDER" + "a1" * 9 + "b",
+        "place\u017fholder" + "a1" * 9 + "b",
+        "a1" * 10 + "...token=" + "b2" * 10,
+        "letters_without_any_digit",
+        "1234567890" * 3,
+    ],
+)
+def test_shared_value_bounds_match_existing_policy_for_every_suffix(scanner, value):
+    first, last, end = next(scanner._assignment_value_ranges(value))
+    assert end == len(value)
+    for start in range(len(value) + 1):
+        suffix = value[start:]
+        expected = (
+            len(suffix) >= 16
+            and scanner._letters_and_digits(suffix)
+            and not scanner._is_placeholder(suffix)
+        )
+        assert (first <= start <= last) is expected
+
+
 def test_code_keyword_arguments_keep_the_exemption_after_the_name_normalisation():
     # not secret names even with digits and "_" removed: the exemption still applies
     for line in (
