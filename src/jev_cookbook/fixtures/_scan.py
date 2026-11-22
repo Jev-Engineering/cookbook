@@ -10,6 +10,13 @@ definitions and function source with ``tools/check_hygiene.py``, so the copy can
 unnoticed. Scanning fixtures is narrower than the full hygiene run, which also reads every
 tracked file: this scan only sees the files of a recipe's ``fixtures/`` folder (inputs, labels
 and every responses file) and reports a line number, never the whole value.
+
+The secret-name check removes digits and underscores, then matches secret words or ``api``
+or ``access`` followed later by ``key`` without word boundaries. This intentionally also
+classifies ordinary names such as ``capital_keys``, ``rapid_monkey``, ``accessor_keys``,
+``bypass_word_filter`` and ``photo_kennel`` as secret names: false positives are findings on
+secret-shaped values, preserving detection of broken-apart names such as ``pass_word`` and
+``api_v2_key``. ``key_api`` does not qualify because ``key`` precedes ``api``.
 """
 
 from __future__ import annotations
@@ -126,7 +133,7 @@ _IDENT_ASSIGNMENT = re.compile(rf"_*{_NAME_RUN}(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{
 # secret, and ``api`` or ``access`` with any letters between it and a later ``key``
 # (``api_v2_key``, ``stripe_api_live_key``, ``access_aws_key``) does too.
 _NAME_GLUE = re.compile(r"[0-9_]+")
-_SECRET_WORD = re.compile(r"secret|token|passw(?:or)?d|credential", re.IGNORECASE)
+_SECRET_WORD = re.compile(r"secret|token|passw(?:or)?d|credential")
 _KEY_PREFIXES = ("api", "access")
 _LETTER_RUN = re.compile(r"[a-z]+")
 
@@ -165,9 +172,10 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         if _letters_and_digits(v) and not _is_placeholder(v):
             yield "secret-assignment", _mask(v)
     for word in _WORD.findall(line):
-        name = _NAME_GLUE.sub("", word.partition("=")[0])
-        if _IDENT_ASSIGNMENT.fullmatch(word) and not _is_secret_name(name):
-            continue
+        if _IDENT_ASSIGNMENT.fullmatch(word):
+            name = _NAME_GLUE.sub("", word.partition("=")[0])
+            if not _is_secret_name(name):
+                continue
         for part in _RECIPE_PATH.sub(" ", word).split():
             pattern = _TOKEN if _PATH_SHAPED.search(part) else _TOKEN_SLASH
             for t in pattern.findall(part):
