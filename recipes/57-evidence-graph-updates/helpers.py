@@ -114,7 +114,7 @@ def edge_key(person: str, org: str) -> str:
     return f"edge:{person}|{RELATION}|{org}"
 
 
-_NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
+_NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "phd"}
 _PUNCTUATION = ".,;:!?\"'()"
 _PARENTHETICALS = re.compile(r"\([^()]*\)")
 
@@ -125,7 +125,7 @@ def _bare(word: str) -> str:
 
 
 def _without_suffixes(words: list[str]) -> list[str]:
-    """``words`` without trailing generational suffixes (``Jr.``, ``Jr.'s``, ``III``)."""
+    """``words`` without trailing name suffixes (``Jr.``, ``Jr.'s``, ``III``, ``PhD``)."""
     while words and _bare(words[-1]) in _NAME_SUFFIXES:
         words = words[:-1]
     return words
@@ -135,14 +135,29 @@ def candidates(mention: str) -> list[str]:
     """The people Python shortlists for a mention: everyone whose surname is the mention's
     surname, in id order. The surname is the last word, after dropping every parenthetical
     (``(chemist)``, wherever it stands), punctuation around the word, a trailing possessive
-    (``'s`` or ``\u2019s``) and a generational suffix (``Jr.``, possessive or not); in the
-    "Surname, Given" form it is the last word before the comma, again without a suffix. An empty
-    or blank mention has no candidates, and ``ask_first`` sends no request for it. Jev never adds
-    a candidate; it only chooses among these or ``no_match``."""
+    (``'s`` or ``\u2019s``) and a name suffix (``Jr.`` or ``PhD``, possessive or not). A known
+    surname before a comma handles "Surname, Given" and trailing appositives; a descriptor
+    starting with "the " before a comma allows the surname after it ("the architect, Iris
+    Calloway"). Conflicting known surnames and unrecognised comma prefixes have no candidates.
+    An empty or blank mention has no candidates, and ``ask_first`` sends no request for it. Jev
+    never adds a candidate; it only chooses among these or ``no_match``."""
     text = _PARENTHETICALS.sub(" ", mention.replace("\u2019", "'"))
     words = _without_suffixes(text.split())
-    if words and "," in " ".join(words).rstrip(",;: "):
-        words = _without_suffixes(" ".join(words).split(",")[0].split())
+    text = " ".join(words).rstrip(",;: ")
+    if "," in text:
+        before, after = text.split(",", 1)
+        left, right = _without_suffixes(before.split()), _without_suffixes(after.split())
+        surnames = {name.split()[-1].lower() for name, _, _ in PEOPLE.values()}
+        left_name = _bare(left[-1]) if left else ""
+        right_name = _bare(right[-1]) if right else ""
+        if left_name in surnames:
+            if right_name in surnames and right_name != left_name:
+                return []
+            words = left
+        elif before.lower().startswith("the ") and "," not in after:
+            words = right
+        else:
+            return []
     surname = _bare(words[-1]) if words else ""
     if not surname:
         return []
@@ -451,8 +466,11 @@ def ask_second(
 ) -> dict[str, Any]:
     """Request 2 for every example whose request 1 the rule lets through (``decide_first``
     returns ``None``): ``{example id: DecisionResult or None}``. The state names the person
-    request 1 chose, which is why this is a separate, later request."""
+    request 1 chose, which is why this is a separate, later request. ``None`` thresholds allow
+    calibration; a final nonfinite request-2 threshold skips the request without spending."""
     out = {}
+    if any(t is not None and not math.isfinite(t) for t in (settings.supported, settings.ended)):
+        return out
     for e in examples:
         if decide_first(first[e.id], settings) is not None:
             continue
@@ -534,10 +552,10 @@ def decide(example: Any, first: Any, second: Any, settings: Settings) -> Decisio
         return early
     person = first["entity"].choice
     answers = _answers_dict(first, second)
-    if second is None:
-        return Decision(example.id, REVIEW, REASON_BUDGET, person, target, answers=answers)
     if not (math.isfinite(settings.supported) and math.isfinite(settings.ended)):
         return Decision(example.id, REVIEW, REASON_NOT_FITTED, person, target, answers=answers)
+    if second is None:
+        return Decision(example.id, REVIEW, REASON_BUDGET, person, target, answers=answers)
     if second["supported"].noul < settings.supported:
         return Decision(example.id, REJECTED, REASON_UNSUPPORTED, person, target, answers=answers)
     replace = second["ended"].noul >= settings.ended
@@ -579,7 +597,8 @@ def baseline_decide(example: Any) -> Decision:
     """Keyword baseline. Entity: the one candidate whose full name appears as whole words in one
     excerpt, else ``not_matched``. No conflict check. Supported: the proposed organisation's name
     appears as whole words in one excerpt. Ended: the current employer's name and one of
-    ``ENDED_CUES`` (from a word boundary) both appear in the same excerpt."""
+    ``ENDED_CUES`` (from a word boundary) both appear in the same excerpt, with the employer
+    matched as whole words."""
     fields = example.fields
     named = [
         p
@@ -593,9 +612,9 @@ def baseline_decide(example: Any) -> Decision:
     if not any(_names(ORGANISATIONS[target], e["text"]) for e in fields["excerpts"]):
         return Decision(example.id, REJECTED, REASON_UNSUPPORTED, person, target)
     current = PEOPLE[person][2]
-    employer = ORGANISATIONS[current].lower()
+    employer = ORGANISATIONS[current]
     replace = any(
-        employer in e["text"].lower() and _ENDED_PATTERN.search(e["text"].lower())
+        _names(employer, e["text"]) and _ENDED_PATTERN.search(e["text"].lower())
         for e in fields["excerpts"]
     )
     judged = edge_key(person, current) if replace else None
