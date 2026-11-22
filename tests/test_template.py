@@ -460,10 +460,9 @@ MEASURED_SIGNATURE = "Not measured live: a pipeline check, not a Jev result."
 
 
 def _load_measured_cell_branches():
-    """``tests/measured_cell_branches.py``, loaded by file path (this directory has no
-    ``__init__.py``, so a plain ``from tests.measured_cell_branches import ...`` is not a
-    reliable cross-module import here; ``tools/new_recipe.py``'s own loader elsewhere in this
-    module uses the same mechanism). Shared with ``tests/test_recipe_guard.py``'s per-recipe
+    """``tests/measured_cell_branches.py``, loaded by explicit file path relative to this
+    module; ``tools/new_recipe.py``'s own loader elsewhere in this module uses the same
+    mechanism. Shared with ``tests/test_recipe_guard.py``'s per-recipe
     guard, so the branch-anchoring and "really prints N" logic -- the thing issue #215 was
     actually about -- is written, and proved against PR #219 reviewer B's evasions, once rather
     than twice."""

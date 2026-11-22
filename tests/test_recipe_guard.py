@@ -452,11 +452,9 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def _load_known_failures() -> dict[tuple[str, str], str]:
-    """``tests/recipe_guard_known_failures.py``'s ``KNOWN_FAILURES``, loaded by file path: this
-    directory has no ``__init__.py`` (pytest's ``--import-mode=importlib`` needs none for
-    collection), so ``from tests.recipe_guard_known_failures import ...`` is not a reliable cross-
-    module import here. ``tools/new_recipe.py``'s own loader elsewhere in this module uses the
-    same mechanism."""
+    """``tests/recipe_guard_known_failures.py``'s ``KNOWN_FAILURES``, loaded by explicit file
+    path relative to this module. ``tools/new_recipe.py``'s own loader elsewhere in this module
+    uses the same mechanism."""
     spec = importlib.util.spec_from_file_location(
         "recipe_guard_known_failures",
         Path(__file__).resolve().parent / "recipe_guard_known_failures.py",
@@ -4850,10 +4848,9 @@ SOURCE_ID = re.compile(r"^- (S\d+):", re.MULTILINE)
 
 
 def _readme_source_ids(readme_text: str) -> list[str]:
-    """Same rule as tests/test_recipe_sources.py::_readme_source_ids, reused here (not imported:
-    that module is collected by pytest under ``--import-mode=importlib`` with no package
-    __init__, so importing it by dotted path from another test module is fragile; the rule is
-    four lines, so it is restated instead, with this note tying the two together)."""
+    """Same rule as tests/test_recipe_sources.py::_readme_source_ids, restated locally rather
+    than imported from that test module. The rule is four lines, with this note tying the two
+    copies together."""
     marker = "\n## Sources\n"
     if marker not in readme_text:
         return []
