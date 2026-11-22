@@ -40,6 +40,7 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from matplotlib.figure import Figure
+from matplotlib.markers import MarkerStyle
 from matplotlib.text import Text
 
 from ._canonical import is_iso_date
@@ -779,15 +780,19 @@ def plot_confusion_matrix(
     instead, and ``row_axis_title`` and ``col_axis_title`` to name the axes; ``counts`` is
     then ``len(row_labels)`` rows by ``len(col_labels)`` columns. Either one defaults to
     ``labels``, and the titles default to ``"Gold"`` (rows) and ``"Predicted"`` (columns).
+    Passing explicit ``labels`` together with both axis overrides raises ``ValueError``;
+    implicit labels from a matrix object may be overridden on both axes.
     A rectangular table's figure (when ``ax`` is not given) is sized from its cell counts and
     then grown until no label, tick or title runs past the figure edge; a square table's
     figure is sized exactly as before.
 
     A label longer than 14 characters is abbreviated to its first 11 plus ``...``. If that
     would make two different labels on an axis render as the same tick, no label on that axis
-    is abbreviated (and the column labels are rotated), so an axis never carries two
-    identical names.
+    is abbreviated, so an axis never carries two identical names. Whole labels on the columns
+    are also stood on end; whole labels on the rows are not rotated.
     """
+    if labels is not None and row_labels is not None and col_labels is not None:
+        raise ValueError("labels cannot be combined with both row_labels and col_labels")
     if hasattr(counts, "matrix") and hasattr(counts, "labels"):
         if labels is None:
             labels = counts.labels
@@ -795,7 +800,14 @@ def plot_confusion_matrix(
     rows = labels if row_labels is None else row_labels
     cols = labels if col_labels is None else col_labels
     if rows is None or cols is None:
-        raise ValueError("labels are required unless counts has .labels and .matrix")
+        missing = " and ".join(
+            name for name, value in (("row_labels", rows), ("col_labels", cols)) if value is None
+        )
+        raise ValueError(
+            "labels are required unless counts has .labels and .matrix; "
+            f"no labels were given for {missing} (pass labels for both axes, or "
+            "row_labels and col_labels)"
+        )
     arr = np.asarray(counts, dtype=float)
     n_rows, n_cols = len(rows), len(cols)
     if arr.shape != (n_rows, n_cols):
@@ -831,46 +843,64 @@ def plot_confusion_matrix(
                 ax.text(j, i, text, ha="center", va="center", color=colour)
         for spine in ax.spines.values():
             spine.set_visible(True)
-        if title:
-            ax.set_title(title)
+        heading = ax.set_title(title) if title else None
     if own_figure and n_rows != n_cols:
-        _grow_to_fit_text(fig)
+        _grow_to_fit_text(fig, ax, heading)
     return _track(fig)
 
 
-def _grow_to_fit_text(fig: Figure, rounds: int = 4, pad_px: float = 2.0) -> None:
-    """Enlarge ``fig`` until no text artist runs past its edge.
+def _grow_to_fit_text(
+    fig: Figure, ax: Axes, heading: Text | None, rounds: int = 4, pad_px: float = 2.0
+) -> None:
+    """Enlarge a rectangular matrix until its tick labels, axis labels and title fit.
 
-    The size of a rectangular confusion matrix comes from its cell counts, which says nothing
-    about how long its labels are: two columns of short actions against long whole row
-    labels, or a few rows under whole rotated column labels, leave text cut off by the
-    figure edge. This measures the laid-out text and grows the figure in the direction that
-    is short (constrained layout re-centres the axes, so by twice the overflow) until it fits.
+    Cell annotations sit inside the axes. Exclude them while computing constrained layout,
+    and measure only the decorations that can overflow the figure. Executing the layout
+    engine directly avoids a full draw, including a draw of every annotation, when the
+    initial figure already fits. The annotations' layout flags are restored before returning.
     """
-    for _ in range(rounds):
-        with warnings.catch_warnings():
-            # An intermediate size can be too small for constrained layout, which then warns
-            # and asks for a larger figure: exactly what this loop goes on to do.
-            warnings.filterwarnings(
-                "ignore", message="constrained_layout not applied", category=UserWarning
-            )
-            fig.draw_without_rendering()
-        boxes = [
-            t.get_window_extent()
-            for t in fig.findobj(Text)
-            if t.get_visible() and t.get_text().strip()
-        ]
-        if not boxes:
-            return
-        width_px, height_px = fig.bbox.width, fig.bbox.height
-        over_x = max(0.0, -min(b.x0 for b in boxes), max(b.x1 for b in boxes) - width_px)
-        over_y = max(0.0, -min(b.y0 for b in boxes), max(b.y1 for b in boxes) - height_px)
-        if over_x == 0.0 and over_y == 0.0:
-            return
-        w, h = fig.get_size_inches()
-        grow_w = 2 * (over_x + pad_px) / fig.dpi if over_x else 0.0
-        grow_h = 2 * (over_y + pad_px) / fig.dpi if over_y else 0.0
-        fig.set_size_inches(w + grow_w, h + grow_h)
+    labels = [*ax.get_xticklabels(), *ax.get_yticklabels(), ax.xaxis.label, ax.yaxis.label]
+    if heading is not None:
+        labels.append(heading)
+    annotations = [(text, text.get_in_layout()) for text in ax.texts]
+    for text, _ in annotations:
+        text.set_in_layout(False)
+    # Give the layout engine a renderer without falling back to drawing the whole figure.
+    FigureCanvasAgg(fig)
+    layout = fig.get_layout_engine()
+    try:
+        for _ in range(rounds):
+            with warnings.catch_warnings():
+                # An intermediate size can be too small for constrained layout; grow again.
+                warnings.filterwarnings(
+                    "ignore", message="constrained_layout not applied", category=UserWarning
+                )
+                layout.execute(fig)
+            renderer = fig.canvas.get_renderer()
+            # Layout moves the axes after measuring their decorations. Refresh label/title
+            # positions against the final axes geometry before checking the full extents.
+            # Extra artists are excluded so no cell annotation is measured here.
+            ax.get_tightbbox(renderer, for_layout_only=True, bbox_extra_artists=[])
+            boxes = [
+                text.get_window_extent(renderer)
+                for text in labels
+                if text.get_visible() and text.get_text().strip()
+            ]
+            if not boxes:
+                return
+            width_px, height_px = fig.bbox.width, fig.bbox.height
+            over_x = max(0.0, -min(b.x0 for b in boxes), max(b.x1 for b in boxes) - width_px)
+            over_y = max(0.0, -min(b.y0 for b in boxes), max(b.y1 for b in boxes) - height_px)
+            if over_x == 0.0 and over_y == 0.0:
+                return
+            w, h = fig.get_size_inches()
+            # Constrained layout re-centres the axes, so grow by twice the overflow.
+            grow_w = 2 * (over_x + pad_px) / fig.dpi if over_x else 0.0
+            grow_h = 2 * (over_y + pad_px) / fig.dpi if over_y else 0.0
+            fig.set_size_inches(w + grow_w, h + grow_h)
+    finally:
+        for text, in_layout in annotations:
+            text.set_in_layout(in_layout)
 
 
 _LEGEND_CORNERS = ("lower right", "upper right")
@@ -1085,7 +1115,7 @@ def plot_risk_coverage(
             # is not cut in half by the axes edge, and give them a marker of the style's own
             # when the axes was made outside style_context (matplotlib's default cycle has none).
             (points,) = ax.plot(x, y, label=label, linestyle="none", clip_on=False)
-            if points.get_marker() in (None, "None", "none", "", " "):
+            if not MarkerStyle(points.get_marker()):
                 points.set_marker(_MARKERS[0])
         if reference_risk is not None and not math.isnan(reference_risk):
             ax.axhline(
