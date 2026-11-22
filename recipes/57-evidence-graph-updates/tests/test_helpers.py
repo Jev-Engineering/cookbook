@@ -806,7 +806,7 @@ def test_an_unfitted_request_two_threshold_sends_the_proposal_to_review(unfitted
 
 
 def test_a_conflict_fit_set_with_no_conflict_fails_closed():
-    """The rows that reach the conflict check hold no gold conflict: F1 is undefined at every
+    """The rows that reach the conflict check hold no gold conflict: F1 is 0 at every
     threshold, so no threshold is fitted and every proposal goes to review."""
     rows = [
         (_first({"P01": 0.9, "P02": 0.05, "no_match": 0.05}, 0.1), {"entity": "P01", "conflict": False}),
@@ -1000,3 +1000,84 @@ def test_the_objective_label_is_none_for_an_objective_it_cannot_read():
         'select_threshold([g["ended"] for g in gold], [a["ended"].noul for a in second], OBJECTIVE)'
     )
     assert helpers.objective_in(source, "ended") is None
+
+
+@pytest.mark.parametrize(
+    ("mention", "expected"),
+    [
+        ("the architect, Iris Calloway", ["P17", "P18"]),
+        ("Mira Okafor PhD", ["P01", "P02"]),
+        ("Mira Okafor PhD.’s", ["P01", "P02"]),
+        ("Okafor Jr., Mira", ["P01", "P02"]),
+        ("Okafor PhD, Mira", ["P01", "P02"]),
+        ("the architect, Lena Smith", []),
+        ("the architect,", []),
+        ("unrecognised, Iris Calloway", []),
+        ("Mira Okafor, Iris Calloway", []),
+        ("the architect, Iris Calloway, unknown", []),
+        ("PhD", []),
+    ],
+)
+def test_candidates_handle_bounded_comma_forms_and_academic_suffixes(mention, expected):
+    assert helpers.candidates(mention) == expected
+
+
+@pytest.mark.parametrize(
+    ("texts", "replace"),
+    [
+        (("Petra Lund left Halden Institute and joined Quillmoor Analytics.",), True),
+        (("Petra Lund left Halden Institutes and joined Quillmoor Analytics.",), False),
+        (("Petra Lund left NewHalden Institute and joined Quillmoor Analytics.",), False),
+        (("Petra Lund joined Quillmoor Analytics.", "She left.", "Halden Institute."), False),
+    ],
+)
+def test_the_baseline_requires_the_whole_current_employer_in_the_ended_excerpt(texts, replace):
+    example = _baseline_example(*texts)
+    example.fields.update(mention="Petra Lund", target="O3")
+    decision = helpers.baseline_decide(example)
+    assert (decision.outcome, decision.person, decision.target, decision.replace) == (
+        "propose", "P22", "O3", replace,
+    )  # fmt: skip
+    assert decision.judged == ("edge:P22|works_at|O2" if replace else None)
+
+
+@pytest.mark.parametrize("name", ["supported", "ended"])
+@pytest.mark.parametrize("threshold", [math.inf, -math.inf, math.nan])
+def test_nonfinite_final_thresholds_skip_request_two_without_spending(name, threshold):
+    class NoRequests:
+        def decide(self, *_):
+            raise AssertionError("an unfitted threshold cannot justify a request")
+
+    settings = helpers.Settings(**{**SETTINGS.__dict__, name: threshold})
+    example = _examples()["t01"]
+    first = {example.id: _first({"P12": 0.9, "P11": 0.05, "no_match": 0.05}, 0.0)}
+    budget = Budget(requests=2)
+    budget.spend("requests")
+    second = helpers.ask_second(NoRequests(), budget, [example], first, settings)
+    assert second == {}
+    assert budget.used("requests") == 1
+    decision = helpers.decide(example, first[example.id], second.get(example.id), settings)
+    assert (decision.outcome, decision.reason, decision.person, decision.target) == (
+        "review", "a request-2 threshold is not fitted", "P12", "O2",
+    )  # fmt: skip
+    assert decision.answers == {name: a.to_dict() for name, a in first[example.id].items()}
+
+
+@pytest.mark.parametrize("thresholds", [(None, None), (None, 0.4), (0.7, None), (0.7, 0.4)])
+def test_calibration_and_finite_thresholds_still_send_request_two(thresholds):
+    calls, answer = [], _second(0.99, 0.99)
+
+    class Backend:
+        def decide(self, state, questions):
+            calls.append((state, questions))
+            return answer
+
+    example = _examples()["t01"]
+    first = {example.id: _first({"P12": 0.9, "P11": 0.05, "no_match": 0.05}, 0.0)}
+    settings = helpers.Settings(0.5, 0.8, *thresholds)
+    budget = Budget(requests=1)
+    assert helpers.ask_second(Backend(), budget, [example], first, settings) == {"t01": answer}
+    assert budget.used("requests") == 1
+    assert len(calls) == 1
+    assert calls[0][0]["person"] == "Felix Moss, software developer"
+    assert list(calls[0][1]) == ["supported", "ended"]

@@ -391,7 +391,7 @@ def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
         return []
     try:
         data = json.loads(responses_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, UnicodeError, OSError):
         return []
     if not isinstance(data, dict):
         return []
