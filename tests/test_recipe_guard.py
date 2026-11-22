@@ -435,6 +435,7 @@ import subprocess
 import sys
 import textwrap
 import tokenize
+from collections.abc import Callable
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from functools import cache
 from pathlib import Path
@@ -477,12 +478,14 @@ def _is_published(recipe: dict) -> bool:
 
 # _template is a reference recipe outside the catalog.
 PUBLISHED: list[dict] = [r for r in CATALOG["recipes"] if _is_published(r)]
+PUBLISHED_NUMBERS = frozenset(int(r["slug"].split("-", 1)[0]) for r in PUBLISHED)
+PUBLISHED_SLUGS = frozenset(r["slug"] for r in PUBLISHED)
 RECIPES_WITH_TEMPLATE = [*PUBLISHED, {"slug": "_template"}]
 
 
 def test_at_least_one_recipe_is_published():
     # Otherwise every published-recipe case below would silently check nothing.
-    assert _published_recipe_slugs()
+    assert PUBLISHED_SLUGS
 
 
 def _slug(recipe_or_path) -> str:
@@ -693,25 +696,6 @@ def _prose_of_python(source: str) -> str:
 # pointers. The contextual exceptions below are intentionally small (#471): an ambiguous label
 # or unexplained PR still fails, and every exception has a paired process-citation regression.
 NUMBER_LIST = r"\d+(?:\s*(?:,\s*(?:(?:and|or)\s+)?|(?:and|or)\s+|&\s*)\d+)*"
-PROCESS_CITATIONS: dict[str, re.Pattern[str]] = {
-    "pull request pointer": re.compile(
-        r"\b(?-i:PRs?)\b|\bpull[- ]requests?(?:['’]s|['’])?\s+"
-        r"(?:description|body|text|\d+)\b",
-        re.IGNORECASE,
-    ),
-    "wave or batch number": re.compile(r"\b(?:wave|batch)\s+\d+\b", re.IGNORECASE),
-    "review round": re.compile(r"\b(?:review|fix)\s+round\b", re.IGNORECASE),
-    "house rule number": re.compile(rf"\brules?\s+{NUMBER_LIST}\b", re.IGNORECASE),
-    "orchestration role": re.compile(
-        r"\bthe\s+(?:orchestrator|brief)\b"
-        r"|\b(?:the|this)\s+(?:independent\s+)?reviewers?(?:['’]s|['’])?\s+"
-        r"(?:found|finding|findings|noted|asked|comments?|said|required|flagged)\b"
-        r"|\breviewers['’]\s+(?:findings?|comments?)\b",
-        re.IGNORECASE,
-    ),
-    "review finding label": re.compile(r"\(\s*[MSBN][1-9]\s*\)"),
-    "acceptance criteria": re.compile(r"\bacceptance\s+criteri(?:a|on)\b", re.IGNORECASE),
-}
 # A list of rule numbers shares the following target. Bare paths are repository-root-relative;
 # rendered Markdown links are relative to the actual source file. Neither spelling grants a
 # private orchestration file, untracked file, directory, symlink or case-mismatched path a pass.
@@ -723,7 +707,7 @@ RECIPE_NUMBER = re.compile(rf"\brecipes?\s+({NUMBER_LIST})\b", re.IGNORECASE)
 RECIPE_SLUG_LINK = re.compile(
     # An underscore may open emphasis; real underscore suffixes stay inside the folder token.
     r"(?<![^\W_])(?<![.-])(?:(?:\.\./)+(?:recipes/)?|recipes/)"
-    r"((\d{2,3})-[^\s/`)\]}>\"',;:!?#]+)"
+    r"(\d{2,3}-[^\s/`)\]}>\"',;:!?#]+)"
 )
 # A destination starts after the link opener, independently of its optional title or closing
 # whitespace. Even a malformed link keeps its destination literal; it cannot turn a real folder
@@ -736,14 +720,6 @@ RECIPE_LITERAL_PATH = re.compile(
 PR_METRIC_WORD = re.compile(
     r"\)?[\s-]*(?:curves?|AUC|AP|areas?|plots?|precision|recall|metrics?)\b", re.IGNORECASE
 )
-
-
-def _published_recipe_numbers() -> set[int]:
-    return {int(r["slug"].split("-", 1)[0]) for r in PUBLISHED}
-
-
-def _published_recipe_slugs() -> set[str]:
-    return {r["slug"] for r in PUBLISHED}
 
 
 def _pr_is_metric(text: str, start: int, end: int) -> bool:
@@ -838,47 +814,105 @@ def _names_a_committed_file(text: str, end: int, source_path: Path | None = None
     )
 
 
-def _ordinary_citation_shape(text: str, match: re.Match[str], kind: str) -> bool:
-    """Small unambiguous English exceptions; other review-like labels remain conservative."""
+def _allow_pr_metric(text: str, match: re.Match[str], source_path: Path | None) -> bool:
+    return match.group().startswith("PR") and _pr_is_metric(text, match.start(), match.end())
+
+
+def _allow_recipe_actor(text: str, match: re.Match[str], source_path: Path | None) -> bool:
+    # Singular "brief pause/delay" is adjective+noun; plural-looking "the brief delays"
+    # can instead be a brief imposing requirements and must remain a pointer. Routing
+    # tasks to skills describes the recipe's actor. Keep other bare roles conservative.
+    after = text[match.end() :]
+    return bool(
+        (
+            match.group().lower().endswith("brief")
+            and re.match(r"\s+(?:pause|delay|interval|wait)\b", after, re.I)
+        )
+        or (
+            match.group().lower().endswith("orchestrator")
+            and re.match(
+                r"\s+routes?\s+(?:each\s+task|tasks?)\s+to\s+(?:a|the)\s+skills?\b",
+                after,
+                re.I,
+            )
+        )
+    )
+
+
+def _allow_input_batch(text: str, match: re.Match[str], source_path: Path | None) -> bool:
+    return bool(
+        match.group().lower().startswith("batch")
+        and re.search(r"\bprocess\s+$", text[: match.start()], re.I)
+        and re.match(r"\s+of\s+\d+\b", text[match.end() :])
+    )
+
+
+def _allow_ordinary_notation(text: str, match: re.Match[str], source_path: Path | None) -> bool:
     before, after = text[: match.start()], text[match.end() :]
-    if kind == "pull request pointer":
-        return match.group().startswith("PR") and _pr_is_metric(text, match.start(), match.end())
-    if kind == "orchestration role":
-        # Singular "brief pause/delay" is adjective+noun; plural-looking "the brief delays"
-        # can instead be a brief imposing requirements and must remain a pointer. Routing
-        # tasks to skills describes the recipe's actor. Keep other bare roles conservative.
-        return bool(
-            (
-                match.group().lower().endswith("brief")
-                and re.match(r"\s+(?:pause|delay|interval|wait)\b", after, re.I)
-            )
-            or (
-                match.group().lower().endswith("orchestrator")
-                and re.match(
-                    r"\s+routes?\s+(?:each\s+task|tasks?)\s+to\s+(?:a|the)\s+skills?\b",
-                    after,
-                    re.I,
-                )
-            )
+    # A colon/dash still introduces a finding even after an ordinary-looking noun.
+    if re.match(r"\s*[:–—-]", after):
+        return False
+    return bool(
+        re.search(r"\b(?:vitamin|sample|region)\s+$", before, re.I)
+        or (
+            re.fullmatch(r"\(\s*M[1-9]\s*\)", match.group())
+            and re.match(r"\s+chips?\b", after, re.I)
         )
-    if kind == "wave or batch number":
-        return bool(
-            match.group().lower().startswith("batch")
-            and re.search(r"\bprocess\s+$", before, re.I)
-            and re.match(r"\s+of\s+\d+\b", after)
-        )
-    if kind == "review finding label":
-        # A colon/dash still introduces a finding even after an ordinary-looking noun.
-        if re.match(r"\s*[:–—-]", after):
-            return False
-        return bool(
-            re.search(r"\b(?:vitamin|sample|region)\s+$", before, re.I)
-            or (
-                re.fullmatch(r"\(\s*M[1-9]\s*\)", match.group())
-                and re.match(r"\s+chips?\b", after, re.I)
-            )
-        )
+    )
+
+
+def _allow_committed_rule(text: str, match: re.Match[str], source_path: Path | None) -> bool:
+    return _names_a_committed_file(text, match.end(), source_path)
+
+
+def _allow_no_citation(text: str, match: re.Match[str], source_path: Path | None) -> bool:
     return False
+
+
+class CitationPattern(NamedTuple):
+    pattern: re.Pattern[str]
+    allow: Callable[[str, re.Match[str], Path | None], bool]
+    explanation: str = "a reader cannot open it"
+
+
+PROCESS_CITATIONS: dict[str, CitationPattern] = {
+    "pull request pointer": CitationPattern(
+        re.compile(
+            r"\b(?-i:PRs?)\b|\bpull[- ]requests?(?:['’]s|['’])?\s+"
+            r"(?:description|body|text|\d+)\b",
+            re.IGNORECASE,
+        ),
+        _allow_pr_metric,
+    ),
+    "wave or batch number": CitationPattern(
+        re.compile(r"\b(?:wave|batch)\s+\d+\b", re.IGNORECASE), _allow_input_batch
+    ),
+    "review round": CitationPattern(
+        re.compile(r"\b(?:review|fix)\s+round\b", re.IGNORECASE), _allow_no_citation
+    ),
+    "house rule number": CitationPattern(
+        re.compile(rf"\brules?\s+{NUMBER_LIST}\b", re.IGNORECASE),
+        _allow_committed_rule,
+        "a reader cannot open it; name a case-exact git-tracked regular file outside orchestration/ "
+        "using a repository-root-relative path or a Markdown link relative to this file",
+    ),
+    "orchestration role": CitationPattern(
+        re.compile(
+            r"\bthe\s+(?:orchestrator|brief)\b"
+            r"|\b(?:the|this)\s+(?:independent\s+)?reviewers?(?:['’]s|['’])?\s+"
+            r"(?:found|finding|findings|noted|asked|comments?|said|required|flagged)\b"
+            r"|\breviewers['’]\s+(?:findings?|comments?)\b",
+            re.IGNORECASE,
+        ),
+        _allow_recipe_actor,
+    ),
+    "review finding label": CitationPattern(
+        re.compile(r"\(\s*[MSBN][1-9]\s*\)"), _allow_ordinary_notation
+    ),
+    "acceptance criteria": CitationPattern(
+        re.compile(r"\bacceptance\s+criteri(?:a|on)\b", re.IGNORECASE), _allow_no_citation
+    ),
+}
 
 
 def _recipe_reference_slug(text: str, match: re.Match[str]) -> str:
@@ -909,27 +943,16 @@ def _citation_hits(text: str, location: str, source_path: Path | None = None) ->
     text = _strip_quoted(text)
     hits = [f"{location}: {m.group(0)!r} (issue number)" for m in ISSUE_NUMBER.finditer(text)]
     hits += [f'{location}: {m.group(0)!r} ("the issue")' for m in THE_ISSUE.finditer(text)]
-    for kind, pattern in PROCESS_CITATIONS.items():
-        for m in pattern.finditer(text):
-            if _ordinary_citation_shape(text, m, kind):
-                continue
-            if kind == "house rule number" and _names_a_committed_file(text, m.end(), source_path):
-                continue
-            explanation = "a reader cannot open it"
-            if kind == "house rule number":
-                explanation += (
-                    "; name a case-exact git-tracked regular file outside orchestration/ "
-                    "using a repository-root-relative path or a Markdown link relative to this file"
-                )
-            hits.append(f"{location}: {m.group(0)!r} ({kind}: {explanation})")
-    published = _published_recipe_numbers()
+    for kind, rule in PROCESS_CITATIONS.items():
+        for m in rule.pattern.finditer(text):
+            if not rule.allow(text, m, source_path):
+                hits.append(f"{location}: {m.group(0)!r} ({kind}: {rule.explanation})")
     for m in RECIPE_NUMBER.finditer(text):
         for number in re.findall(r"\d+", m.group(1)):
-            if int(number) not in published:
+            if int(number) not in PUBLISHED_NUMBERS:
                 hits.append(f"{location}: recipe {number!s} (a recipe that is not published)")
-    slugs = _published_recipe_slugs()
     for m in RECIPE_SLUG_LINK.finditer(text):
-        if _recipe_reference_slug(text, m) not in slugs:
+        if _recipe_reference_slug(text, m) not in PUBLISHED_SLUGS:
             hits.append(f"{location}: {m.group(0)!r} (a recipe that is not published)")
     return hits
 
@@ -1023,13 +1046,15 @@ _cell_id_scope.COMMONMARK_FENCE_CONTEXT = True
 without_code_fences = _cell_id_scope.without_code_fences
 
 
-def _hyphenated_cell_ids(recipe_dir_: Path) -> set[str]:
+def _hyphenated_cell_ids(recipe_dir_: Path, *, cells: list[dict] | None = None) -> set[str]:
     """The ids of the notebook's cells that contain a hyphen. A single-word id (``state``,
     ``setup``, ``answer``) is also an ordinary English word, so a backticked ``state`` is more
     often prose than a pointer, and counting those made every count taken before this one
     wrong (13 across 9 recipes, then 9 across 5 with ``state`` in it, then 13 in recipe 36 alone,
     every one of those 13 a coincidence); they cannot be told apart mechanically and are not checked."""
-    return {c["id"] for c in notebook_cells(recipe_dir_) if "-" in str(c.get("id", ""))}
+    if cells is None:
+        cells = notebook_cells(recipe_dir_)
+    return {c["id"] for c in cells if "-" in str(c.get("id", ""))}
 
 
 def _cell_id_citations(text: str, ids: set[str], location: str) -> list[str]:
@@ -1052,12 +1077,13 @@ def _recipe_cell_id_citations(recipe_dir_: Path) -> list[str]:
     """A cell id cited in this recipe's markdown cells or README.md. Out of scope by design: a
     code cell's comments, and the tests that find a cell by its id (``c.get("id") == "..."``),
     which are machinery reading the JSON, not prose a reader is pointed through."""
-    ids = _hyphenated_cell_ids(recipe_dir_)
+    cells = notebook_cells(recipe_dir_)
+    ids = _hyphenated_cell_ids(recipe_dir_, cells=cells)
     hits = []
     readme = recipe_dir_ / "README.md"
     if readme.is_file():
         hits += _cell_id_citations(readme.read_text("utf-8"), ids, "README.md")
-    for cell in notebook_cells(recipe_dir_):
+    for cell in cells:
         if cell["cell_type"] == "markdown":
             location = f"notebook.ipynb cell {cell.get('id', '?')}"
             hits += _cell_id_citations(cell_source(cell), ids, location)
@@ -1078,13 +1104,21 @@ def test_no_cell_id_is_cited_in_reader_facing_prose(recipe):
 # --- #225: the citation check reads every spelling of "something a reader cannot see" ----------
 
 
+# Frozen pre-#365 patterns and quote handling, verified against the parent of 85f357b:
+# 3553f319ba053ea68164c07896f449267108c66a:tests/test_recipe_guard.py. These are historical
+# evidence, not aliases of the current patterns: future vocabulary edits must not rewrite it.
+LEGACY_ISSUE_NUMBER = re.compile(r"#\d+\b")
+LEGACY_THE_ISSUE = re.compile(r"\bthe issue\b", re.IGNORECASE)
+LEGACY_QUOTED = re.compile(r'"[^"\n]*"')
+
+
 def _legacy_citation_hits(text: str, location: str) -> list[str]:
-    """The check before #225, kept as red-before evidence in the repository rather than only in
-    a pull request body: it ran exactly these two patterns, so every case below that is not an
-    issue number or "the issue" passed it."""
-    text = _strip_quoted(text)
+    """The frozen pre-#365 check, kept as red-before evidence for #225's unreadable pointers."""
+    text = LEGACY_QUOTED.sub(" ", text)
     return [
-        f"{location}: {m.group(0)!r}" for p in (ISSUE_NUMBER, THE_ISSUE) for m in p.finditer(text)
+        f"{location}: {m.group(0)!r}"
+        for pattern in (LEGACY_ISSUE_NUMBER, LEGACY_THE_ISSUE)
+        for m in pattern.finditer(text)
     ]
 
 
@@ -1503,6 +1537,98 @@ def test_citation_recipe_emphasis_does_not_hide_a_wrong_folder_suffix(suffix, ma
     assert _citation_hits(invalid, "prose"), invalid
 
 
+# #472: keep the historical red-before control independent of the current vocabulary and
+# quote policy. Expected hits below are literals from the frozen pre-#365 implementation.
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("#12 then #34", ["prose: '#12'", "prose: '#34'"]),
+        ("The Issue and the issue", ["prose: 'The Issue'", "prose: 'the issue'"]),
+        ('fixture "#12 the issue"', []),
+        ("#12 and the issue", ["prose: '#12'", "prose: 'the issue'"]),
+        ("the PR description and rule 4", []),
+        ('"#12\nthe issue"', ["prose: '#12'", "prose: 'the issue'"]),
+    ],
+)
+def test_legacy_citation_control_keeps_frozen_verdicts(text, expected):
+    assert _legacy_citation_hits(text, "prose") == expected
+
+
+@pytest.mark.parametrize("name", ["ISSUE_NUMBER", "THE_ISSUE", "QUOTED", "_strip_quoted"])
+def test_legacy_citation_control_ignores_current_pattern_and_quote_mutations(monkeypatch, name):
+    text = '#12 and the issue; fixture "#99 the issue"'
+    expected = ["prose: '#12'", "prose: 'the issue'"]
+    current_hits = _citation_hits(text, "prose")
+    replacements = {
+        "ISSUE_NUMBER": re.compile(r"(?!)"),
+        "THE_ISSUE": re.compile(r"(?!)"),
+        "QUOTED": re.compile(r".+", re.DOTALL),
+        "_strip_quoted": lambda text: "",
+    }
+    monkeypatch.setitem(globals(), name, replacements[name])
+    assert _legacy_citation_hits(text, "prose") == expected
+    assert _citation_hits(text, "prose") != current_hits
+
+
+def test_legacy_citation_patterns_are_frozen_literals_not_aliases_of_the_current_ones():
+    # Rebinding a current name in a test cannot reach an alias taken at import time, so the
+    # monkeypatch control above cannot see one: pin the frozen text and how it is defined.
+    frozen = {
+        LEGACY_ISSUE_NUMBER: (r"#\d+\b", 0),
+        LEGACY_THE_ISSUE: (r"\bthe issue\b", re.IGNORECASE),
+        LEGACY_QUOTED: (r'"[^"\n]*"', 0),
+    }
+    for pattern, (text, flags) in frozen.items():
+        assert (pattern.pattern, pattern.flags & ~re.UNICODE) == (text, flags)
+    # re.compile caches by literal, so identity cannot tell an alias from a copy: read the source.
+    defined = {
+        node.targets[0].id: node.value
+        for node in ast.parse(Path(__file__).read_text("utf-8")).body
+        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+    }
+    for name in ("LEGACY_ISSUE_NUMBER", "LEGACY_THE_ISSUE", "LEGACY_QUOTED"):
+        value = defined[name]
+        assert isinstance(value, ast.Call) and ast.unparse(value.func) == "re.compile", name
+
+
+@pytest.mark.parametrize("allowed", [False, True])
+def test_citation_patterns_dispatch_their_own_allow_function(monkeypatch, allowed):
+    calls = []
+    source = REPO / "recipes/_template/README.md"
+
+    def allow(text, match, source_path):
+        calls.append((text, match.group(), source_path))
+        return allowed
+
+    monkeypatch.setitem(
+        globals(),
+        "PROCESS_CITATIONS",
+        {
+            "synthetic pointer": CitationPattern(
+                re.compile(r"\bmarker\b"), allow, "synthetic reason"
+            )
+        },
+    )
+    hits = _citation_hits("a marker", "prose", source)
+    assert calls == [("a marker", "marker", source)]
+    assert hits == ([] if allowed else ["prose: 'marker' (synthetic pointer: synthetic reason)"])
+
+
+def test_citation_publication_inventory_is_a_frozen_module_snapshot(monkeypatch):
+    assert isinstance(PUBLISHED_NUMBERS, frozenset)
+    assert isinstance(PUBLISHED_SLUGS, frozenset)
+    # Derived from the catalog directly, not from PUBLISHED: the scope-registration rule bars
+    # a bare PUBLISHED reference outside the registered definitions.
+    on_disk = [r["slug"] for r in CATALOG["recipes"] if _is_published(r)]
+    assert PUBLISHED_NUMBERS == frozenset(int(slug.split("-", 1)[0]) for slug in on_disk)
+    assert PUBLISHED_SLUGS == frozenset(on_disk)
+    # Scanning a file/cell must use the snapshot instead of iterating the catalog again.
+    monkeypatch.setitem(globals(), "PUBLISHED", None)
+    assert _citation_hits("recipe 30 and ../30-citation-verification/", "prose") == []
+    assert _citation_hits("recipe 99 and ../99-missing/", "prose")
+    assert RECIPE_SLUG_LINK.groups == 1
+
+
 # The same spelling in each place the check reads: a comment or docstring in a .py file, the
 # README, a markdown cell and a code cell's comment all count.
 _PLANT = "see the PR description"
@@ -1653,6 +1779,30 @@ def test_a_cell_id_in_code_and_in_a_test_lookup_is_machinery_not_a_citation(tmp_
     path = folder / "tests" / "test_helpers.py"
     path.write_text(path.read_text("utf-8") + lookup, "utf-8")
     assert _recipe_cell_id_citations(folder) == []
+
+
+def test_cell_id_citation_scan_reads_the_notebook_once(monkeypatch, tmp_path):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", "Run `python-rule` below.")
+    original = notebook_cells
+    reads = []
+
+    def counted(recipe_path):
+        reads.append(recipe_path)
+        return original(recipe_path)
+
+    monkeypatch.setitem(globals(), "notebook_cells", counted)
+    hits = _recipe_cell_id_citations(folder)
+    assert reads == [folder]
+    assert len(hits) == 1 and "`python-rule`" in hits[0], hits
+
+
+def test_cell_id_helper_uses_even_an_empty_parsed_cell_list(monkeypatch, tmp_path):
+    def forbidden_read(recipe_path):
+        raise AssertionError("already parsed cells must not trigger another notebook read")
+
+    monkeypatch.setitem(globals(), "notebook_cells", forbidden_read)
+    assert _hyphenated_cell_ids(tmp_path, cells=[]) == set()
 
 
 def test_a_cell_id_of_another_notebook_is_not_this_notebooks_citation(tmp_path):
@@ -4608,7 +4758,7 @@ def test_a_recipe_listed_as_not_showing_the_reason_is_held_to_it_both_ways(tmp_p
 
 
 def test_every_exemption_names_a_published_recipe_and_gate_free_ones_have_no_live_gate():
-    published = _published_recipe_slugs()
+    published = PUBLISHED_SLUGS
     assert set(GATE_FREE_DESIGNS) <= published
     assert set(REASON_NOT_IN_COMMITTED_OUTPUT) <= published
     assert not set(GATE_FREE_DESIGNS) & set(REASON_NOT_IN_COMMITTED_OUTPUT)
@@ -4877,11 +5027,12 @@ def _check_recipe_scope_registration(tree: ast.Module) -> None:
     # recipe cases start with the full set, including the template.
     catalog_helpers = {
         "guarded",
-        "_published_recipe_numbers",
-        "_published_recipe_slugs",
         "_inbound_next_steps_links",
         "side_effect_inventory_gaps",
     }
+    # The module-level frozensets that replaced the _published_recipe_numbers/_slugs helpers
+    # (#472): the same catalog metadata, registered under their new names.
+    catalog_constants = {"PUBLISHED_NUMBERS", "PUBLISHED_SLUGS"}
     pytest_names = {"pytest", "pytest.mark", "pytest.mark.parametrize"}
     aliases = {}
 
@@ -4915,6 +5066,11 @@ def _check_recipe_scope_registration(tree: ast.Module) -> None:
 
         catalog_helper = (
             isinstance(statement, ast.FunctionDef) and statement.name in catalog_helpers
+        ) or (
+            isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+            and statement.targets[0].id in catalog_constants
         )
         full_set_definition = (
             isinstance(statement, ast.Assign)
@@ -4956,6 +5112,17 @@ def _check_recipe_scope_registration(tree: ast.Module) -> None:
 
 def test_recipe_checks_use_the_template_scope_registration():
     _check_recipe_scope_registration(ast.parse(Path(__file__).read_text("utf-8")))
+
+
+def test_recipe_scope_registration_accepts_the_published_frozensets_only_by_name():
+    source = """PUBLISHED_SLUGS = frozenset(r["slug"] for r in PUBLISHED)
+PUBLISHED_NUMBERS = frozenset(int(r["slug"].split("-", 1)[0]) for r in PUBLISHED)
+"""
+    _check_recipe_scope_registration(ast.parse(source))
+    with pytest.raises(AssertionError, match="use RECIPES_WITH_TEMPLATE for recipe sweeps"):
+        _check_recipe_scope_registration(
+            ast.parse(source.replace("PUBLISHED_SLUGS =", "OTHER_SLUGS ="))
+        )
 
 
 def test_recipe_scope_registration_rejects_a_published_only_module_alias():
@@ -5015,7 +5182,7 @@ def test_recipe_scope_registration_checks_ordinary_parametrization_forms(source)
 
 
 def test_recipe_scope_registration_requires_the_template_in_the_full_set():
-    expected = _published_recipe_slugs() | {"_template"}
+    expected = PUBLISHED_SLUGS | {"_template"}
     actual = [_slug(recipe) for recipe in RECIPES_WITH_TEMPLATE]
     assert set(actual) == expected and len(actual) == len(expected), (
         "RECIPES_WITH_TEMPLATE must contain the published recipes and the template exactly once"
@@ -9876,7 +10043,7 @@ def side_effect_inventory_gaps() -> list[str]:
 
 
 def test_the_side_effect_inventory_names_only_published_recipes_with_well_formed_entries():
-    stale = sorted(SIDE_EFFECT_INVENTORY.keys() - _published_recipe_slugs())
+    stale = sorted(SIDE_EFFECT_INVENTORY.keys() - PUBLISHED_SLUGS)
     assert not stale, f"SIDE_EFFECT_INVENTORY names recipes that are not published: {stale}"
     for slug, entry in SIDE_EFFECT_INVENTORY.items():
         declaration, problems = parse_side_effect_declaration(entry)
