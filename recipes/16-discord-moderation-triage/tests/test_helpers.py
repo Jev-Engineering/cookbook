@@ -16,10 +16,8 @@ helpers = load_helpers(RECIPE)
 # notebook.ipynb, "Python's part"): the lowest confidence whose answered subset -- every
 # category, allowed included -- is perfectly accurate. It happens to be the same value as the
 # gate chosen over only the two flagged categories would be (both land on the 0.7600 the
-# notebook prints, carried exactly by "v13-violating-harass"), not by coincidence but because
-# validation's "allowed" examples were raised above it precisely so that re-selecting the gate
-# over every category, not just the two flagged ones, would not quietly lower it. Written here
-# as a literal, to the precision select_confidence_threshold actually returns it, so a change
+# notebook prints, carried exactly by "v13-violating-harass"). Written here as a literal, to
+# the precision select_confidence_threshold actually returns it, so a change
 # to this rule's behaviour, not merely to the fixtures, is what the frozen-gate tests below are
 # pinned against.
 FROZEN_GATE = 0.7599999999999998
