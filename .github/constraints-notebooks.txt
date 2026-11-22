@@ -2,8 +2,9 @@
 # -c`). They pin the plotting and numeric stack and the kernel stack to the versions the committed
 # template outputs were produced with (Python 3.14), so a new release of any of them cannot turn
 # every notebook red at once on main (a warning on stderr, a changed repr, moved figure geometry).
-# pyproject.toml stays bounded, not pinned. Authors install with the same file before they execute a notebook
-# and commit its outputs: pip install -e ".[ml]" -c .github/constraints-notebooks.txt
+# pyproject.toml does not pin these: its core dependencies are unbounded, and only the `ml` extra's
+# scikit-learn is bounded, not pinned. Authors install with the same file before they execute a
+# notebook and commit its outputs: pip install -e ".[ml]" -c .github/constraints-notebooks.txt
 #
 # Bumping any line here is a foundation change: re-execute every notebook
 # (`python tools/execute_notebook.py recipes/<folder>`), commit the results, and read the

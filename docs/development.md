@@ -111,9 +111,8 @@ what the 3.10 leg resolves, and the upper bound is the next major after the note
 Today the 3.14 leg gets scikit-learn 1.9.1, the release the notebook job pins, but the bound only
 keeps it inside the pin's major version, so it moves when a newer 1.x release is published. Each
 test leg also resolves a supported NumPy version, which may differ from the notebook pin. The
-3.10 leg gets 1.7.2, an
-older release than the other leg, and will always lag it. Raise the lower bound when the 3.10
-floor goes, and the upper bound when the notebook pin moves to a new major.
+3.10 leg gets 1.7.2, an older release than the other leg, and will always lag it. Raise the lower
+bound when the 3.10 floor goes, and the upper bound when the notebook pin moves to a new major.
 A recipe test that exercises a trained model therefore asserts properties that hold on every
 version (the shape of the output, that it beats the baseline, determinism under a fixed seed) and
 never a trained number or a printed `repr` that depends on the scikit-learn version; those belong
