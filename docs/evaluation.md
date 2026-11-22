@@ -241,12 +241,13 @@ Noul/Score answers (`.noul` or `.score` is read), through one shared extraction,
 answers can go to all five. (`ndcg` used to accept `.score` only and raise `TypeError` on a Noul
 answer while `recall_at_budget` accepted both; that difference is gone.) `mean_ndcg` and
 `mean_recall_at_budget` sum the per-query values with `math.fsum`, so the result does not depend
-on the order of the queries. A query given to `mean_ndcg`,
-`mean_recall_at_budget` or `top_k_query_accuracy` is read once with `tuple(q)`, so a one-shot
-iterable works, and a query of the wrong length raises a `ValueError` naming the expected
+on the order of the queries. A query given to `mean_ndcg`, `mean_recall_at_budget` or
+`top_k_query_accuracy` is read once with `tuple(q)`, so a one-shot iterable works, and a query of
+the wrong length raises a `ValueError` naming the expected
 shape. `top_k_query_accuracy` takes only `(gold_relevant, scores)` pairs, and a three-tuple (the
 `eligible` form) raises a `ValueError` that names the missing `eligible` and says when
-`mean_recall_at_budget` is, and is not, the same metric.
+`mean_recall_at_budget` is, and is not, the same metric. A non-iterable query raises `ValueError`
+with a bounded preview; errors while consuming a query's iterator propagate unchanged.
 
 **`top_k_query_accuracy` is not `recall_at_budget` under another name.** The two differ whenever
 a query has more than one relevant item: with two relevant items among three and the top-scored
@@ -517,9 +518,9 @@ Then the selected subset at `t` is `~rejected & (exempt | (confidence >= t))`: a
 is selected at no threshold however confident it is, and an example marked both `exempt` and
 `rejected` is contradictory and raises. A rejected example that was asked a question is passed in
 like any other (it is in the coverage denominator, and its `correct` is read but never reaches
-`accuracy`; its confidence is not a threshold candidate, see below), so `coverage` is the share of *all passed*
-examples the rule answered, which is what `evaluate_outcomes` reports at the same gate when
-`accepted = ~rejected & (exempt | (confidence >= t))`; the test
+`accuracy`; its confidence is not a threshold candidate, see below), so `coverage` is the share
+of *all passed* examples the rule answered, which is what `evaluate_outcomes` reports at the same
+gate when `accepted = ~rejected & (exempt | (confidence >= t))`; the test
 `test_outcome_curve_rejected_combines_with_exempt_and_matches_evaluate_outcomes_per_row` checks
 that row by row. An example the rule settles with no question at all has no confidence to pass:
 leave it out and account for it separately, exactly as for `exempt` (below). The candidate
@@ -709,8 +710,13 @@ for itself. None of them reapplies a confidence gate; each reads what the rule r
 | Helper | Returns |
 | --- | --- |
 | `accepted_and_correct(results, gold, *, accepted_when, label_of, key_of=None)` | the `(accepted, correct)` pair `evaluate_outcomes` takes, so `evaluate_outcomes(*accepted_and_correct(...))` is the whole accounting. `accepted_when(result)` says whether the rule answered; `label_of(result)` is the label it answered with; `gold` is a sequence parallel to `results`, or a mapping looked up with `key_of(result)`. `correct` is computed for every result, the review ones included: `evaluate_outcomes` never reads it there, but `outcome_curve`, `selective_curve`, `evaluate_selective` and `outcome_breakdown` do, so `label_of` returns the label the rule answered with or, for a review result, the label it held back, and must not fail on a review result. A Choice answer is unwrapped to `.choice` on either side before `==`, as `accuracy` does |
-| `action_error_rate(results, gold, *, acts_when, label_of, key_of=None)` | the share of the results that triggered the side effect (`acts_when`) whose label is wrong; NaN when none acted. One name for the false merge rate (recipe 18) and the false link rate (recipe 22): a wrong result that did not act (a missed duplicate, a wrong `no_match`) lowers `evaluate_outcomes`' accuracy but is not counted here |
-| `outcome_breakdown(outcomes, correct, *, order=None)` | `{outcome: OutcomeTally(right, wrong)}`: every example counted under its own outcome, so the totals add up to the number of examples and nothing disappears. `order` lists the outcomes, in that order, with zero counts for one that never happened, so a table keeps its shape across splits; a label listed twice, an unhashable label, or two labels of different kinds that compare equal (`True` and `1`, `1` and `1.0`; a numpy scalar is the kind of the Python value it stands for), raise `ValueError` rather than silently sharing a tally. `OutcomeTally` has `right`, `wrong`, `total` and `accuracy` (NaN for a zero total) |
+| `action_error_rate(results, gold, *, acts_when, label_of, key_of=None)` | the share of the results that triggered the side effect (`acts_when`) whose label is wrong; NaN when none acted. A mapping `gold` needs labels only for acting results, and `key_of` and `label_of` are called only for those results; a sequence `gold` still needs one entry per input result. One name for the false merge rate (recipe 18) and the false link rate (recipe 22): a wrong result that did not act (a missed duplicate, a wrong `no_match`) lowers `evaluate_outcomes`' accuracy but is not counted here |
+| `outcome_breakdown(outcomes, correct, *, order=None)` | `{outcome: OutcomeTally(right, wrong)}`: every example counted under its own outcome, so the totals add up to the number of examples and nothing disappears. `order` lists the outcomes, in that order, with zero counts for one that never happened, so a table keeps its shape across splits; a label listed twice, an unhashable label, a scalar NaN, or two scalar labels of different kinds that compare equal (`True` and `1`, `1` and `1.0`; a numpy scalar is the kind of the Python value it stands for), raise `ValueError` rather than silently sharing a tally. Kind checks apply only at the top level: equal tuples or frozensets share a tally even if their elements have different kinds. `OutcomeTally` has `right`, `wrong`, `total` and `accuracy` (NaN for a zero total) |
+
+`accepted_when` and `acts_when` return booleans or 0/1, including integral floats `0.0` and `1.0`.
+Other values raise `ValueError`. Both helpers refuse array-valued gold or predicted labels with
+`ValueError`; they compare scalar Choice labels, not multi-label masks. A Choice answer is
+unwrapped before this check.
 
 `accepted_and_correct` fixes one spelling of the pair across recipes: `(accepted, correct)`, in the
 order `evaluate_outcomes` takes them. Its first argument is the rule's results and its second the
