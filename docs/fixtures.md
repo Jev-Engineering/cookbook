@@ -107,6 +107,12 @@ its top is read as a Box label, and so is a nested object whose only keys are `p
 `box`. Every `train`, `validation` and
 `test` example needs exactly one label; a label whose `id` is not in the inputs is an error.
 
+`present` is reserved at the top level of a label for the Box format, including when its
+value is malformed or the object has extra keys. When storing answers by question name,
+use a different name such as `visible` for a separate presence question and nest the Box
+label under its own question name. The [image example](backends.md#images-and-box) uses
+`visible` for the Noul question and `button` for the Box question.
+
 ### Box labels
 
 A recipe whose question asks for a `Box` labels each example with a gold Box label, so ten
@@ -150,6 +156,13 @@ every split the recipe ships (`train` included):
 ```json
 {"id": "t12", "label": {"target": {"present": true, "box": {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}}, "rubric": 3}}
 ```
+
+A separate presence answer and a nested Box label can disagree: for example,
+`{"visible": true, "button": {"present": false}}` is structurally valid. The fixture
+validator does not compare `visible` with `button.present`. The recipe's helper chooses
+the question or label key its evaluation reads, and its tests must make that choice
+explicit. An evaluation of the `button` Box reads `gold_box(label["button"])`; a separate
+Noul evaluation reads `label["visible"]`. Neither answer silently overrides the other.
 
 Store the gold box once, for the whole image, as a full-image Box label. A recipe that tiles
 the image does not store a tile choice beside it: a stored tile name can disagree with the box

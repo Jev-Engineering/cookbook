@@ -653,7 +653,13 @@ def _check_box_labels(
                 gold_box(box_label)
             except ValueError as exc:
                 where = f" at {_label_path(path)}" if path else ""
-                problems.append(Problem(name, f"malformed Box label{where}: {exc}", line, ident))
+                message = f"malformed Box label{where}: {exc}"
+                if not path:
+                    message += (
+                        "; 'present' is reserved at the top level of a label for the Box format; "
+                        "use a different question name when storing answers by name"
+                    )
+                problems.append(Problem(name, message, line, ident))
     return problems
 
 
