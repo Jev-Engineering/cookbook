@@ -34,25 +34,14 @@ from jev_cookbook.evaluation import noul_confidence, select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, select_split, validate_recipe
 from jev_cookbook.vision import box_confidence, box_iou, gold_box, localization_report
 
+from .module_loader import load_module_at
+
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "recipes" / "_template"
 
 
 def load_tool(name):
-    spec = importlib.util.spec_from_file_location(f"{name}_for_test", REPO / "tools" / name)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def load_module_at(path, name):
-    """Import an arbitrary .py file (a scaffolded build_fixtures.py, not under tools/) so its
-    functions and module-level values (ROWS, build_responses) are plain Python objects, not
-    subprocess output."""
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return load_module_at(REPO / "tools" / name, f"{name}_for_test")
 
 
 new_recipe = load_tool("new_recipe.py")
@@ -1202,7 +1191,7 @@ def test_every_hang_guard_fits_in_the_ci_test_job():
     guards = executor_budget.every_guard(execute_notebook)
     assert HANG_GUARD == guards["tests/test_new_recipe.py"]
     for user, guard in guards.items():
-        assert executor_budget.fits_in_the_ci_test_job(guard), executor_budget.fit_problem(
+        assert executor_budget.fits_in_the_ci_test_job(guard, job), executor_budget.fit_problem(
             user, guard, job
         )
         # and it still covers what the tool may legitimately take on a silent kernel
@@ -1210,6 +1199,19 @@ def test_every_hang_guard_fits_in_the_ci_test_job():
         if user != "tests/test_new_recipe.py":  # the other users wait with the same derivation
             source = (REPO / user).read_text(encoding="utf-8")
             assert "timeout=EXECUTE_TIMEOUT" in source and "hang_guard(" in source, user
+
+
+def test_the_hang_guard_fit_check_reads_the_job_once(monkeypatch):
+    calls = []
+    read_job = executor_budget.ci_test_job_seconds
+
+    def job_seconds():
+        calls.append(None)
+        return read_job()
+
+    monkeypatch.setattr(executor_budget, "ci_test_job_seconds", job_seconds)
+    test_every_hang_guard_fits_in_the_ci_test_job()
+    assert len(calls) == 1
 
 
 def test_the_ci_fit_check_fails_for_a_guard_that_is_too_long():
