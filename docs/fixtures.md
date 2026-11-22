@@ -397,7 +397,9 @@ recorded run, on the held-out `test` split, could measure that
 ([CONTRIBUTING.md](../CONTRIBUTING.md), section 2). The same holds when the order *is* shuffled
 per item: a table of where the gold option landed afterwards describes the fixtures (whether the
 shuffle broke the link between position and label), and is printed, if at all, as that and with
-the pipeline-check label, never as evidence about the model.
+the pipeline-check label, never as evidence about the model. The recipe guard
+(`fixed_order_choice_position_statistic`) fails a recipe that never derives a per-item order but
+still prints a first-option or gold-position statistic from a code cell.
 
 When a per-item order is wanted, two different things go wrong if it does not come from the
 seed key:
