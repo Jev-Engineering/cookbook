@@ -49,84 +49,112 @@
       "reference": "TypeSafe AI: Introduction",
       "supports": "Typed questions over supplied state and atomic judgments composed in code.",
       "url": "https://docs.typesafe.ai/introduction",
-      "reviewed": "2026-10-06"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S02",
       "reference": "TypeSafe AI: Primitives (Questions)",
-      "supports": "Choice, Noul, Score, independent questions, and dependent follow-up calls.",
+      "supports": "Choice, Score, Noul, and Box questions, the typed answers they return, several questions per request, and dependent follow-up requests.",
       "url": "https://docs.typesafe.ai/primitives",
-      "reviewed": "2026-10-06"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S03",
       "reference": "TypeSafe AI: Confidence",
       "supports": "Distribution-derived confidence and task-specific thresholds informed by observed outcomes.",
       "url": "https://docs.typesafe.ai/confidence",
-      "reviewed": "2026-10-06"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S04",
       "reference": "TypeSafe AI: How to build with TypeSafe",
       "supports": "Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.",
       "url": "https://docs.typesafe.ai/concepts/how-to-build-with-system-one",
-      "reviewed": "2026-10-06"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S05",
-      "reference": "TypeSafe AI: Example use cases",
-      "supports": "Application families covering classification, routing, scoring, retrieval, and verification.",
+      "reference": "TypeSafe AI: Use cases",
+      "supports": "Use cases grouped by category (business process automation, real-time apps, search and labeling, agents and verification, images and video, more industries) and decision shapes such as classification, detection, scoring, routing, search, retrieval, ranking, verification, and extraction.",
       "url": "https://docs.typesafe.ai/concepts/use-case-map",
-      "reviewed": "2026-10-06"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S06",
       "reference": "TypeSafe AI: Cookbooks",
-      "supports": "Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.",
+      "supports": "Worked cookbooks listed by problem: LLMs and agents, classification, extraction, search and matching, techniques, and image processing.",
       "url": "https://docs.typesafe.ai/cookbooks",
-      "reviewed": "2026-10-06"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S07",
-      "reference": "TypeSafe AI: Jev 1.13 jaggedness",
-      "supports": "Version-specific limitations affecting arithmetic, context selection, adversarial content, and generation.",
-      "url": "https://docs.typesafe.ai/model-jaggedness/jev-1.13",
-      "reviewed": "2026-10-06"
+      "reference": "TypeSafe AI: Model jaggedness",
+      "supports": "Known failure modes, each with a recommended alternative: literal reading, math and numbers (counting, numeric representations, math using Score), date and time comparison, indirection, large state full of irrelevant detail, adversarial content, contradictory instructions and criteria, Choice option order, and generation.",
+      "url": "https://docs.typesafe.ai/model-jaggedness",
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S08",
       "reference": "TypeSafe AI: System One Adapter",
       "supports": "A typed interface for comparing Jev with decision adapters backed by generative models.",
       "url": "https://github.com/typesafe-ai/system-one-adapter-python",
-      "reviewed": "2026-10-06"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S09",
       "reference": "TypeSafe AI: Images",
       "supports": "Experimental PNG/JPEG assets in state, instructions, and criteria; image comparisons and ordered still frames with the images header.",
       "url": "https://docs.typesafe.ai/images",
-      "reviewed": "2026-10-15"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S10",
       "reference": "TypeSafe AI: Box",
-      "supports": "Jev 1.14 single-target bounding rectangles, normalized edges and confidence, absent-target checks, tiled search, and crop verification.",
+      "supports": "Single-target bounding rectangles, normalized edges and confidence, absent-target checks, guidance for images with several instances, tiled search, and crop-and-ask-again verification.",
       "url": "https://docs.typesafe.ai/primitives/box",
-      "reviewed": "2026-10-15"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S11",
       "reference": "TypeSafe AI: Models and long context",
-      "supports": "Versioned model IDs, moving aliases, and opt-in 262k-token per-request and per-question context for Jev 1.13 and 1.14.",
+      "supports": "Versioned model IDs, moving aliases, rate limits, the opt-in 262k-token per-request and per-question context for Jev 1.13 and 1.14, customizing Jev through the request, and data handling.",
       "url": "https://docs.typesafe.ai/models",
-      "reviewed": "2026-10-15"
+      "reviewed": "2026-11-22"
     },
     {
       "id": "S12",
       "reference": "TypeSafe AI: Jev 1.14 release",
       "supports": "The October 14, 2026 release of Jev 1.14 and the experimental status of image, Box, and long-context capabilities.",
       "url": "https://typesafe.ai/blog/jev-1-14",
-      "reviewed": "2026-10-15"
+      "reviewed": "2026-11-22"
+    },
+    {
+      "id": "S13",
+      "reference": "TypeSafe AI: Screen with a Noul first",
+      "supports": "A pattern that asks one yes/no Noul question on a small state first and runs the next step only on a clear yes, with separate handling for a clear no and for an unsettled answer.",
+      "url": "https://docs.typesafe.ai/patterns/noul-screen",
+      "reviewed": "2026-11-22"
+    },
+    {
+      "id": "S14",
+      "reference": "TypeSafe AI: Model changelog",
+      "supports": "The principal changes in each Jev release, currently the Jev 1.14 entry of October 14, 2026: model ID, Box, images, and long context.",
+      "url": "https://docs.typesafe.ai/changelog",
+      "reviewed": "2026-11-22"
+    },
+    {
+      "id": "S15",
+      "reference": "TypeSafe AI: Noul",
+      "supports": "The Noul question type: a yes/no question answered with the probability that the answer is yes, its request and response structure, and how to write the question and handle several answers in code.",
+      "url": "https://docs.typesafe.ai/primitives/noul",
+      "reviewed": "2026-11-22"
+    },
+    {
+      "id": "S16",
+      "reference": "TypeSafe AI: Companion Noul",
+      "supports": "Pairing a Choice with a Noul that asks whether any option fits, so code can tell when none does, and how this compares with an other option.",
+      "url": "https://docs.typesafe.ai/patterns/companion-noul",
+      "reviewed": "2026-11-22"
     }
   ],
   "recipes": [
