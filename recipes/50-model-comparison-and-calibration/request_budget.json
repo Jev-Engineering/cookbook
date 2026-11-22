@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "backends": {
+    "jev": {
+      "requests": 41,
+      "at_most": 46,
+      "fixtures": "fixtures/responses.json"
+    },
+    "atlas-compact": {
+      "requests": 40,
+      "fixtures": "fixtures/responses-atlas.json",
+      "replay_only": true
+    },
+    "northstar-7b": {
+      "requests": 41,
+      "fixtures": "fixtures/responses-north.json",
+      "replay_only": true
+    }
+  }
+}

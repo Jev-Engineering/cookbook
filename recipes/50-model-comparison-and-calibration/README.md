@@ -52,8 +52,8 @@ notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not 
 
 ## Switch to live
 
-Live calls are opt-in and change nothing but the `jev` backend: `atlas-compact` and
-`northstar-7b` are fabricated decision adapters this recipe never calls live, whatever the
+Live mode is opt-in and changes nothing but the `jev` backend: `atlas-compact` and
+`northstar-7b` are fabricated decision adapters this recipe only ever replays, whatever the
 environment says (see "Setup and run mode" in the notebook). Install the SDK
 (`pip install -e ".[live]"`) and set `TYPESAFE_API_KEY`, `JEV_COOKBOOK_LIVE=1` and
 `JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in Jupyter (not a dependency
@@ -61,64 +61,24 @@ of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
 and always runs offline.
 
-**Request count, and what it is a count of.** Replaying the committed fixtures, this notebook
-makes exactly **41** requests to `jev`, and no other: 23 examples (3 `demo`, 10 `validation`,
-10 `test`) each ask request A once, and the 18 of those 23 whose design asks a dependent second
-request also ask request B once, for 23 + 18 = 41. That figure is not asserted in prose: the
-notebook's "What a live run of this notebook would cost" cell counts it, prints it and asserts
-it, so it cannot drift away from what the notebook does.
+<!-- request-budget:begin -->
+In live mode this notebook makes exactly **41** requests, each decided once when every live answer matches the committed one, and up to **46** when a live answer sends it down a longer path. Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=46` or higher before running it live (the default cap is 25): the cap is inclusive and every attempt counts against it, retries included, so a lower cap stops the run partway through with `BudgetExceeded` and a run that retries needs more. Declared replay-only lanes (`atlas-compact` 40; `northstar-7b` 41) count logical replay calls separately; they make no live requests and add nothing to the live total or cap. Their source labels describe saved answers, not new inference.
+<!-- request-budget:end -->
 
-Two quantities both get called "requests", and sizing a budget from the wrong one is how a live
-run stops partway through with `BudgetExceeded`:
-
-- **Distinct requests** -- distinct `(state, questions)` pairs, keyed by `replay_key`: the 41
-  above, and what `fixtures/responses.json` holds one entry per. Offline a repeat of one is
-  free, because replay is a dict lookup on that key.
-- **Forwarded `decide()` calls** -- what the live path actually bills. `LiveBackend.decide`
-  spends budget on every attempt it makes and caches nothing, so live a repeat is not free.
-  Every backend here is dispatched through `helpers.MemoisingBackend`, which forwards each
-  distinct request exactly once; that wrapper, not an assertion, is what makes the two counts
-  equal for this notebook. A cell that re-decided a state would fail nothing -- the memo absorbs
-  the repeat, and the notebook's printed `repeats` count is what shows it happened. What the
-  cell's assertion pins is the number: forwarded calls must equal the responses the committed
-  fixtures hold.
-
-**Even an exact call count is a floor, not a bill**, and live the count is a range rather than
-41:
-
-- Retries bill on top. `jev_cookbook.live`'s own budget error puts it exactly: "retries and
-  timed-out requests count".
-- Which rows ask request B is decided live by the live `category` answer, not by the stored
-  design, so the live count lies between **23** (request A for all 23 examples) and **46**
-  (request B for all of them too) -- the bound the notebook asserts. Today's fixtures sit at 41
-  because 18 rows' design asks request B; the 5 that do not are the 4 scored rows whose gold
-  category is `other` and the `d02` demo, and a live answer naming a real category on any of
-  them adds a request.
-
-**The upper end of that range (46) and the 41 these fixtures sit at are both above the live
-backend's default request budget of 25** (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`,
-[docs/live.md](../../docs/live.md)); only the lower end (23) fits inside it, and a run cannot count
-on landing there. Every attempt counts against that budget, including each retry. Size it from the
-upper bound rather than from 41:
-
-```bash
-export JEV_COOKBOOK_LIVE_MAX_REQUESTS=50
-```
-
-50 rather than 46 leaves headroom for a few retried requests (a 429 or a transient connection
-error) to still complete inside the budget; 41 exactly would abort partway through the moment a
-live `category` answer sent request B to one more row than the stored design does, or one
-attempt needed a retry. Never put a key in a notebook or a fixture.
+Each lane is audited beneath its memo wrapper, so repeated table reads reuse the same answer.
+The declaration separates live-capable calls from replay-only calls; the final audit records
+both, preserving each saved lane's own provenance. The request cap applies to `jev` alone,
+including retries and timed-out attempts. Live answers may take a different follow-up path
+than the stored answers. Never put a key in a notebook or a fixture.
 
 **What would actually be measured.** A recorded run would answer the same requests from the real
-API (the 41 above, or as many as 46 -- a recorded run writes one response per request it
-actually makes), with a pinned model (`jev-1.13.0`, never an alias) and the UTC date of the
+API (a recorded run writes one response per request it actually makes), with a pinned model (`jev-1.13.0`, never an alias) and the UTC date of the
 call, and the recorder would write those responses into `fixtures/responses.json` in place of
 the synthetic ones there now. The notebook's questions, state, and calibration code would not
 change at all -- only the backend. Reporting a real comparison after that would still need a
 second step this recipe does not take: recording `atlas-compact` and `northstar-7b` from their
 own real APIs is out of scope here (they are fabricated stand-ins, not real services this
-repository can call), so a live run of this recipe can only ever produce a recorded number for
+repository can reach), so a live run of this recipe can only ever produce a recorded number for
 `jev` alone, never a three-way comparison.
 
 ## What was and was not measured
@@ -142,10 +102,9 @@ repository can call), so a live run of this recipe can only ever produce a recor
     retried and timed-out attempts on top and up to 46 if the live gate asks request B more
     often than the stored design does (see "Switch to live"). The notebook's cell under
     "What a live run of this notebook would cost" prints and asserts both counts; this bullet
-    quotes that cell rather than standing on its own. `atlas-compact` and `northstar-7b` each also
-    have 41 *stored* responses (the comparison format requires every backend to answer the same
-    requests), but neither backend is ever billed against a live budget, because neither is
-    ever called live.
+    quotes that cell rather than standing on its own. The saved lanes declare their own
+    exercised inventories: atlas skips the follow-up for its own `other` answer on `t03`,
+    while northstar follows the same request path as Jev. Neither saved lane is ever called live.
   - **Questions:** 3 in every request A (`category`, `verifiable`, `names_control`) plus 1 in
     every request B (`specificity`). The gold design asks request B on 8 of 10 rows in each
     scored split, for 10 × 3 + 8 × 1 = 38 questions per split under gold, but a backend's own

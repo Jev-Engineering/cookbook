@@ -8,20 +8,12 @@ Every response here is synthetic and deliberately imperfect, for all three backe
 wrong answers, and the adversarial, conflicting and stateful cases the use case names. See
 docs/fixtures.md ("Comparison recipes") and recipes/_template/build_fixtures.py.
 
-Three backends answer the SAME requests (docs/fixtures.md: "every replay key listed in
-inputs.jsonl must be present in every responses file"): ``jev`` (the default, untagged
-``responses.json``), ``atlas-compact`` (``responses-atlas.json``) and ``northstar-7b``
-(``responses-north.json``), two fabricated decision-adapter stand-ins (CONTRIBUTING.md
-section 5: fabricated names only). Each row asks request A (always: a category Choice and two
-Noul propositions, together) and, when the row's task design calls for it, request B (a Score
-rating specificity). Whether request B exists for a row is a property of that row, authored once
-in ROWS and agreed by every backend's own spec (``_row_needs_b``) -- it is never read off the
-gold label: a scored row's design happens to ask for request B exactly when its gold category is
-not ``other``, but ``d03`` is a demo row with no gold at all and does ask for one. All three
-backends get a stored answer for every key the row's design calls for, even on a row where one
-backend's OWN category answer would not have asked for it -- the notebook, not the fixtures,
-decides at run time whether a given backend's own path actually fetches request B (see
-``helpers.needs_followup``).
+Three backends share input examples and typed questions: jev, atlas-compact and northstar-7b.
+The latter two are fabricated stand-ins, not services. Request A always runs; each arm asks
+request B only when its own category answer needs a follow-up. The shared replay_keys retain
+the task design's union. Explicit replay_lanes lists each arm's reachable keys, so an arm
+that answers OTHER neither stores nor claims to exercise an unreachable request B.
+The input IDs, fields, split and gold labels are independent of these per-arm paths.
 
 Generating inputs and labels is kept separate from generating responses, on purpose: once a
 responses file holds even one recorded answer (provenance "recorded", captured from a real Jev
@@ -65,10 +57,9 @@ BACKEND_TAGS = {"jev": None, "atlas-compact": "atlas", "northstar-7b": "north"}
 #   answers: {backend_name: {"a": (category, cat_top_p, verifiable_p, names_control_p),
 #                             "b": (level, level_top_p) or None}}
 #
-# "a" always exists; "b" exists for a backend exactly when this row's OWN gold design calls
-# for request B (gold category != other) -- every backend gets a stored answer for it, whether
-# or not that backend's own category answer would itself have asked for it (see the module
-# docstring). cat_top_p/level_top_p is the probability mass on the named option/level; the
+# "a" always exists; authored "b" values describe the shared task-design union. A value is
+# emitted only when that arm's category reaches B; replay_lanes states that path explicitly.
+# cat_top_p/level_top_p is the probability mass on the named option/level; the
 # remaining mass splits evenly across the other three. Noul probabilities are the probability
 # of "yes" directly -- there is no separate confidence to target (docs/glossary.md#confidence).
 # --------------------------------------------------------------------------------------------
@@ -444,8 +435,27 @@ def build_inputs_and_labels(rows):
         keys = [replay_key(helpers.build_state(fields), QUESTIONS_A)]
         if _row_needs_b(row):
             keys.append(replay_key(helpers.build_state(fields), QUESTIONS_B))
+        lanes = []
+        for name, tag in BACKEND_TAGS.items():
+            category, probability, _, _ = row["answers"][name]["a"]
+            answer = ChoiceAnswer.from_probabilities(
+                _choice_probs(category, probability), Provenance.synthetic()
+            )
+            lane_keys = [keys[0]]
+            if helpers.needs_followup(answer):
+                if len(keys) != 2:
+                    raise ValueError(f"{name}: {row['id']} reaches B outside the task design")
+                lane_keys.append(keys[1])
+            filename = "responses.json" if tag is None else f"responses-{tag}.json"
+            lanes.append({"responses": filename, "keys": lane_keys})
         inputs.append(
-            {"id": row["id"], "split": row["split"], "fields": fields, "replay_keys": keys}
+            {
+                "id": row["id"],
+                "split": row["split"],
+                "fields": fields,
+                "replay_keys": keys,
+                "replay_lanes": lanes,
+            }
         )
         if row["gold"] is not None:
             labels.append({"id": row["id"], "label": row["gold"]})
@@ -471,7 +481,11 @@ def build_responses(rows, backend="jev"):
             "names_control": NoulAnswer(names_p, Provenance.synthetic()),
         }
         responses[key_a] = DecisionResult(answers_a, "synthetic").to_dict()
-        if spec["b"] is not None:
+        # Emit only the requests this arm's own saved category can reach. ROWS retains
+        # the shared input design; replay_lanes declares this per-arm inventory.
+        if helpers.needs_followup(answers_a["category"]):
+            if spec["b"] is None:
+                raise ValueError(f"{backend}: {row['id']} reaches request B without an answer")
             level, level_top_p = spec["b"]
             key_b = replay_key(helpers.build_state(fields), QUESTIONS_B)
             answer_b = ScoreAnswer.from_probabilities(
