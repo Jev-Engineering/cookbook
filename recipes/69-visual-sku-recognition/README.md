@@ -65,7 +65,8 @@ state, and the six reference images once each, in the question's criteria (a ref
 goes with every call). Over all 31 requests that is 217 copies, and 217 as the per-request distinct images summed over the
 requests (7 times 31), the `images` and `distinct_images` totals declared in `request_budget.json` and
 printed by the audit line at the end of the notebook. The run itself uses 37 different image files, six
-references and 31 queries, which the notebook counts from the image bytes beside the `image_request_profile` totals.
+references and 31 queries, which the notebook counts from the content-hash asset keys beside the `image_request_profile` totals.
+The profile also reports the maximum and summed per-request distinct and expanded file bytes.
 
 ## What was and was not measured
 
