@@ -30,8 +30,14 @@ identifiers the judgment does not need stay out of it
 
 One typed, narrow thing to ask about a state, defined by its type (`Choice`, `Noul` or `Score`),
 its `instructions` and, for `Choice` and `Score`, its criteria. Several independent questions go
-in one request and are evaluated independently; a question that depends on an earlier answer goes in a
-later request ([S02](https://docs.typesafe.ai/primitives)). The cookbook's rule is one specific
+in one request and are evaluated independently. A later request is for a real dependency: the code
+cannot build it until it has an earlier answer, to fetch more data for the state, to decide what the
+state is made of, or to pick the next question's options; a question that is merely conditional on an
+earlier answer, with its state, text and options buildable up front, stays in the first request
+([S02](https://docs.typesafe.ai/primitives)). Counts, numeric comparisons, exact magnitudes read from a
+`Score` and date comparisons are computed in code, a `Noul` is worded so that a high value means the
+condition the code acts on holds, and the `state` carries only what the question needs
+([S07](https://docs.typesafe.ai/model-jaggedness), [CONTRIBUTING.md](../CONTRIBUTING.md), section 3). The cookbook's rule is one specific
 thing per question, with the answers combined in Python ([S01](https://docs.typesafe.ai/introduction),
 [CONTRIBUTING.md](../CONTRIBUTING.md), section 3). The classes are in
 [backends.md](backends.md#questions).

@@ -790,8 +790,7 @@ class Canvas:
         return drawn
 
     def _refuse_used_name(self, name: str | None) -> None:
-        """Refuse a duplicate ``name``; drawers that call it before drawing refuse up front, and
-        ``_record`` calls it after drawing for the rest (#539)."""
+        """Refuse an occupied ``name`` before a drawer changes pixels, its ledger or its RNG."""
         if name is not None and name in self.objects:
             raise ValueError(f"the name {name!r} is already used on this canvas")
 
@@ -836,6 +835,7 @@ class Canvas:
         **attrs: Any,
     ) -> Drawn:
         """A rectangle ``w`` x ``h`` with its top-left pixel at ``(x, y)``."""
+        self._refuse_used_name(name)
         _int(x, "x"), _int(y, "y"), _int(w, "w", minimum=1), _int(h, "h", minimum=1)
         if fill is None and outline is None:
             raise ValueError("a rectangle needs a fill, an outline or both")
@@ -880,8 +880,7 @@ class Canvas:
         bounds = None
         inner = (x, y, w, h)
         # Resolve every colour that will be used before the first pixel is drawn, so a bound,
-        # type, colour or duplicate-``name`` refusal draws nothing (other drawers still check the
-        # name after drawing; #539). The fill is resolved only when there is an interior to paint
+        # type, colour or duplicate-``name`` refusal draws nothing. The fill is resolved only when there is an interior to paint
         # (no outline, or one that leaves at least 1 x 1 inside it). A ring with no interior never
         # uses its fill, so any fill is accepted there, ``None`` and an unknown name included.
         self._refuse_used_name(name)
@@ -939,6 +938,7 @@ class Canvas:
         **attrs: Any,
     ) -> Drawn:
         """A Bresenham line drawn with a ``width`` x ``width`` square brush (centred, rounding up)."""
+        self._refuse_used_name(name)
         for value, label in ((x0, "x0"), (y0, "y0"), (x1, "x1"), (y1, "y1")):
             if abs(_int(value, label)) > _MAX_COORDINATE:
                 raise ValueError(
@@ -984,6 +984,7 @@ class Canvas:
         kind: str = "text",
     ) -> Drawn:
         """One line of text in the built-in font; ``(x, y)`` is the top-left of the first cell."""
+        self._refuse_used_name(name)
         _int(x, "x"), _int(y, "y")
         scale = _scale(scale)
         folded = _fold(text)
@@ -1007,6 +1008,7 @@ class Canvas:
         self, box: Any, text: str, colour: Any = "ink", scale: int = 2, *, name: str | None = None
     ) -> Drawn:
         """Text centred in ``box`` (a Drawn or pixel rectangle); ValueError if it does not fit."""
+        self._refuse_used_name(name)
         left, top, right, bottom = self._target(box)
         width, height = text_width(text, scale), GLYPH_HEIGHT * scale
         if width > right - left or height > bottom - top:
@@ -1040,6 +1042,7 @@ class Canvas:
         ``lines`` must be a sequence, not a one-shot iterator: an iterator that yields a visible
         line raises TypeError before anything is drawn.
         """
+        self._refuse_used_name(name)
         if isinstance(lines, str) or not lines:
             raise ValueError("lines must be a non-empty sequence of strings")
         pitch = (GLYPH_HEIGHT + _int(leading, "leading", minimum=0)) * _scale(scale)
@@ -1047,6 +1050,8 @@ class Canvas:
         visible = [i for i, f in enumerate(folded) if any(_GLYPHS[c] for c in f)]
         if not visible:
             raise ValueError("the text block has no visible character (only spaces)")
+        for i in visible:
+            self._refuse_used_name(_sub(name, f"line{i}"))
         parts = tuple(
             self.text(x, y + i * pitch, lines[i], colour, scale, name=_sub(name, f"line{i}"))
             for i in visible
@@ -1071,6 +1076,7 @@ class Canvas:
         scale: int = 2,
     ) -> Drawn:
         """A named shape, optionally with a centred label; its Drawn is the gold box of ``name``."""
+        self._refuse_used_name(name)
         if shape not in _SHAPES:
             raise ValueError(f"shape must be one of {_SHAPES}")
         if shape == "rect":
@@ -1107,6 +1113,7 @@ class Canvas:
         name: str | None = None,
     ) -> Drawn:
         """A round approval-style stamp: a ring in ``colour`` around centred text."""
+        self._refuse_used_name(name)
         ring = self.ellipse(x, y, w, h, paper, outline=colour, outline_width=3)
         label = self.centered_text((x + 6, y + 6, x + w - 6, y + h - 6), text, colour, scale)
         return self._record(name, "stamp", ring.pixels, (ring, label), text=label.attrs["text"])
@@ -1127,6 +1134,7 @@ class Canvas:
         It never reads as a name. The box is the extent of the strokes (2 pixels wide), which
         stays inside the area.
         """
+        self._refuse_used_name(name)
         _int(strokes, "strokes", minimum=2)
         if w < 20 or h < 10:
             raise ValueError("a signature needs at least 20x10 pixels")
@@ -1211,12 +1219,15 @@ class Canvas:
     ) -> Drawn:
         """A window with a title bar and three control squares. ``attrs["content"]`` is the
         pixel rectangle below the title bar, inside the frame."""
+        self._refuse_used_name(name)
         _int(title_height, "title_height", minimum=GLYPH_HEIGHT * scale + 4)
         control = title_height - 10
         if w < 160 or h < title_height + 40:
             raise ValueError("a window needs at least 160 pixels across and title_height + 40 down")
         if text_width(title, scale) > w - 20 - 3 * (control + 4):
             raise ValueError(f"the title {title!r} does not fit the title bar")
+        for part in ("body", "title_bar", "close", "maximize", "minimize"):
+            self._refuse_used_name(_sub(name, part))
         body = self.rect(
             x, y, w, h, "white", outline="dark", name=_sub(name, "body"), kind="window-body"
         )
@@ -1282,6 +1293,7 @@ class Canvas:
         name: str | None = None,
     ) -> Drawn:
         """A button; ``style`` is 'primary', 'secondary', 'danger' or 'disabled'."""
+        self._refuse_used_name(name)
         styles = {
             "primary": ("blue", "white", "dark"),
             "secondary": ("white", "ink", "mid"),
@@ -1317,6 +1329,7 @@ class Canvas:
     ) -> Drawn:
         """A text field. ``label`` is drawn above it (outside the returned box); ``masked``
         shows one asterisk per character; an empty ``value`` shows ``placeholder`` in grey."""
+        self._refuse_used_name(name)
         edge, width = ("red", 2) if invalid else (("blue", 2) if focused else ("mid", 1))
         shown = "*" * len(value) if masked else value
         content = shown or placeholder
@@ -1373,6 +1386,7 @@ class Canvas:
         ``dim_backdrop`` (a brightness percent such as 55) darkens everything already drawn
         before the dialog goes on; the dialog's box excludes the backdrop.
         """
+        self._refuse_used_name(name)
         title_height, button_height = 26, 30
         widths = [max(80, text_width(b, scale) + 24) for b in buttons]
         row = sum(widths) + 10 * (len(widths) - 1)
@@ -1385,6 +1399,8 @@ class Canvas:
             or text_width(title, scale) > w - 20
         ):
             raise ValueError("the dialog's title, message and buttons do not fit its size")
+        for index in range(len(buttons)):
+            self._refuse_used_name(_sub(name, f"button{index}"))
         if dim_backdrop is not None:
             self.lighting(dim_backdrop)
         body = self.rect(x, y, w, h, "white", outline="ink", outline_width=2, kind="dialog-body")
@@ -1504,6 +1520,7 @@ class Canvas:
     ) -> Drawn:
         """Eight spokes around ``(cx, cy)``; spoke ``phase`` is darkest and the rest fade to
         ``track``. Two phases of one spinner differ only in which spoke is dark."""
+        self._refuse_used_name(name)
         _int(radius, "radius", minimum=10)
         phase = _int(phase, "phase") % 8
         inner, thickness = (radius * 4) // 10, max(2, radius // 6)
@@ -1539,6 +1556,7 @@ class Canvas:
         name: str | None = None,
     ) -> Drawn:
         """A progress or health bar. The filled part is ``floor(fraction * (w - 2))`` pixels."""
+        self._refuse_used_name(name)
         share = _fraction(fraction, "fraction")
         if w < 6 or h < 4:
             raise ValueError("a bar needs at least 6x4 pixels")
@@ -1572,6 +1590,7 @@ class Canvas:
         :func:`fictional_name`; they are pronounceable nonsense and not cleared against real
         trademarks, so a reviewer rejects any that happens to match a real brand.
         """
+        self._refuse_used_name(name)
         rng = Rng(style_seed)
         text = _fold(text if text is not None else fictional_name(style_seed))
         emblem = emblem if emblem is not None else rng.choice(_EMBLEMS)
@@ -1637,6 +1656,7 @@ class Canvas:
         in the left 40 percent and the end in the right 40 percent of the target, both at least
         10 percent in from the top and bottom, so the scratch never leaves the target.
         """
+        self._refuse_used_name(name)
         left, top, right, bottom = self._target(target)
         tw, th = right - left, bottom - top
         if tw < 40 or th < 40:
@@ -1668,6 +1688,7 @@ class Canvas:
     ) -> Drawn:
         """Radial shading: an ellipse inside ``target`` whose centre is darkened by up to
         ``depth_percent`` and fades to nothing at its rim. The box is the pixels that changed."""
+        self._refuse_used_name(name)
         left, top, right, bottom = self._target(target)
         tw, th = right - left, bottom - top
         if tw < 30 or th < 30:
@@ -1702,6 +1723,7 @@ class Canvas:
         """Remove a drawn part by painting its rectangle with ``fill`` (default: the canvas
         background). The part's name leaves the ledger; the returned Drawn (kind
         'missing-part') is the box where the part should have been."""
+        self._refuse_used_name(name)
         left, top, right, bottom = self._target(part)
         before = self.image.crop((left, top, right, bottom))
         self._fill(left, top, right, bottom, _colour(fill if fill is not None else self.background))
@@ -1725,6 +1747,7 @@ class Canvas:
 
     def blur(self, radius: int, *, region: Any = None, name: str | None = None) -> Drawn:
         """Separable integer box blur, window ``2 * radius + 1``, edges clamped to the region."""
+        self._refuse_used_name(name)
         radius = _int(radius, "radius", minimum=1)
         if radius > 20:
             raise ValueError("radius must be at most 20")
@@ -1741,6 +1764,7 @@ class Canvas:
         """Add noise of about ``-amount..amount`` per channel from the canvas's random stream
         (a byte modulo ``2 * amount + 1``, so very slightly uneven); ``grey`` adds the same
         value to the three channels. Results clamp to 0..255."""
+        self._refuse_used_name(name)
         amount = _int(amount, "amount", minimum=1)
         if amount > 127:
             raise ValueError("amount must be at most 127")
@@ -1773,6 +1797,7 @@ class Canvas:
         """Scale brightness to ``brightness_percent`` (100 = unchanged, halves round up). With a
         ``gradient_percent`` the percent rises left to right by that many points across the
         region, centred on ``brightness_percent`` (a shadow or glare)."""
+        self._refuse_used_name(name)
         _int(brightness_percent, "brightness_percent", minimum=0)
         _int(gradient_percent, "gradient_percent")
         rect = self._region(region)
@@ -1810,6 +1835,7 @@ class Canvas:
         """Cover ``fraction`` of ``target`` from one ``side`` ('left', 'right', 'top', 'bottom')
         with a solid patch of ``round_half_up(fraction * extent)`` pixels. The returned Drawn is
         the patch; the target keeps its own gold box (it is still there, partly hidden)."""
+        self._refuse_used_name(name)
         left, top, right, bottom = self._target(target)
         share = _fraction(fraction, "fraction")
         if side not in ("left", "right", "top", "bottom"):
