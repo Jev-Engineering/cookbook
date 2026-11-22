@@ -28,6 +28,15 @@ checks the selected evidence against the gold passages. The request counts use t
 backend, with the full pipeline's stage-one requests counted for both configurations that use
 that shared execution.
 
+The duplicate check compares NFC-normalized, case-folded Unicode letter-and-number runs.
+It preserves non-ASCII text; CJK runs stay whole rather than receiving language-specific word
+segmentation. Requests use the separate `stage_one_state(claim, passage)` and
+`verify_state(claim, evidence)` constructors because a retrieved example produces several states.
+The fixture builder drives `run_pipeline` with a backend that answers from the synthetic spec.
+The `t04` decoys include an embedded instruction and a claim of decisive relevance. Their stored
+answers exercise request construction and pipeline behavior, not a model's resistance to those
+texts.
+
 The full pipeline's `validation` verdicts set a confidence threshold with
 `select_confidence_threshold`. The target applies to accepted validation verdicts. The policy
 sends proposals below the frozen threshold to review. When no threshold meets the target, it
