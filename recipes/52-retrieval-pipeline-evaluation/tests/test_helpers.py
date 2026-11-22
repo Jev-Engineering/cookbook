@@ -146,9 +146,8 @@ def test_each_configuration_asks_exactly_the_questions_it_needs():
 
 
 def test_the_state_carries_no_python_owned_value():
-    fields = {"claim": "C", "passage": "P", "passage_id": "x-p1", "position": 3}
-    assert helpers.build_state(fields) == {"claim": "C", "passage": "P"}
-    assert helpers.build_state({"claim": "C", "evidence": ["A", "B"]}) == {
+    assert helpers.stage_one_state("C", "P") == {"claim": "C", "passage": "P"}
+    assert helpers.verify_state("C", ["A", "B"]) == {
         "claim": "C",
         "evidence": ["A", "B"],
     }
@@ -408,17 +407,21 @@ def test_a_threshold_outside_the_unit_interval_is_refused():
 
 def test_an_outcome_cannot_state_a_verdict_without_evidence_or_a_review_with_one():
     with pytest.raises(ValueError):
-        helpers.Outcome("x", "answered", "supported", (), "r", "supported")
+        helpers.Outcome("x", "answered", "supported", (), helpers.REASON_CONFIDENT, "supported")
     with pytest.raises(ValueError):
-        helpers.Outcome("x", "answered", "made_up", ("a",), "r", "made_up")
+        helpers.Outcome("x", "answered", "made_up", ("a",), helpers.REASON_CONFIDENT, "made_up")
     with pytest.raises(ValueError):
-        helpers.Outcome("x", "review", "supported", ("a",), "r", "supported")
+        helpers.Outcome("x", "review", "supported", ("a",), helpers.REASON_CONFIDENCE, "supported")
 
 
 def test_answer_supported_needs_an_answered_outcome_with_the_gold_verdict():
-    ok = helpers.Outcome("x", "answered", "supported", ("a",), "r", "supported")
-    wrong = helpers.Outcome("x", "answered", "contradicted", ("a",), "r", "contradicted")
-    held = helpers.Outcome("x", "review", None, ("a",), "r", "supported")
+    ok = helpers.Outcome(
+        "x", "answered", "supported", ("a",), helpers.REASON_CONFIDENT, "supported"
+    )
+    wrong = helpers.Outcome(
+        "x", "answered", "contradicted", ("a",), helpers.REASON_CONFIDENT, "contradicted"
+    )
+    held = helpers.Outcome("x", "review", None, ("a",), helpers.REASON_CONFIDENCE, "supported")
     assert helpers.answer_supported(ok, "supported")
     assert not helpers.answer_supported(wrong, "supported")
     assert not helpers.answer_supported(held, "supported")
