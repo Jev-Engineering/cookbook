@@ -10,10 +10,10 @@ Jev supplies one narrow judgment, a typed `Choice` over four fixed options Pytho
 `neutral`, `negative`, `mixed`. Python owns everything else: the state Jev sees, the identifier that
 never reaches the model, and the rule that accepts a label only when its `confidence` clears a
 threshold chosen on `validation` and then frozen. Anything below the threshold goes to an explicit
-`review` outcome instead of being reported as a result. The notebook shows three typed answers up
+[`review`](../../docs/glossary.md#review) outcome instead of being reported as a result. The notebook shows three typed answers up
 close (a genuinely mixed review, a very short one, and a sarcastic one), then the rule, then an
-evaluation that reports accuracy, a confusion matrix, per-class precision and recall with `mixed`
-discussed on its own, and the coverage and accuracy the frozen threshold buys.
+evaluation that reports [accuracy](../../docs/glossary.md#accuracy), a confusion matrix, per-class [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall) with `mixed`
+discussed on its own, and the [coverage](../../docs/glossary.md#coverage) and accuracy the frozen threshold buys.
 
 ## Run it offline
 

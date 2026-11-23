@@ -10,15 +10,15 @@ Jev answers one narrow `Noul` proposition over a customer message: does it expli
 refund? A `Noul` answer is a bare probability with no separate confidence field in the API
 response, but a Noul's confidence is still defined (distance from an even split, `|2p - 1|`) and
 the shared toolkit computes it. Python uses two things chosen on `validation` and then frozen:
-a business threshold on the probability (`select_threshold`) and a confidence threshold on that
+a [business threshold](../../docs/glossary.md#business-threshold) on the probability (`select_threshold`) and a confidence threshold on that
 distance (`select_confidence_threshold`). A message too close to an even split goes to an
-explicit review outcome, whichever way it leans; a message clear enough is flagged (and queued,
+explicit [review](../../docs/glossary.md#review) outcome, whichever way it leans; a message clear enough is flagged (and queued,
 with `jev_cookbook.simulation.ReviewQueue`, for the refund workflow) or left alone, by the
 business threshold alone. The notebook shows four typed answers up close (a clear request, a
 policy question that only mentions refunds, a message the thresholds get wrong on purpose, and
 one genuinely ambiguous enough to land in review), then the rule and the queue it builds, then
-an evaluation that reports precision and recall across the full threshold sweep and the real,
-non-zero coverage, accuracy and risk the frozen confidence gate carries on `test`.
+an evaluation that reports [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall) across the full threshold sweep and the real,
+non-zero [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy) and [risk](../../docs/glossary.md#risk) the frozen [confidence gate](../../docs/glossary.md#confidence-gate) carries on `test`.
 
 ## Run it offline
 

@@ -13,11 +13,11 @@ category. Python owns everything else: the state Jev sees (the subject and descr
 two structured fields rather than one concatenated string), the identifier that never reaches the
 model, and the rule that routes a confident real-category answer to its simulated queue, sends
 `unclear_request` to a separate, un-queued outcome whatever its confidence, and sends anything else
-uncertain to an explicit `review` outcome. The notebook shows three typed answers up close (a ticket
+uncertain to an explicit [`review`](../../docs/glossary.md#review) outcome. The notebook shows three typed answers up close (a ticket
 that could be `billing` or `account_access`, a vague one-line ticket, and one this recipe's stored
-answer gets wrong), then the rule, then an evaluation that reports accuracy, a confusion matrix,
-per-category precision and recall, how the unclear tickets were handled, and the coverage, accuracy
-and risk the threshold chosen on `validation` and frozen before `test` produces.
+answer gets wrong), then the rule, then an evaluation that reports [accuracy](../../docs/glossary.md#accuracy), a confusion matrix,
+per-category [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall), how the unclear tickets were handled, and the [coverage](../../docs/glossary.md#coverage), accuracy
+and [risk](../../docs/glossary.md#risk) the threshold chosen on `validation` and frozen before `test` produces.
 
 ## Run it offline
 
