@@ -756,12 +756,24 @@ PR_METRIC_WORD = re.compile(
 )
 # "plots" and "metrics" are plural nouns ("the PR plots are in the figure") and also a verb or a
 # verb's subject ("this PR plots the new curve", "the PR metrics changed in review"). The plural
-# is a metric only when the next word cannot start a predicate: the end of the clause,
-# punctuation, a preposition or conjunction, or a copula. Anything else is a pointer (#639).
+# is a metric when the spelled-out form precedes it ("precision-recall (PR) plots", checked
+# first), or when the next word is one of these closed classes: the end of the clause, punctuation
+# (`, . ; : ( )`, an em or en dash, `--`, or a hyphen followed by whitespace), a preposition, a
+# conjunction (`and or but nor`), a copula (`are is were was`) or `show(s)`. The prepositions
+# are a closed list too. Everything else is a pointer, and that is the recorded trade-off
+# (#639): a determiner or an ordinary verb after the plural ("this PR plots the curve", "the PR
+# metrics improved") is flagged even when it was meant as the metric, and the fix for the
+# author is to spell out "precision-recall (PR)".
 PR_PLURAL_METRIC_WORD = re.compile(r"\)?[\s-]*(?:plots|metrics)\b", re.IGNORECASE)
+_PR_PREPOSITIONS = (
+    "for|on|over|of|at|by|from|across|per|with|in|into|to|under|below|above|against|as|than"
+    "|within|between|through|during|after|before|among|along|beyond|without|about|around|near"
+    "|onto|upon|via|versus|vs|like|unlike|beneath|beside|besides|despite|except|inside|outside"
+    "|throughout|toward|towards|underneath|until"
+)
 PR_PLURAL_METRIC_END = re.compile(
-    r"\s*(?:$|[,.;:)]|(?:for|on|over|of|at|by|from|across|per|with|and|or|are|is|were|was"
-    r"|show|shows)\b)",
+    rf"\s*(?:$|[,.;:()\u2014\u2013]|--|-(?=\s)|(?:{_PR_PREPOSITIONS}"
+    r"|and|or|but|nor|are|is|were|was|show|shows)\b)",
     re.IGNORECASE,
 )
 
@@ -776,6 +788,8 @@ def _pr_is_metric(text: str, start: int, end: int) -> bool:
     before, after = text[:start], text[end:]
     plural = PR_PLURAL_METRIC_WORD.match(after)
     if plural:
+        if re.search(r"\brecall\s+\($", before, re.I) and after.startswith(")"):
+            return True
         return bool(PR_PLURAL_METRIC_END.match(after, plural.end()))
     if PR_METRIC_WORD.match(after):
         return True
@@ -1361,6 +1375,13 @@ def test_citation_vocabulary_pairs_keep_process_pointers_and_allow_ordinary_pros
         "The PR plots a curve for each domain.",
         "the PR metrics moved after the last change",
         "recall (PR) plots show the gap but this PR plots the fix",
+        "the PR plots the curve",
+        "the PR metrics improved",
+        "the PR metrics improved after calibration",
+        "the PR metrics look similar",
+        "the PR plots-based review",
+        "the PR plots illustrate the trade-off",
+        "this PR metrics the run",
     ],
 )
 def test_a_pr_metric_word_in_the_plural_is_a_pointer_when_a_predicate_follows(sentence):
@@ -1381,12 +1402,38 @@ def test_a_pr_metric_word_in_the_plural_is_a_pointer_when_a_predicate_follows(se
         "PR metrics of the run",
         "the PR plots and the ROC curves",
         "recall (PR) plots show the gap",
+        "the PR plots in Figure 2 show the gap",
+        "the PR metrics in the table",
+        "the PR metrics in table 2",
+        "the PR plots under each threshold",
+        "PR metrics to compare models",
+        "the PR metrics to report",
+        "the PR metrics below",
+        "the PR plots above",
+        "the PR metrics into a dashboard",
+        "the PR plots against the baseline",
+        "the PR plots as a pair",
+        "the PR metrics than the ROC metrics",
+        "the PR plots within each domain",
+        "the PR metrics between runs",
+        "the PR metrics but not ROC",
+        "the PR metrics nor the ROC metrics",
+        "PR metrics (precision and recall)",
+        "the PR plots \u2014 see the appendix",
+        "the PR plots\u2014see the appendix",
+        "the PR plots \u2013 see the appendix",
+        "the PR metrics -- see the table",
+        "the PR metrics - see the table",
+        "precision-recall (PR) plots in the appendix",
+        "precision-recall (PR) plots illustrate the trade-off",
+        "precision and recall (PR) metrics improved after calibration",
     ],
 )
 def test_a_pr_metric_word_in_the_plural_stays_a_metric_in_noun_position(sentence):
-    # The decision recorded for #639 item 1: the plural is read as the metric when the next word
-    # is a copula, a preposition, a conjunction or punctuation. "the PR metrics are in the
-    # description" therefore still passes; only a predicate after the plural is a pointer.
+    # The decision recorded for #639 item 1: the plural is read as the metric after the spelled-out
+    # "precision-recall (PR)", or when the next word is the end of the clause, punctuation, a
+    # preposition, a conjunction, a copula or show(s). "the PR metrics are in the description"
+    # therefore still passes. Determiners and ordinary verbs after the plural stay pointers.
     assert _citation_hits(sentence, "prose") == []
 
 
