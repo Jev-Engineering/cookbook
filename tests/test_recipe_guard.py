@@ -67,6 +67,29 @@ check id                              rule -> detection
                                        told from prose; an id that is not backticked; a
                                        code cell's comments and a test's lookup of a cell by
                                        id, which are machinery, not prose to a reader.
+``glossary_first_use_links``           #211, CONTRIBUTING.md section 6 and docs/recipe-template.md
+                                       "The lexicon": the first use of each lexicon term in a
+                                       recipe's prose (business threshold, confidence gate,
+                                       review, gold label, coverage, risk, selective
+                                       prediction, accuracy, precision, recall, F1, support) is
+                                       the relative Markdown link ``../../docs/glossary.md#anchor``
+                                       to an anchor ``docs/glossary.md`` defines. First use is the
+                                       first markdown cell in notebook order that uses the term,
+                                       per notebook, with ``README.md`` checked on its own; later
+                                       uses may be bare. Fails on a bare first use (including a
+                                       code span with a bare path beside it), a link to another
+                                       target or anchor, and a link that only comes after the
+                                       first use. Prose is paragraphs, list items and table
+                                       cells: headings, code, HTML and double-quoted fixture text
+                                       are skipped, a code span counts only when it is exactly
+                                       the term, and a few everyday senses (a customer review,
+                                       some risk of, test coverage, support outside a sentence
+                                       naming precision, recall or F1) are skipped by name. Not
+                                       seen: whether the sentence defines the term, any other
+                                       everyday sense, an inflection other than the plural of
+                                       gold label, business threshold and confidence gate, and a
+                                       use in a code cell's prose. Drift is recorded in
+                                       ``tests/recipe_guard_known_failures.py``.
 ``stored_answers_strong_form``        G1(c): ``test_stored_answers_are_not_all_right``
                                        re-derives the frozen threshold (preferring the
                                        confidence gate over a plain business threshold when
@@ -1185,6 +1208,434 @@ def test_no_cell_id_is_cited_in_reader_facing_prose(recipe):
     notebook; see ``_hyphenated_cell_ids`` for why single-word ids are not checked."""
     hits = _recipe_cell_id_citations(recipe_dir(recipe))
     assert not hits, "; ".join(hits)
+
+
+# --------------------------------------------------------------------------------------------
+# check 2c: a glossary term's first use in prose links its glossary entry (#211)
+# --------------------------------------------------------------------------------------------
+
+GLOSSARY_FILE = REPO / "docs" / "glossary.md"
+# The template lexicon (docs/recipe-template.md, "The lexicon"): the terms every evaluation
+# borrows, each with its glossary anchor. State and Score are Jev's own words, not lexicon terms,
+# so their everyday senses are out of scope rather than excepted.
+GLOSSARY_LEXICON = {
+    "business threshold": "business-threshold",
+    "confidence gate": "confidence-gate",
+    "review": "review",
+    "gold label": "gold-label",
+    "coverage": "coverage",
+    "risk": "risk",
+    "selective prediction": "selective-prediction",
+    "accuracy": "accuracy",
+    "precision": "precision",
+    "recall": "recall",
+    "F1": "f1",
+    "support": "support",
+}
+# The plural of a compound term is the same use; for a one-word term the plural is another word
+# ("reviews" of a product, "risks" as a verb), so only these three take an ``s``.
+_PLURAL_TERMS = frozenset({"business threshold", "confidence gate", "gold label"})
+# Everyday senses of the ambiguous lexicon words. A match that overlaps one of these is not the
+# cookbook term. Each entry is pinned by a pair of tests: the everyday phrase passes and the term
+# beside it still fails. What this cannot judge stays with the reviewer (docs/notebook-ci.md).
+_EVERYDAY_SENSES = {
+    "review": re.compile(
+        r"\b(?:customer|product|movie|film|restaurant|hotel|book|app|user|code|peer|final|star)"
+        r"\s+reviews?\b"
+        r"|\b(?:to|will|would|must|should|can|we|you|they|then)\s+review\s+"
+        r"(?:the|a|an|each|every|this|that|it|them|their|its|these|those|all|any|whether|what|how)\b",
+        re.IGNORECASE,
+    ),
+    "risk": re.compile(
+        r"\b(?:at|some|any|no|small|real|low|high)\s+risk\s+of\b|\b(?:to|would|will|could|may|might)\s+risk\b",
+        re.IGNORECASE,
+    ),
+    "coverage": re.compile(r"\b(?:test|code|news|insurance|media)\s+coverage\b", re.IGNORECASE),
+}
+# ``support`` is also an everyday noun and verb ("support tickets", "does the passage support
+# the claim"). It is the cookbook's metric only beside the metrics it is reported with, so it
+# counts only in a paragraph, list item or table cell that also names precision, recall or F1.
+_SUPPORT_COMPANIONS = re.compile(r"\b(?:precision|recall|F1)\b", re.IGNORECASE)
+_QUOTED_TEXT = re.compile(r'"[^"\n]*"|“[^”\n]*”')
+_GLOSSARY_MARKDOWN = MarkdownIt("commonmark").enable("table")
+_EMPHASIS_TOKENS = frozenset({"em_open", "em_close", "strong_open", "strong_close"})
+
+
+class GlossaryUse(NamedTuple):
+    term: str
+    href: str | None  # the link the use sits in, or None when it is bare
+    ordinal: int  # position among the first uses, in document order
+
+
+@cache
+def _glossary_anchors() -> frozenset[str]:
+    """The anchors ``docs/glossary.md`` defines: GitHub's slug of each ``##`` heading."""
+    anchors = set()
+    for line in GLOSSARY_FILE.read_text("utf-8").splitlines():
+        if line.startswith("## "):
+            anchors.add(re.sub(r"[^\w\- ]", "", line[3:].strip().lower()).replace(" ", "-"))
+    return frozenset(anchors)
+
+
+def _term_pattern(term: str) -> re.Pattern[str]:
+    plural = "(?:s|es)?" if term in _PLURAL_TERMS else ""
+    body = re.escape(term).replace(r"\ ", r"[\s-]+")
+    # A hyphen beside F1 keeps it the metric ("F1-score", "macro-F1"); beside the other terms it
+    # makes another word ("review-needed", "non-zero risk"), so there it is not a boundary.
+    before = r"(?<!\w)" if term == "F1" else r"(?<![\w-])"
+    after = r"(?!\w)" if term == "F1" else r"(?![\w-])"
+    flags = 0 if term == "F1" else re.IGNORECASE
+    return re.compile(rf"{before}{body}{plural}{after}", flags)
+
+
+_TERM_PATTERNS = {term: _term_pattern(term) for term in GLOSSARY_LEXICON}
+
+
+def _uses_term(term: str, text: str, unit_text: str) -> bool:
+    """Does the prose ``text`` use ``term`` in the cookbook sense (see ``_EVERYDAY_SENSES``)?"""
+    everyday = (
+        [m.span() for m in _EVERYDAY_SENSES[term].finditer(text)]
+        if term in _EVERYDAY_SENSES
+        else []
+    )
+    for match in _TERM_PATTERNS[term].finditer(text):
+        if any(start < match.end() and match.start() < end for start, end in everyday):
+            continue
+        if term == "support" and not _SUPPORT_COMPANIONS.search(unit_text):
+            continue
+        return True
+    return False
+
+
+def _scan_inline(children, first: dict[str, GlossaryUse]) -> None:
+    """Record the first use of each term in the children of one inline token."""
+    unit_text = " ".join(c.content for c in children if c.type in {"text", "code_inline"})
+    state: dict = {"href": None, "depth": 0, "run": []}
+
+    def record(term: str) -> None:
+        first[term] = GlossaryUse(term, state["href"], len(first) + 1)
+
+    def flush() -> None:
+        text = _QUOTED_TEXT.sub(" ", "".join(state["run"]))
+        state["run"] = []
+        for term in GLOSSARY_LEXICON:
+            if term not in first and _uses_term(term, text, unit_text):
+                record(term)
+
+    for child in children:
+        if child.type == "text":
+            state["run"].append(child.content)
+        elif child.type in {"softbreak", "hardbreak"}:
+            state["run"].append(" ")
+        elif child.type in _EMPHASIS_TOKENS:
+            continue
+        else:
+            flush()
+            if child.type == "link_open":
+                state["depth"] += 1
+                if state["depth"] == 1:
+                    state["href"] = child.attrGet("href")
+            elif child.type == "link_close":
+                state["depth"] -= 1
+                if not state["depth"]:
+                    state["href"] = None
+            elif child.type == "code_inline":
+                code = child.content.strip()
+                for term in GLOSSARY_LEXICON:
+                    exact = code == term if term == "F1" else code.lower() == term.lower()
+                    if exact and term not in first:
+                        record(term)
+    flush()
+
+
+def _glossary_first_uses(markdown: str) -> dict[str, GlossaryUse]:
+    """The first use of each lexicon term in the prose of one Markdown source, in document
+    order, with the link it sits in. Prose is paragraphs, list items, table cells and quotes.
+    Headings are structure, fenced and indented code and HTML are not prose, double-quoted text
+    is a fixture's own words, and an inline code span counts only when it is exactly a term,
+    which is how the bare form `` `gold label` `` names a term without linking it. Text is
+    matched in runs: a soft line break reads as a space and emphasis markers are transparent, so
+    ``gold`` + newline + ``label`` and ``**gold** label`` are the term. A link, a code span, an
+    image or inline HTML ends a run."""
+    first: dict[str, GlossaryUse] = {}
+    in_heading = False
+    for token in _GLOSSARY_MARKDOWN.parse(markdown):
+        if token.type in {"heading_open", "heading_close"}:
+            in_heading = token.type == "heading_open"
+        if token.type != "inline" or in_heading:
+            continue
+        _scan_inline(token.children or (), first)
+    return first
+
+
+def _glossary_link_problem(use: GlossaryUse) -> str | None:
+    """Why this first use does not link its anchor in the required form: the relative Markdown
+    link ``../../docs/glossary.md#anchor`` (README.md and the notebook sit two folders below the
+    repository root) to an anchor that ``docs/glossary.md`` defines."""
+    anchor = GLOSSARY_LEXICON[use.term]
+    want = f"../../docs/glossary.md#{anchor}"
+    if anchor not in _glossary_anchors():
+        return f"docs/glossary.md defines no #{anchor} anchor"
+    if use.href is None:
+        return f"is not a link to {want}"
+    if use.href != want:
+        return f"links {use.href!r}, not {want}"
+    return None
+
+
+def _glossary_link_hits(markdown: str, location: str) -> list[str]:
+    hits = []
+    for use in sorted(_glossary_first_uses(markdown).values(), key=lambda u: u.ordinal):
+        problem = _glossary_link_problem(use)
+        if problem:
+            hits.append(f"{location}: first use of {use.term!r} {problem}")
+    return hits
+
+
+def _recipe_glossary_link_hits(recipe_dir_: Path) -> list[str]:
+    """The README is checked on its own. In the notebook a term's first use is in the first
+    markdown cell, in notebook order, that uses it, so a term first used in one cell and again,
+    unlinked, in a later cell is one link, not two."""
+    hits = []
+    readme = recipe_dir_ / "README.md"
+    if readme.is_file():
+        hits += _glossary_link_hits(readme.read_text("utf-8"), "README.md")
+    seen: set[str] = set()
+    for cell in notebook_cells(recipe_dir_):
+        if cell["cell_type"] != "markdown":
+            continue
+        location = f"notebook.ipynb cell {cell.get('id', '?')}"
+        for use in sorted(
+            _glossary_first_uses(cell_source(cell)).values(), key=lambda u: u.ordinal
+        ):
+            if use.term in seen:
+                continue
+            seen.add(use.term)
+            problem = _glossary_link_problem(use)
+            if problem:
+                hits.append(f"{location}: first use of {use.term!r} {problem}")
+    return hits
+
+
+@pytest.mark.parametrize("recipe", guarded("glossary_first_use_links"))
+def test_the_first_use_of_a_glossary_term_links_its_entry(recipe):
+    """#211, CONTRIBUTING.md section 6 and docs/recipe-template.md "The lexicon": a recipe
+    defines a cookbook term the first time its prose uses it and links the glossary entry there.
+    Fails on a first use that is bare, that links another target, or whose anchor is missing
+    from docs/glossary.md. Per notebook, in notebook order, with the README checked separately.
+    Whether the sentence defines the term, and the everyday senses the check does not list,
+    stay with the reviewer."""
+    hits = _recipe_glossary_link_hits(recipe_dir(recipe))
+    assert not hits, "; ".join(hits)
+
+
+GLOSSARY_LINK = "../../docs/glossary.md#"
+
+
+def _link(text: str, anchor: str) -> str:
+    return f"[{text}]({GLOSSARY_LINK}{anchor})"
+
+
+def test_every_lexicon_term_has_a_glossary_anchor():
+    """The lexicon names the anchors the check demands, so each must exist."""
+    assert set(GLOSSARY_LEXICON.values()) <= _glossary_anchors()
+    assert {"gold-label", "f1", "confidence-gate", "selective-prediction"} <= _glossary_anchors()
+
+
+@pytest.mark.parametrize("term", list(GLOSSARY_LEXICON))
+def test_a_linked_first_use_passes_and_the_same_use_bare_fails(term):
+    anchor = GLOSSARY_LEXICON[term]
+    assert _glossary_link_hits(f"We report {_link(term, anchor)} here.", "x") == []
+    hits = _glossary_link_hits(f"We report {term} here, precision and recall too.", "x")
+    assert any(f"first use of {term!r}" in hit for hit in hits)
+
+
+def test_an_unlinked_first_use_fails_even_when_a_later_use_is_linked():
+    text = f"The gold label comes first.\n\nLater, the {_link('gold label', 'gold-label')} again."
+    (hit,) = _glossary_link_hits(text, "README.md")
+    assert "first use of 'gold label' is not a link" in hit
+
+
+def test_a_link_with_the_wrong_anchor_fails():
+    (hit,) = _glossary_link_hits(f"The {_link('gold label', 'accuracy')} is the answer.", "x")
+    assert "links '../../docs/glossary.md#accuracy', not ../../docs/glossary.md#gold-label" in hit
+
+
+@pytest.mark.parametrize(
+    "href",
+    [
+        "../docs/glossary.md#gold-label",
+        "../../docs/glossary.md",
+        "docs/glossary.md#gold-label",
+        "../../docs/glossary.md#gold-labels",
+        "https://example.com/docs/glossary.md#gold-label",
+    ],
+)
+def test_a_link_to_another_target_fails(href):
+    assert _glossary_link_hits(f"The [gold label]({href}) is the answer.", "x")
+
+
+def test_the_bare_form_of_a_term_and_a_path_is_not_a_link():
+    """The shape the first #211 sighting found: the term in a code span, the path beside it as
+    plain text, so a reader sees a path and no link."""
+    text = "Each is scored against its (`gold label`, ../../docs/glossary.md#gold-label)."
+    (hit,) = _glossary_link_hits(text, "x")
+    assert "first use of 'gold label' is not a link" in hit
+
+
+def test_a_code_span_inside_the_link_is_a_linked_use():
+    assert _glossary_link_hits(f"Its {_link('`gold label`', 'gold-label')}.", "x") == []
+
+
+def test_a_later_unlinked_use_is_allowed():
+    text = (
+        f"The {_link('gold label', 'gold-label')} is the answer.\n\n"
+        "A second paragraph names the gold label again, and so does this gold label."
+    )
+    assert _glossary_link_hits(text, "x") == []
+
+
+def test_a_term_inside_a_link_to_something_else_is_not_the_glossary_link():
+    assert _glossary_link_hits("See [the gold label rules](other.md) for it.", "x")
+
+
+def test_the_plural_of_a_compound_term_is_the_term():
+    assert _glossary_link_hits("The gold labels are fixed.", "x")
+    assert _glossary_link_hits(f"The {_link('gold labels', 'gold-label')} are fixed.", "x") == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "## Coverage and risk\n\nNothing else.",
+        "```python\ncoverage = 1\n```\n",
+        "    accuracy = 1\n",
+        'The input reads "a gold label of five stars".',
+        "<!-- accuracy -->\n",
+        "An unrelated sentence about states and scores.",
+    ],
+    ids=["heading", "fence", "indented-code", "quoted-fixture", "html", "everyday-state-score"],
+)
+def test_structure_and_non_prose_are_not_first_uses(text):
+    assert _glossary_link_hits(text, "x") == []
+
+
+@pytest.mark.parametrize(
+    ("everyday", "term"),
+    [
+        ("Read the customer review first.", "review"),
+        ("Then we review the answer.", "review"),
+        ("There is some risk of a small overage.", "risk"),
+        ("Not every sentence would risk a wrong answer.", "risk"),
+        ("The test coverage is not the metric.", "coverage"),
+        ("A support ticket arrived.", "support"),
+        ("Does this passage support the claim?", "support"),
+    ],
+)
+def test_an_everyday_sense_is_not_a_use_but_the_term_beside_it_is(everyday, term):
+    assert _glossary_link_hits(everyday, "x") == []
+    hits = _glossary_link_hits(f"{everyday} The {term} outcome follows, with precision.", "x")
+    assert any(f"first use of {term!r}" in hit for hit in hits)
+
+
+def test_support_counts_beside_the_metrics_it_is_reported_with():
+    hits = _glossary_link_hits("Precision, recall, F1 and support are reported.", "x")
+    assert any("'support'" in hit for hit in hits)
+
+
+def test_f1_is_case_exact_so_a_formula_name_is_not_it():
+    assert _glossary_link_hits("The f1 name in prose is not the F1 metric.", "x") != []
+    assert _glossary_link_hits("The f1 name only.", "x") == []
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        "gold\nlabel",
+        "business\nthreshold",
+        "confidence\ngate",
+        "selective\nprediction",
+        "**gold** label",
+        "gold **label**",
+        "*business threshold*",
+        "gold-label",
+        "F1-score",
+        "macro-F1",
+    ],
+)
+def test_a_term_wrapped_hyphenated_or_split_by_emphasis_is_still_the_term(spelling):
+    """A soft line break is a space, emphasis markers are transparent and a hyphen joins the
+    words of a compound term, so none of these hides a bare first use."""
+    assert _glossary_link_hits(f"Compare each answer with its {spelling} here.", "x")
+    anchor = next(
+        a
+        for t, a in GLOSSARY_LEXICON.items()
+        if _TERM_PATTERNS[t].search(spelling.replace("*", ""))
+    )
+    linked = f"With its [{spelling}]({GLOSSARY_LINK}{anchor}) here."
+    assert _glossary_link_hits(linked, "x") == []
+
+
+def test_a_wrapped_bare_first_use_is_not_excused_by_a_later_link():
+    text = f"Its gold\nlabel is first.\n\nLater, the {_link('gold label', 'gold-label')}."
+    assert _glossary_link_hits(text, "x")
+
+
+def test_an_everyday_phrase_split_by_emphasis_is_still_everyday():
+    assert _glossary_link_hits("Read the customer **review** first.", "x") == []
+    assert _glossary_link_hits('The input is "a **gold label** of five stars".', "x") == []
+
+
+def test_a_link_ends_a_run_so_text_either_side_is_not_one_term():
+    assert _glossary_link_hits("The gold [x](y.md) label here.", "x") == []
+
+
+def test_support_companions_are_matched_without_regard_to_case():
+    hits = _glossary_link_hits("PRECISION and support per class.", "x")
+    assert any("'support'" in hit for hit in hits)
+
+
+def test_an_undefined_anchor_is_reported(monkeypatch):
+    monkeypatch.setitem(GLOSSARY_LEXICON, "risk", "no-such-anchor")
+    (hit,) = _glossary_link_hits("The risk is low.", "x")
+    assert "docs/glossary.md defines no #no-such-anchor anchor" in hit
+
+
+def _write_notebook(directory: Path, cells: list[str]) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    body = [
+        {"cell_type": "markdown", "id": f"c{i}", "metadata": {}, "source": [source]}
+        for i, source in enumerate(cells)
+    ]
+    (directory / "notebook.ipynb").write_text(json.dumps({"cells": body}), encoding="utf-8")
+    return directory
+
+
+def test_the_notebook_first_use_is_the_first_markdown_cell_in_order(tmp_path):
+    linked = f"The {_link('gold label', 'gold-label')} is fixed."
+    later = "A later cell says gold label bare."
+    assert _recipe_glossary_link_hits(_write_notebook(tmp_path / "a", [linked, later])) == []
+    (hit,) = _recipe_glossary_link_hits(_write_notebook(tmp_path / "b", [later, linked]))
+    assert "cell c0" in hit
+    assert "first use of 'gold label' is not a link" in hit
+
+
+def test_a_code_cell_is_not_prose(tmp_path):
+    cells = [
+        {"cell_type": "code", "id": "setup", "metadata": {}, "source": ["# gold label\n"]},
+        {"cell_type": "markdown", "id": "md", "metadata": {}, "source": ["Nothing here."]},
+    ]
+    directory = tmp_path / "recipe"
+    directory.mkdir()
+    (directory / "notebook.ipynb").write_text(json.dumps({"cells": cells}), encoding="utf-8")
+    assert _recipe_glossary_link_hits(directory) == []
+
+
+def test_the_readme_is_checked_separately_from_the_notebook(tmp_path):
+    directory = _write_notebook(tmp_path / "r", [f"The {_link('gold label', 'gold-label')}."])
+    (directory / "README.md").write_text("The gold label is the answer.\n", encoding="utf-8")
+    (hit,) = _recipe_glossary_link_hits(directory)
+    assert hit.startswith("README.md: first use of 'gold label'")
 
 
 # --- #225: the citation check reads every spelling of "something a reader cannot see" ----------

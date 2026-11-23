@@ -12,7 +12,7 @@ this template", is for the person building one.
 Jev supplies one narrow judgment, a typed `Choice` over options that Python builds. Python owns
 everything else: the state Jev sees, the identifiers that never reach the model, and a rule that sends a
 ticket to a queue only when the answer is a known queue and confident enough. Anything uncertain goes to
-an explicit `review` outcome. The notebook shows the typed answer first, then the rule, then an
+an explicit [`review`](../../docs/glossary.md#review) outcome. The notebook shows the typed answer first, then the rule, then an
 evaluation that picks its one setting (a confidence threshold) on `validation` and reports on `test`.
 
 ## Run it offline
@@ -66,7 +66,7 @@ key in a notebook, fixture or committed file.
   are not scored). A recorded recipe states N beside every reported metric.
 
 The committed run replays 22 invented messages with hand-written (synthetic) answers, some wrong on
-purpose. Its accuracy, the routing counts and the confusion matrix check that the pipeline works; they
+purpose. Its [accuracy](../../docs/glossary.md#accuracy), the routing counts and the confusion matrix check that the pipeline works; they
 say nothing about how Jev performs, how fast it is, or what it costs. This template has no recorded
 fixtures.
 
@@ -122,7 +122,7 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    the folder (`recipe_01_sentiment_classification_helpers`), so recipes cannot collide.
 4. **Write the fixtures.** Fill `ROWS` in `build_fixtures.py`: about
    twenty invented examples (this template has 22; more at levels 3 to 5 when the hard cases need
-   it) across `validation` and `test`, plus a couple of `demo` ones, gold labels, and stored answers that are
+   it) across `validation` and `test`, plus a couple of `demo` ones, [gold labels](../../docs/glossary.md#gold-label), and stored answers that are
    deliberately imperfect (some wrong, one hard case). Then write `answers_for`, which turns each row's
    spec into typed answers (for example `ChoiceAnswer.from_probabilities`); until you do it stops with a
    `TODO` error. Run `python recipes/NN-slug/build_fixtures.py`, then
@@ -231,7 +231,7 @@ The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md); in short:
   being wrong leaves nothing standing beyond the missed item itself, compared with having sent it
   to review instead. `none` here passes all three, but this template still sends it to `review`
   like every other unconfident case rather than claim the exemption; gating a qualifying fallback
-  anyway is compliant too. A fallback that fails any part goes through the same confidence gate
+  anyway is compliant too. A fallback that fails any part goes through the same [confidence gate](../../docs/glossary.md#confidence-gate)
   as any other option before whatever it does runs. A recipe that does claim the exemption prints
   the gated counterfactual beside the numbers it actually reports.
   [docs/recipe-template.md](../../docs/recipe-template.md) works through the contrast in full.

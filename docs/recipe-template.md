@@ -70,9 +70,15 @@ threshold, confidence gate, review, gold label, coverage, risk, selective predic
 metrics in [glossary.md](glossary.md), accuracy, precision, recall, F1, support). Define a term
 the first time a recipe's own prose uses it — in a sentence, not a code comment — and link the
 matching entry in [glossary.md](glossary.md) there; a recipe that never uses a term need not
-define or link it. This template links the glossary where its own first lexicon term appears
-(`gold label`, in "Evaluation"); a recipe that reaches for more of the lexicon links each on its
-own first use the same way.
+define or link it. This template links each lexicon term it uses where that term first appears (`review` and
+`confidence gate` in "Python's part", `accuracy` and `gold label` in "Evaluation", and the same
+four in its README); a recipe that reaches for more of the lexicon links each on its own first
+use the same way. The recipe guard checks the link: for each of the terms above, the first
+use in the README and, separately, the first use in the notebook's markdown cells (taken in notebook
+order) must be a relative Markdown link of the form `../../docs/glossary.md#anchor` to an anchor
+that [glossary.md](glossary.md) defines. A later use may be bare, a bare path or a link that comes
+after the first use fails, and headings, code and quoted fixture text are not prose. Whether the
+sentence defines the term stays with the reviewer.
 
 ### Choices the template makes for you
 
