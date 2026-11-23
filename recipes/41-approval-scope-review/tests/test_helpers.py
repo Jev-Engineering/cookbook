@@ -592,6 +592,23 @@ def test_gating_label_names_the_flagged_label_when_a_confident_tag_sent_it_to_re
     assert helpers.gating_label(result) == helpers.INTENT_MISMATCH  # decide() tests intent first
 
 
+def test_gating_label_is_the_flagged_label_even_when_the_other_is_less_confident():
+    # the lowest-confidence rule would pick the other label here; decide() reported the flagged one
+    flagged_intent = {helpers.INTENT_MISMATCH: 0.99, helpers.SCOPE_CREEP: 0.1}
+    result = helpers.decide(_action(), _approval(), 0, flagged_intent, _thresholds(), 0.3)
+    assert result.reason == helpers.REASON_REVIEW_INTENT
+    assert helpers.gating_label(result) == helpers.INTENT_MISMATCH
+    flagged_scope = {helpers.INTENT_MISMATCH: 0.1, helpers.SCOPE_CREEP: 0.99}
+    result = helpers.decide(_action(), _approval(), 0, flagged_scope, _thresholds(), 0.3)
+    assert result.reason == helpers.REASON_REVIEW_SCOPE
+    assert helpers.gating_label(result) == helpers.SCOPE_CREEP
+    # a t03-mixed-style case: both flagged, intent the more confident of the two
+    mixed = {helpers.INTENT_MISMATCH: 0.95, helpers.SCOPE_CREEP: 0.93}
+    result = helpers.decide(_action(), _approval(), 0, mixed, _thresholds(), 0.3)
+    assert result.reason == helpers.REASON_REVIEW_INTENT
+    assert helpers.gating_label(result) == helpers.INTENT_MISMATCH
+
+
 def test_gating_label_rejects_a_denied_or_executed_resolution():
     denied = helpers.decide(
         _action(cited_approval_id="APR-999"), _approval(), 0, CLEAR, _thresholds(), 0.0
