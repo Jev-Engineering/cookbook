@@ -1880,6 +1880,37 @@ def test_every_published_recipe_readme_carries_the_scaffold_pull_request_rules()
         assert "[CONTRIBUTING.md](../../CONTRIBUTING.md)" in flat, path
 
 
+def _pull_request_rules_section(path):
+    text = path.read_text("utf-8")
+    heading = "\n## Pull request rules\n"
+    section = text.split(heading)[1].split("\n## ")[0]
+    return " ".join(section.split())
+
+
+def test_no_published_readme_says_the_root_readme_is_never_regenerated_by_its_own_pull_request():
+    """#701: recipe 09 said the root README is regenerated inside this same pull request yet
+    "never by this recipe's own pull request", contradicting itself and CONTRIBUTING.md.
+    """
+    for path in sorted((REPO / "recipes").glob("[0-9]*/README.md")):
+        flat = _pull_request_rules_section(path)
+        assert "never by this recipe's own pull request" not in flat, path
+
+
+def test_the_scaffold_wording_recipes_carry_recipe_02s_section_apart_from_the_folder_path():
+    """Recipes 09, 52, 69 and 77 use the scaffold's current wording, exactly as recipe 02 does."""
+    reference_dir = "02-refund-intent-detection"
+    reference = _pull_request_rules_section(REPO / "recipes" / reference_dir / "README.md")
+    assert "inside this same pull request" in reference
+    for folder in (
+        "09-file-organization",
+        "52-retrieval-pipeline-evaluation",
+        "69-visual-sku-recognition",
+        "77-visual-browser-element-locator",
+    ):
+        flat = _pull_request_rules_section(REPO / "recipes" / folder / "README.md")
+        assert flat == reference.replace(reference_dir, folder), folder
+
+
 def test_the_scaffold_readme_states_the_catalog_check_conditionally(catalog, recipes):
     """PR #193 review (comment 6085949784): the generated sentence must describe the
     pre-publication state conditionally, so it stays true once the recipe is merged and the
