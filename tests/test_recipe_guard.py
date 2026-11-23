@@ -6099,17 +6099,24 @@ def test_the_readme_never_installs_dev_and_ml_combined(recipe):
 
 
 def _readme_install_subjects() -> list:
-    """The template and the first published README that has both lines the proofs below edit (a
-    test-install line and the reproduction install): the two shapes the rule is proved against."""
-    both = (_readme_install.TEST_INSTALL, _readme_install.REPRODUCTION_INSTALL)
+    """The template and the first published README that has a test-install line (the scaffold's
+    ``.[dev,ml]`` or the legacy bare ``.[dev]``) and the reproduction install: the two shapes the
+    rule is proved against. A README need not carry both test-install spellings."""
+    scaffold_install = f'pip install -e "{_readme_install.COMBINED}"'
+
+    def has_both(text: str) -> bool:
+        return _readme_install.REPRODUCTION_INSTALL in text and (
+            scaffold_install in text or _readme_install.TEST_INSTALL in text
+        )
+
     published = [
         p / "README.md"
         for p in sorted(RECIPES_DIR.iterdir())
         if p.name != "_template"
         and (p / "README.md").is_file()
-        and all(line in (p / "README.md").read_text("utf-8") for line in both)
+        and has_both((p / "README.md").read_text("utf-8"))
     ]
-    assert published, "no published README has both install lines"
+    assert published, "no published README has a test install and the reproduction install"
     return [
         pytest.param(RECIPES_DIR / "_template" / "README.md", id="_template"),
         pytest.param(published[0], id=published[0].parent.name),
