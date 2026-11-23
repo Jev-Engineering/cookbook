@@ -18,7 +18,7 @@ from jev_cookbook import Choice
 # never invented by Jev: every option the question can ever offer comes from here (plus the
 # fallback below). CMDB-01/02/03 are the same vendor and product, differing only by major
 # version -- the use case calls for two such records, and keeping three instead of two means the
-# version family also exercises every shortlist rank (see the notebook's candidate-rank table).
+# version family lists several tied candidates in one shortlist.
 # CMDB-11 to CMDB-15 are each a same-vendor sibling of one of CMDB-06 to CMDB-10, so that an
 # observed asset for any of those five also retrieves a real second candidate instead of standing
 # alone against no_match -- without them, half this catalog would always offer exactly one real
