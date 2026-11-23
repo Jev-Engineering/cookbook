@@ -13567,6 +13567,7 @@ class _HtmlTableReader(HTMLParser):
         self._is_th = False
         self._span = 1
         self._in_thead = False
+        self.loose: list[str] = []
 
     def _close_cell(self) -> None:
         if self._cell is not None and self.rows:
@@ -13575,6 +13576,8 @@ class _HtmlTableReader(HTMLParser):
         self._cell = None
 
     def handle_starttag(self, tag, attrs):
+        if self._cell is None:
+            self.loose.append(" ")
         if tag == "thead":
             self._close_cell()
             self._in_thead = True
@@ -13595,6 +13598,8 @@ class _HtmlTableReader(HTMLParser):
             self._cell.append(" ")
 
     def handle_endtag(self, tag):
+        if self._cell is None:
+            self.loose.append(" ")
         if tag in ("td", "th"):
             self._close_cell()
         elif tag == "thead":
@@ -13606,6 +13611,8 @@ class _HtmlTableReader(HTMLParser):
     def handle_data(self, data):
         if self._cell is not None:
             self._cell.append(data)
+        else:
+            self.loose.append(data)
 
     def close(self):
         super().close()
@@ -13659,7 +13666,8 @@ def _html_table_rows(reader: _HtmlTableReader) -> list[tuple[list[str], list[str
 
 def _html_tables(text: str) -> tuple[list[tuple[list[str], list[str]]], str]:
     """``(rows, remaining text)`` for the HTML ``<table>`` elements of a markdown block (#698):
-    each is replaced by one blank line and its rows are returned as ``(column headers, cells)``
+    each is replaced by the text it holds outside its cells (a sentence between a bare
+    ``<table>`` and a later ``</table>`` is read as prose) and its rows are returned as ``(column headers, cells)``
     (``_html_table_rows``). Inline code is masked before the search, so a ``<table>`` mentioned in
     backticks is prose. Which ``<table`` counts is decided by ``_CLOSED_HTML_TABLE`` and
     ``_OPEN_HTML_TABLE``. Blockquote markers in front of a line are dropped. Nested tables are not
@@ -13681,7 +13689,8 @@ def _html_tables(text: str) -> tuple[list[tuple[list[str], list[str]]], str]:
         reader.feed(block)
         reader.close()
         rows += _html_table_rows(reader)
-        kept.append("\n")
+        # the text the table holds outside its cells is ordinary text, as GitHub shows it
+        kept.append("\n" + "".join(reader.loose).strip() + "\n")
         end = stop
     kept.append(text[end:])
     return rows, "".join(kept)
@@ -16316,7 +16325,7 @@ def test_a_table_inside_an_inline_code_span_is_prose():
     assert rows == [] and prose == text.rstrip()
     text = "<table><tr><td>x</td><td>1</td></tr>\n`</table>` inside\n\nafter\n"
     rows, prose = _scan_tables(text)
-    assert rows == [([], ["x", "1"])] and "inside" not in prose and "after" in prose
+    assert rows == [([], ["x", "1"])] and "inside" in prose and "after" in prose
 
 
 def test_an_html_block_starts_at_a_line_and_ends_at_the_close_tag_or_a_blank_line():
@@ -16393,6 +16402,44 @@ def test_a_table_in_a_fence_is_not_read(tmp_path, where):
     folder = _copy_recipe(tmp_path, "_template")
     _with_markdown(folder, where, f"```html\n{_T}\n```\n")
     assert _unprinted_quantities(folder) == []
+
+
+_LOOSE_TEXT = {
+    "bare-table-and-end-tag-in-a-sentence": (
+        "Wrap it in <table> tags: overall accuracy is 93% here, then end with </table>.\n"
+    ),
+    "paragraph-between-a-bare-tag-and-a-later-end-tag": (
+        "Use <table> markup.\n\nOverall accuracy is 93% on the set.\n\nEnd it with </table>.\n"
+    ),
+    "unclosed-table-at-a-line-start": "<table> is the tag to use; overall accuracy is 93% here.\n",
+    "text-before-the-rows": (
+        "<table>Overall accuracy is 93%.<tr><td>a</td><td>b</td></tr></table>\n"
+    ),
+    "text-between-the-rows": (
+        "<table><tr><td>a</td><td>b</td></tr>Overall accuracy is 93%.<tr><td>c</td></tr></table>\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("case", sorted(_LOOSE_TEXT))
+def test_text_an_html_table_holds_outside_its_cells_is_still_read(tmp_path, case, where):
+    """GitHub shows text outside a cell as ordinary text, so a claim there is checked."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _with_markdown(folder, where, _LOOSE_TEXT[case])
+    violations = _unprinted_quantities(folder)
+    assert len(violations) == 1 and "'93%'" in violations[0], violations
+
+
+def test_text_outside_the_cells_goes_back_to_the_prose_and_the_cells_stay_rows():
+    rows, prose = _scan_tables("<table>Note 93%.<tr><td>a</td><td>1</td></tr></table>\n")
+    assert rows == [([], ["a", "1"])]
+    assert "Note 93%." in prose and "<td>" not in prose
+    rows, prose = _scan_tables("Wrap in <table> tags, then </table>.\n")
+    assert rows == [] and prose.split() == ["Wrap", "in", "tags,", "then", "."]
+    # the cells' own text is a row, not prose
+    rows, prose = _scan_tables(f"{_T}\n")
+    assert len(rows) == 1 and "93%" not in prose
 
 
 def test_a_directional_word_is_no_metric_name_qualifier():
