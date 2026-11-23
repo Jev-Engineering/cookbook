@@ -1,395 +1,5 @@
 {
-  "08b1be69bf37d1ba33b6813038e0ee136020d52d4430c0821ce8a7024981e9c9": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "crash",
-        "probabilities": {
-          "crash": 0.8552631578947368,
-          "loading": 0.10526315789473684,
-          "auth_failure": 0.013157894736842105,
-          "normal": 0.013157894736842105,
-          "unknown": 0.013157894736842105
-        },
-        "confidence": 0.8190789473684209,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "0fc266896e79f905a1c028b95afb0b83bc8471104efe963f098c682c236ae6cf": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "crash",
-        "probabilities": {
-          "crash": 0.5098039215686274,
-          "loading": 0.0196078431372549,
-          "auth_failure": 0.0196078431372549,
-          "normal": 0.0196078431372549,
-          "unknown": 0.43137254901960786
-        },
-        "confidence": 0.3872549019607842,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "17ffe36aa6f72825a9ab5dccccc9313576ceef3725e4801fdea5e075d888948d": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "normal",
-        "probabilities": {
-          "crash": 0.015384615384615385,
-          "loading": 0.015384615384615385,
-          "auth_failure": 0.18461538461538463,
-          "normal": 0.7692307692307693,
-          "unknown": 0.015384615384615385
-        },
-        "confidence": 0.7115384615384615,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "26ca80a56126db38d674516a8c36693024dcb8bddd70402696e537699f1d1736": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "auth_failure",
-        "probabilities": {
-          "crash": 0.015873015873015872,
-          "loading": 0.015873015873015872,
-          "auth_failure": 0.7619047619047619,
-          "normal": 0.19047619047619047,
-          "unknown": 0.015873015873015872
-        },
-        "confidence": 0.7023809523809523,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "353a10b8b8880b90b6aaefdd5190d932fa5f86bac98405bc2198fac73abeabc2": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "crash",
-        "probabilities": {
-          "crash": 0.7058823529411765,
-          "loading": 0.0196078431372549,
-          "auth_failure": 0.0196078431372549,
-          "normal": 0.0196078431372549,
-          "unknown": 0.23529411764705882
-        },
-        "confidence": 0.6323529411764706,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "3588e60920db52c15cc942fc2ed5de8376934478d1a3e685a0a8be67e63ab14d": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "crash",
-        "probabilities": {
-          "crash": 0.8860759493670886,
-          "loading": 0.0759493670886076,
-          "auth_failure": 0.012658227848101266,
-          "normal": 0.012658227848101266,
-          "unknown": 0.012658227848101266
-        },
-        "confidence": 0.8575949367088606,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "405333cbb6d67ec1c0ae8dcfee1b5d328ec833388478bf3ef94fe0d9a44ef57a": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "loading",
-        "probabilities": {
-          "crash": 0.13114754098360656,
-          "loading": 0.819672131147541,
-          "auth_failure": 0.01639344262295082,
-          "normal": 0.01639344262295082,
-          "unknown": 0.01639344262295082
-        },
-        "confidence": 0.7745901639344263,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "5b609404657fa3081b0e96b71f994e6bc6c51e904c4b168cc69196ae98eaa732": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "auth_failure",
-        "probabilities": {
-          "crash": 0.017543859649122806,
-          "loading": 0.42105263157894735,
-          "auth_failure": 0.5263157894736842,
-          "normal": 0.017543859649122806,
-          "unknown": 0.017543859649122806
-        },
-        "confidence": 0.4078947368421052,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "6f3b1c955992153f1e717ac91a623e2bd331ae29b756cfd6b4b58c5fdab59b89": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "auth_failure",
-        "probabilities": {
-          "crash": 0.014084507042253521,
-          "loading": 0.014084507042253521,
-          "auth_failure": 0.7887323943661971,
-          "normal": 0.014084507042253521,
-          "unknown": 0.16901408450704225
-        },
-        "confidence": 0.7359154929577463,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "712b3566c9cf73f29c2e0455451a76965c84d6cc1a808798e6f6df6928402a3e": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "normal",
-        "probabilities": {
-          "crash": 0.017241379310344827,
-          "loading": 0.017241379310344827,
-          "auth_failure": 0.43103448275862066,
-          "normal": 0.5172413793103449,
-          "unknown": 0.017241379310344827
-        },
-        "confidence": 0.39655172413793105,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "7c62230ff7d9ffe76223e2a9d55817e093791dad5aae0b55621589ab313f0c3c": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "normal",
-        "probabilities": {
-          "crash": 0.15873015873015872,
-          "loading": 0.015873015873015872,
-          "auth_failure": 0.015873015873015872,
-          "normal": 0.7936507936507936,
-          "unknown": 0.015873015873015872
-        },
-        "confidence": 0.7420634920634919,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "81e0256842d5ac729e652e30adc5696be0626ed9ebb40cfd344389ed16971237": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "loading",
-        "probabilities": {
-          "crash": 0.14705882352941177,
-          "loading": 0.8088235294117647,
-          "auth_failure": 0.014705882352941176,
-          "normal": 0.014705882352941176,
-          "unknown": 0.014705882352941176
-        },
-        "confidence": 0.761029411764706,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "825919e8efa08bc633d443225b5e2fddd358a30ba361dd4770879499faf667bc": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "unknown",
-        "probabilities": {
-          "crash": 0.01639344262295082,
-          "loading": 0.01639344262295082,
-          "auth_failure": 0.01639344262295082,
-          "normal": 0.13114754098360656,
-          "unknown": 0.819672131147541
-        },
-        "confidence": 0.7745901639344263,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "9043335ea6fdfd3425577c7be7696606a0796db4533daddedf7e9444c69648eb": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "normal",
-        "probabilities": {
-          "crash": 0.018867924528301886,
-          "loading": 0.018867924528301886,
-          "auth_failure": 0.018867924528301886,
-          "normal": 0.49056603773584906,
-          "unknown": 0.4528301886792453
-        },
-        "confidence": 0.3632075471698113,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "976f23d2f1b69f8239dc583f0bab790c515d0f272c262879b6cdd3673fedd1a6": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "normal",
-        "probabilities": {
-          "crash": 0.02127659574468085,
-          "loading": 0.02127659574468085,
-          "auth_failure": 0.425531914893617,
-          "normal": 0.5106382978723404,
-          "unknown": 0.02127659574468085
-        },
-        "confidence": 0.38829787234042545,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "97b7b1b71dfffc1a51a38fc20404b9cc30df8d8eecba5632e14f675cbc3c9345": {
+  "05f8b8de090d219316443da61a09ae8e05ba8c20a8afc8419c24d938a8b53466": {
     "model": "synthetic",
     "usage": {
       "input_tokens": null,
@@ -415,7 +25,7 @@
       }
     }
   },
-  "9927c22a3072a15473cba586cde93f6ab1ef147e8626feab1d82d30e092835db": {
+  "089d40386650b07ad72a6fe6965b0d147d21581960f785299c05f62cff2f1b91": {
     "model": "synthetic",
     "usage": {
       "input_tokens": null,
@@ -424,15 +34,15 @@
     "answers": {
       "app_state": {
         "type": "choice",
-        "choice": "unknown",
+        "choice": "normal",
         "probabilities": {
-          "crash": 0.018867924528301886,
-          "loading": 0.37735849056603776,
-          "auth_failure": 0.018867924528301886,
-          "normal": 0.018867924528301886,
-          "unknown": 0.5660377358490566
+          "crash": 0.02127659574468085,
+          "loading": 0.02127659574468085,
+          "auth_failure": 0.425531914893617,
+          "normal": 0.5106382978723404,
+          "unknown": 0.02127659574468085
         },
-        "confidence": 0.4575471698113207,
+        "confidence": 0.38829787234042545,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -441,33 +51,7 @@
       }
     }
   },
-  "9fd460eb0f494f9316ff25a1ebe0273eb0abe451f83a75ccd3573a2e200c1a39": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "auth_failure",
-        "probabilities": {
-          "crash": 0.01818181818181818,
-          "loading": 0.01818181818181818,
-          "auth_failure": 0.5818181818181818,
-          "normal": 0.01818181818181818,
-          "unknown": 0.36363636363636365
-        },
-        "confidence": 0.4772727272727272,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "a1081801c5c209993bf44bb78e3d304c36ca74297918009f0248d97252c5882e": {
+  "0c904a6e25439b30967963d66976c8a3b72ef46e6da1710f97e6d8f3171be63a": {
     "model": "synthetic",
     "usage": {
       "input_tokens": null,
@@ -493,7 +77,59 @@
       }
     }
   },
-  "a3e1a04a0b07ea4ad4e06dc27917b9baea92b39e67588258e02f9bf12a78b296": {
+  "0e43c0a9f5256040c39dde2b516a2592ed35cad13271cadd78ad4fec55e0b69a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "auth_failure",
+        "probabilities": {
+          "crash": 0.014084507042253521,
+          "loading": 0.014084507042253521,
+          "auth_failure": 0.8450704225352113,
+          "normal": 0.11267605633802817,
+          "unknown": 0.014084507042253521
+        },
+        "confidence": 0.8063380281690141,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "141fe02f1fbdd1953867150f930a1f0f7da184619b9b31a2bf69c4c7934a8a36": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "loading",
+        "probabilities": {
+          "crash": 0.13114754098360656,
+          "loading": 0.819672131147541,
+          "auth_failure": 0.01639344262295082,
+          "normal": 0.01639344262295082,
+          "unknown": 0.01639344262295082
+        },
+        "confidence": 0.7745901639344263,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1a896875e68c51af892840e602f330aa321e234161f43c1e459be64e6d188c7e": {
     "model": "synthetic",
     "usage": {
       "input_tokens": null,
@@ -505,12 +141,12 @@
         "choice": "normal",
         "probabilities": {
           "crash": 0.018867924528301886,
-          "loading": 0.18867924528301888,
+          "loading": 0.018867924528301886,
           "auth_failure": 0.018867924528301886,
-          "normal": 0.7547169811320755,
-          "unknown": 0.018867924528301886
+          "normal": 0.49056603773584906,
+          "unknown": 0.4528301886792453
         },
-        "confidence": 0.6933962264150945,
+        "confidence": 0.3632075471698113,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -519,163 +155,7 @@
       }
     }
   },
-  "a67fd63cc7911423886213b4ee6e6becf53a3499e6644a6a5e7ca8a093302d59": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "normal",
-        "probabilities": {
-          "crash": 0.02040816326530612,
-          "loading": 0.02040816326530612,
-          "auth_failure": 0.3673469387755102,
-          "normal": 0.5714285714285714,
-          "unknown": 0.02040816326530612
-        },
-        "confidence": 0.4642857142857142,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "b50eadc48ee4e2dfa70db5e1cc10fa99fe16e2338721ae438ecbea0dc9ae9f74": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "unknown",
-        "probabilities": {
-          "crash": 0.2,
-          "loading": 0.016666666666666666,
-          "auth_failure": 0.016666666666666666,
-          "normal": 0.016666666666666666,
-          "unknown": 0.75
-        },
-        "confidence": 0.6875,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "c07ce545948f6d319dacaf25b5ac5008335e49750ed1afafa0d3c88d472a4d1e": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "normal",
-        "probabilities": {
-          "crash": 0.12121212121212122,
-          "loading": 0.015151515151515152,
-          "auth_failure": 0.015151515151515152,
-          "normal": 0.8333333333333334,
-          "unknown": 0.015151515151515152
-        },
-        "confidence": 0.7916666666666666,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "d3b007133b7e129ccced393f52b48ccd6588dfb1a7a7505b880927783232cd4d": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "loading",
-        "probabilities": {
-          "crash": 0.016666666666666666,
-          "loading": 0.75,
-          "auth_failure": 0.2,
-          "normal": 0.016666666666666666,
-          "unknown": 0.016666666666666666
-        },
-        "confidence": 0.6875,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "e75ab4525eab5e1199b307b9d906d442eaa6220ec5e5bc344b4eae1cd00fd995": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "auth_failure",
-        "probabilities": {
-          "crash": 0.0196078431372549,
-          "loading": 0.0196078431372549,
-          "auth_failure": 0.5098039215686274,
-          "normal": 0.43137254901960786,
-          "unknown": 0.0196078431372549
-        },
-        "confidence": 0.3872549019607842,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "e809b7e4e61031f44612fa38ae95e0d8b5827d97409aece435dbfff13aca428c": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "app_state": {
-        "type": "choice",
-        "choice": "auth_failure",
-        "probabilities": {
-          "crash": 0.0136986301369863,
-          "loading": 0.0136986301369863,
-          "auth_failure": 0.821917808219178,
-          "normal": 0.136986301369863,
-          "unknown": 0.0136986301369863
-        },
-        "confidence": 0.7773972602739726,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "eebe0bbfa7739a9392dc8046518fb93e9f6f18a4be8c662da61512aba78a2936": {
+  "1f7be41c580435173137b182ce6b66af11586c733acc407062b87d600106573b": {
     "model": "synthetic",
     "usage": {
       "input_tokens": null,
@@ -701,7 +181,527 @@
       }
     }
   },
-  "f454dd79027fbf77967e03178d173bb867cd7e4a79e4fcecb4edba999446acd0": {
+  "209770b48f49af31e87e8e4cc2e36e1b1254ba5a9f82a3ef851d1f9de4e56881": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "auth_failure",
+        "probabilities": {
+          "crash": 0.015873015873015872,
+          "loading": 0.015873015873015872,
+          "auth_failure": 0.7619047619047619,
+          "normal": 0.19047619047619047,
+          "unknown": 0.015873015873015872
+        },
+        "confidence": 0.7023809523809523,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "264af494c3bc0b53c024f70d8016582bc63b191f9c3370e028d67d4f41db5a4d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "crash": 0.018867924528301886,
+          "loading": 0.37735849056603776,
+          "auth_failure": 0.018867924528301886,
+          "normal": 0.018867924528301886,
+          "unknown": 0.5660377358490566
+        },
+        "confidence": 0.4575471698113207,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "28b3beff5872d41c0e97d43f5f0481a50205681e53def1354fe639e790e18a37": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "auth_failure",
+        "probabilities": {
+          "crash": 0.014084507042253521,
+          "loading": 0.014084507042253521,
+          "auth_failure": 0.7887323943661971,
+          "normal": 0.014084507042253521,
+          "unknown": 0.16901408450704225
+        },
+        "confidence": 0.7359154929577463,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "317487850caeae66388700d9aefbfabd99191180fe4f9fad5046db037338dd19": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.15873015873015872,
+          "loading": 0.015873015873015872,
+          "auth_failure": 0.015873015873015872,
+          "normal": 0.7936507936507936,
+          "unknown": 0.015873015873015872
+        },
+        "confidence": 0.7420634920634919,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "33971767ff745bae41add68f08291caf5dd2cb9eed497d5f7f3817b668c14c04": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "crash",
+        "probabilities": {
+          "crash": 0.8552631578947368,
+          "loading": 0.10526315789473684,
+          "auth_failure": 0.013157894736842105,
+          "normal": 0.013157894736842105,
+          "unknown": 0.013157894736842105
+        },
+        "confidence": 0.8190789473684209,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "48335dfebb928dc345c424f2662384f2840933d36c12c7b5b25cbbd7d8a74d2f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "crash",
+        "probabilities": {
+          "crash": 0.7058823529411765,
+          "loading": 0.0196078431372549,
+          "auth_failure": 0.0196078431372549,
+          "normal": 0.0196078431372549,
+          "unknown": 0.23529411764705882
+        },
+        "confidence": 0.6323529411764706,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "498be6b9d8f768f47af178adbd46092957508596cf4c2d369108d2ef71763289": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "loading",
+        "probabilities": {
+          "crash": 0.016666666666666666,
+          "loading": 0.75,
+          "auth_failure": 0.2,
+          "normal": 0.016666666666666666,
+          "unknown": 0.016666666666666666
+        },
+        "confidence": 0.6875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6d5f1632a68bb7f461cba91d59e50b9806b482608b6bb35509f8d3c0bf817992": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.02040816326530612,
+          "loading": 0.02040816326530612,
+          "auth_failure": 0.3673469387755102,
+          "normal": 0.5714285714285714,
+          "unknown": 0.02040816326530612
+        },
+        "confidence": 0.4642857142857142,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "713407330928360572d792c94ea8b7fce809c56f63b76ad9a8f9414d4800ea82": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.017241379310344827,
+          "loading": 0.017241379310344827,
+          "auth_failure": 0.43103448275862066,
+          "normal": 0.5172413793103449,
+          "unknown": 0.017241379310344827
+        },
+        "confidence": 0.39655172413793105,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "71b01c2e2a16c729362b9ae6a45ee0e952f58aeedd83f8df59f781a83034c2c1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "loading",
+        "probabilities": {
+          "crash": 0.14705882352941177,
+          "loading": 0.8088235294117647,
+          "auth_failure": 0.014705882352941176,
+          "normal": 0.014705882352941176,
+          "unknown": 0.014705882352941176
+        },
+        "confidence": 0.761029411764706,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "936b53e51689279ef1f7495e3375d2c4a12d73deebb3ac524ce50218d240b283": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "auth_failure",
+        "probabilities": {
+          "crash": 0.017543859649122806,
+          "loading": 0.42105263157894735,
+          "auth_failure": 0.5263157894736842,
+          "normal": 0.017543859649122806,
+          "unknown": 0.017543859649122806
+        },
+        "confidence": 0.4078947368421052,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9385283afd1b4c4628db79e5ac6537c95eecdd8c0215bdcb9a7ff5f97bb04aca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "auth_failure",
+        "probabilities": {
+          "crash": 0.01818181818181818,
+          "loading": 0.01818181818181818,
+          "auth_failure": 0.5818181818181818,
+          "normal": 0.01818181818181818,
+          "unknown": 0.36363636363636365
+        },
+        "confidence": 0.4772727272727272,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "98199c205a783d64210eb1f93a03d97889acb04f9f6be1b665fc48d7ae93d361": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "auth_failure",
+        "probabilities": {
+          "crash": 0.0196078431372549,
+          "loading": 0.0196078431372549,
+          "auth_failure": 0.5098039215686274,
+          "normal": 0.43137254901960786,
+          "unknown": 0.0196078431372549
+        },
+        "confidence": 0.3872549019607842,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bcecdd6c9a2749ebddabc5d84e93618c7de42baf1c2ccb269ca38f7c0a03ae70": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "auth_failure",
+        "probabilities": {
+          "crash": 0.0136986301369863,
+          "loading": 0.0136986301369863,
+          "auth_failure": 0.821917808219178,
+          "normal": 0.136986301369863,
+          "unknown": 0.0136986301369863
+        },
+        "confidence": 0.7773972602739726,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cdd70f3d71cce31be8d5311ef79d0749dbf4cd2c4d858c7ff78dc92a20dec24f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.015384615384615385,
+          "loading": 0.015384615384615385,
+          "auth_failure": 0.18461538461538463,
+          "normal": 0.7692307692307693,
+          "unknown": 0.015384615384615385
+        },
+        "confidence": 0.7115384615384615,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ce7b10e21941adf04141fee745a3ec6df54752801a241bb2a931263b889f0c42": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.12121212121212122,
+          "loading": 0.015151515151515152,
+          "auth_failure": 0.015151515151515152,
+          "normal": 0.8333333333333334,
+          "unknown": 0.015151515151515152
+        },
+        "confidence": 0.7916666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d1a436894ece7ef11bd8a19899eb8f78182827511aee56a40880efecd3ff5558": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "crash",
+        "probabilities": {
+          "crash": 0.5098039215686274,
+          "loading": 0.0196078431372549,
+          "auth_failure": 0.0196078431372549,
+          "normal": 0.0196078431372549,
+          "unknown": 0.43137254901960786
+        },
+        "confidence": 0.3872549019607842,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d29be0209e9979631c8e21b8bf83ab80358453e29c30a62153567af63a18ff7d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "crash": 0.01639344262295082,
+          "loading": 0.01639344262295082,
+          "auth_failure": 0.01639344262295082,
+          "normal": 0.13114754098360656,
+          "unknown": 0.819672131147541
+        },
+        "confidence": 0.7745901639344263,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d4588c5bd1ee47b58ffa88749918c9a2d70b237200639c170d2a0114cd90ffc3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "crash": 0.2,
+          "loading": 0.016666666666666666,
+          "auth_failure": 0.016666666666666666,
+          "normal": 0.016666666666666666,
+          "unknown": 0.75
+        },
+        "confidence": 0.6875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d50c8f2ca5cff874b6701474cdbc9380a11d4031dae7589041e509022d6e2136": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "app_state": {
+        "type": "choice",
+        "choice": "crash",
+        "probabilities": {
+          "crash": 0.8860759493670886,
+          "loading": 0.0759493670886076,
+          "auth_failure": 0.012658227848101266,
+          "normal": 0.012658227848101266,
+          "unknown": 0.012658227848101266
+        },
+        "confidence": 0.8575949367088606,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e0e241479fc05ead1791a0fa80beb0122c824a0067b47a3cc9030ff786c46439": {
     "model": "synthetic",
     "usage": {
       "input_tokens": null,
@@ -727,7 +727,7 @@
       }
     }
   },
-  "ff5c0871f86c408b3db2dedc701da6077151a410e2cbe479ae61aa45875b5434": {
+  "f406e8e298cb1768cddf596c4617fd527a8f2f929523037d4992f5a7c7910f1b": {
     "model": "synthetic",
     "usage": {
       "input_tokens": null,
@@ -736,15 +736,15 @@
     "answers": {
       "app_state": {
         "type": "choice",
-        "choice": "auth_failure",
+        "choice": "normal",
         "probabilities": {
-          "crash": 0.014084507042253521,
-          "loading": 0.014084507042253521,
-          "auth_failure": 0.8450704225352113,
-          "normal": 0.11267605633802817,
-          "unknown": 0.014084507042253521
+          "crash": 0.018867924528301886,
+          "loading": 0.18867924528301888,
+          "auth_failure": 0.018867924528301886,
+          "normal": 0.7547169811320755,
+          "unknown": 0.018867924528301886
         },
-        "confidence": 0.8063380281690141,
+        "confidence": 0.6933962264150945,
         "provenance": {
           "source": "synthetic",
           "model": null,
