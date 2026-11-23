@@ -111,14 +111,6 @@ KNOWN_FAILURES.update(
     {
         (slug, "glossary_first_use_links"): _GLOSSARY_FIRST_USE_LINKS_REASON
         for slug in (
-            "17-passage-reranking",
-            "18-duplicate-incident-matching",
-            "19-ci-failure-classification",
-            "20-claim-support-classification",
-            "21-quiz-answer-adjudication",
-            "22-cmdb-asset-matching",
-            "23-pairwise-answer-evaluation",
-            "24-incident-priority-composition",
             "25-change-evidence-review",
             "26-prompt-injection-screening",
             "27-function-selection",

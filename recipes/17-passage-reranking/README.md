@@ -10,14 +10,14 @@ Jev supplies one narrow judgment, a typed `Score` over a four-level relevance ru
 builds: `not_relevant`, `tangential`, `relevant`, `direct`, asked once per (query, passage) pair.
 Python owns everything else: the state Jev sees, the query and passage identifiers that never
 reach the model, the small lexical scorer that stands in for the original retrieval step, the
-fixed business cutoff that decides which levels count as a match, the confidence gate (chosen on
+fixed business cutoff that decides which levels count as a match, the [confidence gate](../../docs/glossary.md#confidence-gate) (chosen on
 `validation`, then frozen) that decides whether a score is trustworthy enough to act on at all,
 and the sort that turns several per-passage scores into one ranked list, ties broken by the
 original retrieval order. The notebook shows three typed answers up close (a direct answer, an
 on-topic but non-specific passage, and a passage written to claim its own relevance without
 stating anything that answers the query), then the rule and the lexical baseline, then an
 evaluation that reports exact-level agreement and mean absolute error against the human rubric,
-the coverage, accuracy and risk the frozen confidence gate buys, and two ranking metrics — nDCG
+the [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy) and [risk](../../docs/glossary.md#risk) the frozen confidence gate buys, and two ranking metrics — nDCG
 and top-1 accuracy — comparing the reranked order against the lexical baseline's order on every
 query in both splits.
 
@@ -71,11 +71,11 @@ The committed run replays 43 invented (query, passage) relevance judgments with 
 (so the confidence gate this notebook selects on `validation` is a real choice, not a vacuous one),
 and one `test` passage — written to claim its own relevance without stating anything that answers
 the query — is wrong *and* confident, above the gate this notebook freezes on `validation`, so the
-selective-prediction numbers on `test` show a real, non-zero risk rather than a gate that happens
+[selective-prediction](../../docs/glossary.md#selective-prediction) numbers on `test` show a real, non-zero risk rather than a gate that happens
 to look perfect. Exact-level agreement, mean absolute error, the coverage of the frozen confidence
 gate, and the nDCG and top-1 accuracy of the reranked order against the lexical baseline all check
 that the pipeline works; they say nothing about how Jev performs, how fast it is, or what it
-costs. Every stored answer was written from its gold label, so the reranked order reproduces that
+costs. Every stored answer was written from its [gold label](../../docs/glossary.md#gold-label), so the reranked order reproduces that
 order wherever two levels decide a query, and the margin over the baseline is a property of this
 fixture set, not a measurement of a real reranker (the notebook's "Ranking" section says so where
 the comparison is made, and traces the one place — an adversarial `test` passage — where this

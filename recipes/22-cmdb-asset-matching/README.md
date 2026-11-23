@@ -6,7 +6,7 @@ Link differently worded software asset descriptions to a canonical configuration
 
 ## What it teaches
 
-Jev supplies one narrow judgment, a typed `Choice` over options Python builds fresh for each observed software asset: a bounded list of canonical CMDB records retrieved by normalized vendor/product word overlap (no fixed size — the candidate count this recipe's own fixtures actually produce is 0, 2, 3 or 5, derived and printed in the notebook rather than asserted here), plus the explicit fallback `no_match` the use case names for an asset that matches none of them. Python owns everything else: the retrieval, the candidate descriptions, the rule that writes a link for a confident real match (the one outcome with a simulated side effect), reports `no_match` as a final result whatever its confidence — or, for an asset with no candidates at all, without ever asking Jev, since a single-option `Choice` is never sent — and sends anything else uncertain to an explicit `review` outcome. The notebook shows typed answers across this recipe's hard cases (a lexical look-alike that is a genuinely different product, a demo asset retrieving five candidates, an asset retrieving none, and a `validation` asset whose stored answer falls into the look-alike trap), then the rule and its one simulated side effect, a confidence-gate sweep, the exact cost and benefit of letting `no_match` bypass that gate (shown as a counterfactual, not argued in prose), two trivial Jev-free baselines the rule's own accuracy must clearly beat, and an evaluation that reports link accuracy, the false-link rate, coverage, risk and `no_match`'s own precision and recall.
+Jev supplies one narrow judgment, a typed `Choice` over options Python builds fresh for each observed software asset: a bounded list of canonical CMDB records retrieved by normalized vendor/product word overlap (no fixed size — the candidate count this recipe's own fixtures actually produce is 0, 2, 3 or 5, derived and printed in the notebook rather than asserted here), plus the explicit fallback `no_match` the use case names for an asset that matches none of them. Python owns everything else: the retrieval, the candidate descriptions, the rule that writes a link for a confident real match (the one outcome with a simulated side effect), reports `no_match` as a final result whatever its confidence — or, for an asset with no candidates at all, without ever asking Jev, since a single-option `Choice` is never sent — and sends anything else uncertain to an explicit [`review`](../../docs/glossary.md#review) outcome. The notebook shows typed answers across this recipe's hard cases (a lexical look-alike that is a genuinely different product, a demo asset retrieving five candidates, an asset retrieving none, and a `validation` asset whose stored answer falls into the look-alike trap), then the rule and its one simulated side effect, a [confidence-gate](../../docs/glossary.md#confidence-gate) sweep, the exact cost and benefit of letting `no_match` bypass that gate (shown as a counterfactual, not argued in prose), two trivial Jev-free baselines the rule's own [accuracy](../../docs/glossary.md#accuracy) must clearly beat, and an evaluation that reports link accuracy, the false-link rate, [coverage](../../docs/glossary.md#coverage), [risk](../../docs/glossary.md#risk) and `no_match`'s own [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall).
 
 ## Run it offline
 
@@ -62,7 +62,7 @@ one in `validation` itself (a lexical look-alike — a different, free product t
 wording with a paid one to be retrieved as a candidate — named confidently instead of `no_match`,
 at a confidence that is nonetheless below the gate chosen there, which is exactly the error that
 gate excludes), and three in `test` (an asset with no reported version, where this recipe's
-policy makes the gold label `no_match`, confidently misnamed with a specific version instead — a
+policy makes the [gold label](../../docs/glossary.md#gold-label) `no_match`, confidently misnamed with a specific version instead — a
 false link the gate does not catch; a real match reported as `no_match` at a confidence *below*
 the gate, accepted anyway because `no_match` is never checked by any confidence gate at all,
 whatever its own confidence is; and a real match named with the wrong same-vendor-and-product
@@ -70,7 +70,7 @@ sibling at a low confidence, caught and sent to review). Validation's link accur
 baselines (0.70, 0.80) and the rule's own coverage (0.90), accuracy (1.00) and risk (0.00) are
 selection steps, not reported results; on `test`, link accuracy (0.85) clearly beats both
 Jev-free baselines (0.70, 0.75), `no_match`'s own precision and recall are 0.80 and 0.80
-(support 5), and the coverage (0.85), accuracy (0.88) and risk (0.12) taken from the rule's own
+([support](../../docs/glossary.md#support) 5), and the coverage (0.85), accuracy (0.88) and risk (0.12) taken from the rule's own
 outcomes, plus the false-link rate (0.08), check that the pipeline works; they say nothing about
 how Jev performs, how fast it is, or what it costs. This recipe has no recorded fixtures.
 
