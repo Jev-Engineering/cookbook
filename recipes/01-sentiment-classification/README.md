@@ -17,7 +17,8 @@ discussed on its own, and the coverage and accuracy the frozen threshold buys.
 
 ## Run it offline
 
-From the repository root, in an environment with `pip install -e ".[dev]"`:
+From the repository root, in an environment with `pip install -e ".[dev,ml]"` (the `ml` extra adds
+scikit-learn, which the `Tests` jobs install and a recipe's `helpers.py` may use):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/01-sentiment-classification

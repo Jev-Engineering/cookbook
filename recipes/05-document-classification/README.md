@@ -19,7 +19,8 @@ and the coverage, accuracy and risk the frozen threshold buys.
 
 ## Run it offline
 
-From the repository root, in an environment with `pip install -e ".[dev]"`:
+From the repository root, in an environment with `pip install -e ".[dev,ml]"` (the `ml` extra adds
+scikit-learn, which the `Tests` jobs install and a recipe's `helpers.py` may use):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/05-document-classification
@@ -34,7 +35,7 @@ replays the stored answers in `fixtures/responses.json`, and imports only the st
 Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
 `Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
 3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
-notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
+notebook — the `dev` extra above adds `ruff` and `pytest`, which that job does not run; see
 [docs/recipe-template.md](../../docs/recipe-template.md) step 6).
 
 ## Switch to live
