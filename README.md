@@ -343,23 +343,27 @@ cookbook/
 
 ## Sources
 
-The use cases are proposed applications. Their ranks are curriculum judgments, not ratings published by the sources. The references below were reviewed on 6 October 2026 (S01 to S08) and 15 October 2026 (S09 to S12). Each reference's review date is recorded in `catalog/recipes.json`, and the references that apply to a recipe are listed in that recipe's catalog entry. S07 describes limitations of the documented Jev 1.13 model specifically.
+The use cases are proposed applications. Their ranks are curriculum judgments, not ratings published by the sources. The references below were re-reviewed on 22 November 2026 (S01 to S16). Each reference's review date is recorded in `catalog/recipes.json`, and the references that apply to a recipe are listed in that recipe's catalog entry. S07 lists known failure modes of Jev on a page that is not tied to one model version.
 
 <!-- catalog:sources:start -->
 | ID | Reference | What it supports |
 | :---: | --- | --- |
 | S01 | [TypeSafe AI: Introduction](https://docs.typesafe.ai/introduction) | Typed questions over supplied state and atomic judgments composed in code. |
-| S02 | [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives) | Choice, Noul, Score, independent questions, and dependent follow-up calls. |
+| S02 | [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives) | Choice, Score, Noul, and Box questions, the typed answers they return, several questions per request, and dependent follow-up requests. |
 | S03 | [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence) | Distribution-derived confidence and task-specific thresholds informed by observed outcomes. |
 | S04 | [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one) | Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code. |
-| S05 | [TypeSafe AI: Example use cases](https://docs.typesafe.ai/concepts/use-case-map) | Application families covering classification, routing, scoring, retrieval, and verification. |
-| S06 | [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks) | Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery. |
-| S07 | [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13) | Version-specific limitations affecting arithmetic, context selection, adversarial content, and generation. |
+| S05 | [TypeSafe AI: Use cases](https://docs.typesafe.ai/concepts/use-case-map) | Use cases grouped by category (business process automation, real-time apps, search and labeling, agents and verification, images and video, more industries) and decision shapes such as classification, detection, scoring, routing, search, retrieval, ranking, verification, and extraction. |
+| S06 | [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks) | Worked cookbooks listed by problem: LLMs and agents, classification, extraction, search and matching, techniques, and image processing. |
+| S07 | [TypeSafe AI: Model jaggedness](https://docs.typesafe.ai/model-jaggedness) | Known failure modes, each with a recommended alternative: literal reading, math and numbers (counting, numeric representations, math using Score), date and time comparison, indirection, large state full of irrelevant detail, adversarial content, contradictory instructions and criteria, Choice option order, and generation. |
 | S08 | [TypeSafe AI: System One Adapter](https://github.com/typesafe-ai/system-one-adapter-python) | A typed interface for comparing Jev with decision adapters backed by generative models. |
 | S09 | [TypeSafe AI: Images](https://docs.typesafe.ai/images) | Experimental PNG/JPEG assets in state, instructions, and criteria; image comparisons and ordered still frames with the images header. |
-| S10 | [TypeSafe AI: Box](https://docs.typesafe.ai/primitives/box) | Jev 1.14 single-target bounding rectangles, normalized edges and confidence, absent-target checks, tiled search, and crop verification. |
-| S11 | [TypeSafe AI: Models and long context](https://docs.typesafe.ai/models) | Versioned model IDs, moving aliases, and opt-in 262k-token per-request and per-question context for Jev 1.13 and 1.14. |
+| S10 | [TypeSafe AI: Box](https://docs.typesafe.ai/primitives/box) | Single-target bounding rectangles, normalized edges and confidence, absent-target checks, guidance for images with several instances, tiled search, and crop-and-ask-again verification. |
+| S11 | [TypeSafe AI: Models and long context](https://docs.typesafe.ai/models) | Versioned model IDs, moving aliases, rate limits, the opt-in 262k-token per-request and per-question context for Jev 1.13 and 1.14, customizing Jev through the request, and data handling. |
 | S12 | [TypeSafe AI: Jev 1.14 release](https://typesafe.ai/blog/jev-1-14) | The October 14, 2026 release of Jev 1.14 and the experimental status of image, Box, and long-context capabilities. |
+| S13 | [TypeSafe AI: Screen with a Noul first](https://docs.typesafe.ai/patterns/noul-screen) | A pattern that asks one yes/no Noul question on a small state first and runs the next step only on a clear yes, with separate handling for a clear no and for an unsettled answer. |
+| S14 | [TypeSafe AI: Model changelog](https://docs.typesafe.ai/changelog) | The principal changes in each Jev release, currently the Jev 1.14 entry of October 14, 2026: model ID, Box, images, and long context. |
+| S15 | [TypeSafe AI: Noul](https://docs.typesafe.ai/primitives/noul) | The Noul question type: a yes/no question answered with the probability that the answer is yes, its request and response structure, and how to write the question and handle several answers in code. |
+| S16 | [TypeSafe AI: Companion Noul](https://docs.typesafe.ai/patterns/companion-noul) | Pairing a Choice with a Noul that asks whether any option fits, so code can tell when none does, and how this compares with an other option. |
 <!-- catalog:sources:end -->
 
 ## Contributing

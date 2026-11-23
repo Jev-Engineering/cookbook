@@ -754,6 +754,28 @@ RECIPE_LITERAL_PATH = re.compile(
 PR_METRIC_WORD = re.compile(
     r"\)?[\s-]*(?:curves?|AUC|AP|areas?|plots?|precision|recall|metrics?)\b", re.IGNORECASE
 )
+# "plots" and "metrics" are plural nouns ("the PR plots are in the figure") and also a verb or a
+# verb's subject ("this PR plots the new curve", "the PR metrics changed in review"). The plural
+# is a metric when the spelled-out form precedes it ("precision-recall (PR) plots", checked
+# first), or when the next word is one of these closed classes: the end of the clause, punctuation
+# (`, . ; : ( )`, an em or en dash, `--`, or a hyphen followed by whitespace), a preposition, a
+# conjunction (`and or but nor`), a copula (`are is were was`) or `show(s)`. The prepositions
+# are a closed list too. Everything else is a pointer, and that is the recorded trade-off
+# (#639): a determiner or an ordinary verb after the plural ("this PR plots the curve", "the PR
+# metrics improved") is flagged even when it was meant as the metric, and the fix for the
+# author is to spell out "precision-recall (PR)".
+PR_PLURAL_METRIC_WORD = re.compile(r"\)?[\s-]*(?:plots|metrics)\b", re.IGNORECASE)
+_PR_PREPOSITIONS = (
+    "for|on|over|of|at|by|from|across|per|with|in|into|to|under|below|above|against|as|than"
+    "|within|between|through|during|after|before|among|along|beyond|without|about|around|near"
+    "|onto|upon|via|versus|vs|like|unlike|beneath|beside|besides|despite|except|inside|outside"
+    "|throughout|toward|towards|underneath|until"
+)
+PR_PLURAL_METRIC_END = re.compile(
+    rf"\s*(?:$|[,.;:()\u2014\u2013]|--|-(?=\s)|(?:{_PR_PREPOSITIONS}"
+    r"|and|or|but|nor|are|is|were|was|show|shows)\b)",
+    re.IGNORECASE,
+)
 
 
 def _pr_is_metric(text: str, start: int, end: int) -> bool:
@@ -764,6 +786,11 @@ def _pr_is_metric(text: str, start: int, end: int) -> bool:
     when another construction is needed rather than adding a blanket PR exemption.
     """
     before, after = text[:start], text[end:]
+    plural = PR_PLURAL_METRIC_WORD.match(after)
+    if plural:
+        if re.search(r"\brecall\s+\($", before, re.I) and after.startswith(")"):
+            return True
+        return bool(PR_PLURAL_METRIC_END.match(after, plural.end()))
     if PR_METRIC_WORD.match(after):
         return True
     if re.match(r"\s+(?:scores?|points?)\b(?=\s*(?:$|[,.;:)]|(?:for|on|over)\b))", after, re.I):
@@ -886,8 +913,14 @@ def _allow_ordinary_notation(text: str, match: re.Match[str], source_path: Path 
     # A colon/dash still introduces a finding even after an ordinary-looking noun.
     if re.match(r"\s*[:–—-]", after):
         return False
+    # A sample or region label is ordinary only in "sample (N1) of the population"; "per sample
+    # (M3)" has the shape of a finding label and stays a hit (#639).
     return bool(
-        re.search(r"\b(?:vitamin|sample|region)\s+$", before, re.I)
+        re.search(r"\bvitamin\s+$", before, re.I)
+        or (
+            re.search(r"\b(?:sample|region)\s+$", before, re.I)
+            and re.match(r"\s+of\b", after, re.I)
+        )
         or (
             re.fullmatch(r"\(\s*M[1-9]\s*\)", match.group())
             and re.match(r"\s+chips?\b", after, re.I)
@@ -1272,7 +1305,7 @@ _CITATION_VOCABULARY_PAIRS = {
     "hardware-label": ("the objective is pinned (M2): a swap", "an (M2) chip"),
     "vitamin-label": ("the finding (B1) needs a fix", "vitamin (B1)"),
     "sample-label": ("the sample (N1): missing evidence", "the sample (N1) of the population"),
-    "region-label": ("region (S1): a finding", "region (S1)"),
+    "region-label": ("region (S1): a finding", "region (S1) of the map"),
     "input-batch": ("the batch 3 sweep moved this", "process batch 3 of 5"),
     "pr-roc": ("as the PR says, use the gate", "PR and ROC curves"),
     "pr-number": ("the PR scored the change", "the PR is 0.81"),
@@ -1281,6 +1314,11 @@ _CITATION_VOCABULARY_PAIRS = {
     "pr-scores": ("this PR scores the change", "PR scores"),
     "pr-metric-boundary": ("the PR plotted the change", "the PR plot"),
     "pr-metric-areas-boundary": ("the PR areaspecific note", "PR areas"),
+    "pr-plots-verb": ("this PR plots the new calibration curve", "the PR plots are in the figure"),
+    "pr-metrics-subject": ("the PR metrics changed in review", "the PR metrics are reported"),
+    "pr-plots-then-object": ("the PR plots a new curve", "the PR plots, the curves and the areas"),
+    "per-sample-label": ("per sample (M3)", "the sample (M3) of the batch"),
+    "per-region-label": ("per region (S2) the rate", "the region (S2) of the map"),
     "typographic-pull-request": ("the pull request’s description", "the precision-recall curve"),
     "typographic-reviewer": ("the reviewer’s finding", "a reviewer decides uncertain cases"),
     "plural-possessive": ("reviewers' findings", "reviewers in the queue decide cases"),
@@ -1327,6 +1365,133 @@ def test_citation_vocabulary_pairs_keep_process_pointers_and_allow_ordinary_pros
     must_fail, must_pass = _CITATION_VOCABULARY_PAIRS[case]
     assert _citation_hits(must_fail, "prose"), (case, must_fail)
     assert _citation_hits(must_pass, "prose") == [], (case, must_pass)
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "this PR plots the new calibration curve",
+        "the PR metrics changed in review",
+        "The PR plots a curve for each domain.",
+        "the PR metrics moved after the last change",
+        "recall (PR) plots show the gap but this PR plots the fix",
+        "the PR plots the curve",
+        "the PR metrics improved",
+        "the PR metrics improved after calibration",
+        "the PR metrics look similar",
+        "the PR plots-based review",
+        "the PR plots illustrate the trade-off",
+        "this PR metrics the run",
+    ],
+)
+def test_a_pr_metric_word_in_the_plural_is_a_pointer_when_a_predicate_follows(sentence):
+    """#639 item 1: "plots" and "metrics" are also a verb and a verb's subject."""
+    hits = _citation_hits(sentence, "prose")
+    assert hits and all("pull request pointer" in hit for hit in hits), hits
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "the PR plots",
+        "the PR metrics.",
+        "the PR plots, the PR metrics and PR curves",
+        "the PR metrics are reported",
+        "the PR plots were drawn from the validation split",
+        "the PR metrics for each domain",
+        "PR metrics of the run",
+        "the PR plots and the ROC curves",
+        "recall (PR) plots show the gap",
+        "the PR plots in Figure 2 show the gap",
+        "the PR metrics in the table",
+        "the PR metrics in table 2",
+        "the PR plots under each threshold",
+        "PR metrics to compare models",
+        "the PR metrics to report",
+        "the PR metrics below",
+        "the PR plots above",
+        "the PR metrics into a dashboard",
+        "the PR plots against the baseline",
+        "the PR plots as a pair",
+        "the PR metrics than the ROC metrics",
+        "the PR plots within each domain",
+        "the PR metrics between runs",
+        "the PR metrics but not ROC",
+        "the PR metrics nor the ROC metrics",
+        "PR metrics (precision and recall)",
+        "the PR plots \u2014 see the appendix",
+        "the PR plots\u2014see the appendix",
+        "the PR plots \u2013 see the appendix",
+        "the PR metrics -- see the table",
+        "the PR metrics - see the table",
+        "precision-recall (PR) plots in the appendix",
+        "precision-recall (PR) plots illustrate the trade-off",
+        "precision and recall (PR) metrics improved after calibration",
+    ],
+)
+def test_a_pr_metric_word_in_the_plural_stays_a_metric_in_noun_position(sentence):
+    # The decision recorded for #639 item 1: the plural is read as the metric after the spelled-out
+    # "precision-recall (PR)", or when the next word is the end of the clause, punctuation, a
+    # preposition, a conjunction, a copula or show(s). "the PR metrics are in the description"
+    # therefore still passes. Determiners and ordinary verbs after the plural stay pointers.
+    assert _citation_hits(sentence, "prose") == []
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "per sample (M3)",
+        "each sample (S2) is scored",
+        "per sample (B1), the rate",
+        "region (N4) changed",
+        "per region (S1)",
+        "the sample (M3) was flagged",
+    ],
+)
+def test_a_sample_or_region_label_needs_of_to_be_ordinary_notation(sentence):
+    """#639 item 2: the exemption is for "sample (N1) of the population", not any label that
+    follows the word sample or region."""
+    hits = _citation_hits(sentence, "prose")
+    assert hits and all("review finding label" in hit for hit in hits), hits
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "the sample (N1) of the population",
+        "a sample (M3) Of the batch",
+        "region (S1) of the map",
+        "vitamin (B1)",
+    ],
+)
+def test_a_sample_or_region_label_with_of_stays_ordinary_notation(sentence):
+    assert _citation_hits(sentence, "prose") == []
+    # a colon or dash after the label is still a finding, with or without "of"
+    assert _citation_hits(sentence.replace(")", "):", 1), "prose")
+
+
+def test_rule_n_of_license_is_pinned_bare_does_not_qualify_but_a_code_span_does():
+    """#639 item 3. ``LICENSE`` is the one tracked regular file at the repository root with no
+    dot in its name, so it is a committed file a reader can open. Decision: the bare token
+    ``rule 4 of LICENSE`` does NOT qualify, because a bare dotless token cannot be told from an
+    English noun ("rule 4 of the policy"), and the licence text has no numbered rules to cite.
+    The same file named in a code span or a Markdown link still names a tracked regular file and
+    does qualify. If the bare-path rule that a path contains ``.`` or ``/`` is removed, the first
+    assertions below fail."""
+    tracked = _tracked_regular_files(REPO)
+    assert "LICENSE" in tracked
+    assert [name for name in tracked if "/" not in name and "." not in name] == ["LICENSE"]
+    assert _citation_hits("rule 4 of LICENSE", "prose") == [
+        "prose: 'rule 4' (house rule number: a reader cannot open it; name a case-exact "
+        "git-tracked regular file outside orchestration/ using a repository-root-relative "
+        "path or a Markdown link relative to this file)"
+    ]
+    assert _citation_hits("rule 4 in LICENSE says so.", "prose")
+    assert _citation_hits("rule 4 of `LICENSE`", "prose") == []
+    source = REPO / "recipes" / "_template" / "README.md"
+    assert _citation_hits("rule 4 of [the licence](../../LICENSE)", "prose", source) == []
+    # a dotless name that is not tracked never qualifies in any spelling
+    assert _citation_hits("rule 4 of `LICENCE`", "prose")
 
 
 @pytest.mark.parametrize(
@@ -5294,6 +5459,19 @@ def test_each_template_drift_fails_the_request_audit_check_on_its_own_comparison
 
 
 def _check_recipe_scope_registration(tree: ast.Module) -> None:
+    """Fail on a recipe sweep that reads ``PUBLISHED`` outside the registered definitions.
+
+    Decision for #639: ``PUBLISHED_SLUGS`` and ``PUBLISHED_NUMBERS`` are catalog-membership sets
+    ("is this a published recipe"), and ``recipes/_template`` is deliberately not a member: it
+    has no catalog row, so a link to it must stay "not published", and the side-effect
+    inventory's stale-entry comparison would report it as stale. A loop over ``PUBLISHED_SLUGS``
+    therefore skips the template, which is correct for catalog metadata. A per-recipe check
+    never loops over the set: it is parametrised through ``guarded()`` or
+    ``RECIPES_WITH_TEMPLATE``, which this function enforces, and the full-set test below pins
+    that ``RECIPES_WITH_TEMPLATE`` is ``PUBLISHED_SLUGS`` plus the template. A plain
+    ``for slug in PUBLISHED_SLUGS`` inside a test body is not detected; a check that must see
+    the template iterates ``RECIPES_WITH_TEMPLATE``.
+    """
     # Catalog metadata and explicitly registered exclusions can use the published set. Other
     # recipe cases start with the full set, including the template.
     catalog_helpers = {
@@ -5379,6 +5557,50 @@ def _check_recipe_scope_registration(tree: ast.Module) -> None:
         assert registered or all_recipes, (
             f"line {marker.lineno}: use guarded() or RECIPES_WITH_TEMPLATE for recipe cases"
         )
+
+
+def test_recipe_scope_registration_rejects_a_chained_assignment_of_a_catalog_constant():
+    """#639 (from the #640 review): only a single-target assignment is exempt, so a second
+    target cannot carry the published-only list under the catalog constant's name."""
+    source = "PUBLISHED_SLUGS = CASES = [*PUBLISHED]\n"
+    with pytest.raises(AssertionError, match="use RECIPES_WITH_TEMPLATE for recipe sweeps"):
+        _check_recipe_scope_registration(ast.parse(source))
+    for chained in (
+        "CASES = PUBLISHED_NUMBERS = [*PUBLISHED]",
+        "A = B = PUBLISHED_SLUGS = PUBLISHED",
+    ):
+        with pytest.raises(AssertionError, match="use RECIPES_WITH_TEMPLATE for recipe sweeps"):
+            _check_recipe_scope_registration(ast.parse(chained + "\n"))
+    # control: the same value under the single name is the registered definition
+    _check_recipe_scope_registration(ast.parse("PUBLISHED_SLUGS = [*PUBLISHED]\n"))
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'CASES = [r for r in PUBLISHED if r["slug"] in PUBLISHED_SLUGS]\n',
+        "CASES = [r for r in PUBLISHED if r['rank'] in PUBLISHED_NUMBERS]\n",
+        "def test_each(): assert PUBLISHED_SLUGS and PUBLISHED\n",
+        "for recipe in PUBLISHED: assert recipe['slug'] in PUBLISHED_SLUGS\n",
+        "PUBLISHED_NUMBERS |= {r['rank'] for r in PUBLISHED}\n",
+        "PUBLISHED_SLUGS: frozenset = frozenset(r['slug'] for r in PUBLISHED)\n",
+        "PUBLISHED_SLUGS, OTHER = frozenset(r['slug'] for r in PUBLISHED), 1\n",
+    ],
+    ids=[
+        "membership-slugs",
+        "membership-numbers",
+        "test-function",
+        "loop",
+        "augmented",
+        "annotated",
+        "tuple-target",
+    ],
+)
+def test_recipe_scope_registration_does_not_exempt_a_statement_that_mentions_a_constant(source):
+    """#639 (from the #640 review): a statement that merely mentions ``PUBLISHED_NUMBERS`` or
+    ``PUBLISHED_SLUGS`` is not exempt; only the single-target module-level assignment is."""
+    with pytest.raises(AssertionError, match="use RECIPES_WITH_TEMPLATE for recipe sweeps"):
+        _check_recipe_scope_registration(ast.parse(source))
 
 
 def test_recipe_checks_use_the_template_scope_registration():
