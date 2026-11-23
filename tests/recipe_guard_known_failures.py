@@ -111,14 +111,6 @@ KNOWN_FAILURES.update(
     {
         (slug, "glossary_first_use_links"): _GLOSSARY_FIRST_USE_LINKS_REASON
         for slug in (
-            "09-file-organization",
-            "10-answer-relevance-check",
-            "11-clarification-selection",
-            "12-thesaurus-word-selection",
-            "13-candidate-rewrite-selection",
-            "14-source-span-selection",
-            "15-sensitive-text-triage",
-            "16-discord-moderation-triage",
             "17-passage-reranking",
             "18-duplicate-incident-matching",
             "19-ci-failure-classification",

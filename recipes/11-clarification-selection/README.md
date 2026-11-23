@@ -14,12 +14,12 @@ step needs. Python owns everything else: the state Jev sees (the task descriptio
 else), the stored question text for each catalog entry (the model never writes it, only picks
 the identifier), and the rule that asks a confident real match's stored question, accepts
 `no_clarification_needed` as a final "nothing to ask" result whatever its confidence, and sends
-anything else uncertain to an explicit `review` outcome instead of guessing. The notebook shows
+anything else uncertain to an explicit [`review`](../../docs/glossary.md#review) outcome instead of guessing. The notebook shows
 three typed answers up close (a task that could plausibly need two different follow-ups, a task
 that needs none of them, and a validation task whose stored answer is simply wrong), then the
-rule, then an evaluation that reports the accuracy of the selected follow-up across all seven
-options, the coarser accuracy of the ask-or-proceed decision underneath it, and a coverage,
-accuracy and risk computed from what the rule itself did — not from reapplying a confidence gate
+rule, then an evaluation that reports the [accuracy](../../docs/glossary.md#accuracy) of the selected follow-up across all seven
+options, the coarser accuracy of the ask-or-proceed decision underneath it, and a [coverage](../../docs/glossary.md#coverage),
+accuracy and [risk](../../docs/glossary.md#risk) computed from what the rule itself did — not from reapplying a [confidence gate](../../docs/glossary.md#confidence-gate)
 the rule's `no_clarification_needed` branch never uses. The 40 stored answers in `fixtures/` are
 all synthetic.
 
@@ -77,7 +77,7 @@ confidence (an access-level request misread as missing a recipient instead). The
 asked when it is really missing a budget, at a confidence that sits *below* the gate — a
 confidence-only rule would have caught it, but the `no_clarification_needed` branch never checks
 confidence at all, so it is delivered as a final result anyway. Its accuracy of the selected
-follow-up, confusion matrix, per-option precision and recall, the accuracy of the coarser
+follow-up, confusion matrix, per-option [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall), the accuracy of the coarser
 ask-or-proceed decision, and the coverage, accuracy and risk of the rule's own outcomes check that
 the pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs. This
 recipe has no recorded fixtures.
