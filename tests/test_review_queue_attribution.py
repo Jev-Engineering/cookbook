@@ -9,8 +9,9 @@ the gate.
 What this checks. It reads each published recipe's committed ``notebook.ipynb`` and
 ``helpers.py`` source (no execution) and walks the whole ``answer=`` expression of every
 ``.submit(...)`` call. It fails when that expression indexes by, or calls ``.get`` with, one of
-the recipe's own labels written as a fixed value: the label's string (``["redirect"]``) or its
-module constant (``[REDIRECT]``, ``[helpers.REDIRECT]``). A label chosen per item (the
+the recipe's own labels written as a fixed value, by index, ``.get``, ``.pop`` or
+``.__getitem__``: the label's string (``["redirect"]``), its module constant (``[REDIRECT]``,
+``[helpers.REDIRECT]``) or a constant position in the vocabulary (``[helpers.LABELS[0]]``). A label chosen per item (the
 ``gating`` name from a recipe's ``helpers.gating_label``, or a loop variable over the labels)
 passes.
 
@@ -20,26 +21,32 @@ module-level ``LABELS`` with more than one entry is checked, and only an index o
 argument equal to one of those labels (string value or constant name) counts. An index by any
 other literal, such as ``row["answer"]`` or an id string, is not flagged, and a single-label
 recipe is out of scope because it has no other proposition to confuse. The vocabulary is the
-module-level ``LABELS``, ``DOMAINS``, ``RULES`` or ``CONSTRAINTS`` (first one present), read as a
+module-level ``LABELS``, ``DOMAINS``, ``RULES``, ``CONSTRAINTS``, ``FEATURES``, ``FIELDS``,
+``CONSISTENCY_LABELS``, ``ATTRIBUTES`` or ``NOUL_NAMES`` (first one present), or a declared one, read as a
 tuple, a list or the keys of a dict. The set of recipes this covers is pinned exactly in
 ``COVERED``. In a notebook cell only, a whole line that starts with ``%`` or ``!``, is a lone
 ``name?`` help line, or assigns from ``= !`` / ``= %`` is replaced by ``pass`` at the same
-indentation before parsing, so a cell with magics is still read; ``helpers.py`` is never
+indentation before parsing, so a cell with magics is still read, except that a line magic
+followed by a statement that parses (``%time queue.submit(...)``) is read as that statement; ``helpers.py`` is never
 touched. A source that still does not parse fails the test (``SyntaxError``).
 
 Documented limits, forms this does NOT catch:
 
-* a recipe out of scope because its vocabulary has another name: 35 (``FEATURES``), 39
-  (``FIELDS``), 48 (``CONSISTENCY_LABELS``), 57 (three Noul questions, no vocabulary), 69
-  (``ATTRIBUTES``) and 77 (``NOUL_NAMES``); and 24, which records its two Score answers by
-  position (``[0]``, ``[1]``), not by label. None records a fixed-label answer today;
-* ``.__getitem__("budget")`` or ``.pop("budget")`` by a label, and ``submit`` called inside a
-  wrapper function that receives the answer as an argument;
+* recipe 24, out of scope on purpose: it queues a literal two-key record of both Score answers
+  and reads them by position (``[0]``, ``[1]``), so no label picks the answer (``OUT_OF_SCOPE``
+  pins the reason). A recipe with a vocabulary under yet another name is missing from both
+  sides of the coverage test; the vocabulary of recipe 57, which has no constant, is declared in
+  ``DECLARED_VOCABULARY``;
+* ``submit`` called inside a wrapper function that receives the answer as an argument, and a
+  line magic whose statement does not parse alone (an option value with a space, a multi-line
+  call), which stays ``pass``;
 * a fixed label passed through a local variable (``label = "budget"; answers[label]``, or
   ``a = answers["budget"]; submit(..., answer=a)``), which needs data-flow analysis;
 * attribute access or ``getattr`` instead of an index (``result.redirect``,
   ``getattr(result, "redirect")``);
-* a label built indirectly (``answers[helpers.LABELS[0]]``, an f-string, a computed key);
+* a label built indirectly other than by a constant position into the vocabulary
+  (``LABELS[0]`` and ``LABELS[-1]`` are caught; an f-string, ``LABELS[i]``, ``sorted(LABELS)[0]``
+  and a computed key are not);
 * a ``submit`` reached through an alias (``submit = queue.submit``) or a ``**{"answer": ...}``
   keyword expansion;
 * a fixed label inside a helper function that a ``submit`` call's ``answer=`` merely calls.
@@ -65,7 +72,29 @@ PUBLISHED = [
     if (RECIPES_DIR / recipe["slug"] / "notebook.ipynb").is_file()
 ]
 # The module-level names the published recipes use for their several labels, in the order tried.
-VOCABULARY_NAMES = ("LABELS", "DOMAINS", "RULES", "CONSTRAINTS")
+VOCABULARY_NAMES = (
+    "LABELS",
+    "DOMAINS",
+    "RULES",
+    "CONSTRAINTS",
+    "FEATURES",  # 35
+    "FIELDS",  # 39
+    "CONSISTENCY_LABELS",  # 48
+    "ATTRIBUTES",  # 69
+    "NOUL_NAMES",  # 77
+)
+# A recipe with no module-level vocabulary declares its labels here. Recipe 57 asks three Noul
+# questions (``build_first_questions`` and ``build_second_questions``) and defines no constant
+# for them; a test pins that each declared name is still a string in its ``helpers.py``.
+DECLARED_VOCABULARY = {"57-evidence-graph-updates": ("conflict", "supported", "ended")}
+# Recipes that stay out of scope, with the reason. A test pins that none of them is covered.
+OUT_OF_SCOPE = {
+    "24-incident-priority-composition": (
+        "its submit records both Score answers, ``business_impact`` and ``urgency``, as a "
+        "literal two-key record, so no answer is chosen by a label; the answers are read by "
+        "position (``[0]``, ``[1]``), which is not a label of any vocabulary"
+    ),
+}
 # The recipes whose vocabulary is detected today, pinned exactly. A new multi-label recipe whose
 # vocabulary name is not detected is missing from both sides of the coverage test, so that test
 # does NOT catch it: add the name to VOCABULARY_NAMES and the recipe here when one is published.
@@ -75,10 +104,16 @@ COVERED = {
     "25-change-evidence-review",
     "26-prompt-injection-screening",
     "31-patch-risk-triage",
+    "35-semantic-feature-extraction",
     "37-research-domain-tagging",
+    "39-document-extraction-cascade",
     "41-approval-scope-review",
     "42-outbound-disclosure-screening",
     "44-plan-constraint-assessment",
+    "48-document-revision-consistency",
+    "57-evidence-graph-updates",
+    "69-visual-sku-recognition",
+    "77-visual-browser-element-locator",
 }
 
 
@@ -121,17 +156,29 @@ def _label_vocabulary(helpers_source: str) -> tuple[set[str], set[str]]:
     return names, values
 
 
+# Methods that fetch an entry by its key: ``.get(label)``, ``.pop(label)``, ``.__getitem__(label)``.
+FETCH_METHODS = ("get", "pop", "__getitem__")
 MAGIC_LINE = re.compile(r"^\s*[%!]")
+# ``%name`` (or ``%%name``), optional ``-x`` / ``-x value`` options, then a statement.
+LINE_MAGIC_STATEMENT = re.compile(r"^(\s*)%{1,2}\w+(?:\s+-\w+(?:\s+[\w.]+(?=\s+\S))?)*\s+(\S.*)$")
 HELP_LINE = re.compile(r"^\s*[\w.]+\?{1,2}\s*$")
 SHELL_ASSIGN = re.compile(r"^\s*[\w, ]+=\s*[!%]")
 
 
 def _neutralise_magic(line: str) -> str:
     """Replace a notebook magic, help or shell-assignment line with ``pass`` at the same
-    indentation, so the rest of its cell still parses. Only a whole-line pattern counts (``%``
+    indentation, so the rest of its cell still parses. A line magic followed by a statement that
+    parses (``%time queue.submit(...)``) becomes that statement. Only a whole-line pattern counts (``%``
     or ``!`` first, ``name?`` alone, ``names = !cmd`` or ``names = %cmd``), so a ``?`` in a
     comment or docstring, or ``= !`` inside a string, is left alone. Applied to notebook cells
     only, never to ``helpers.py``."""
+    wrapped = LINE_MAGIC_STATEMENT.match(line)
+    if wrapped:  # ``%time queue.submit(...)``: the statement after the magic is still code
+        try:
+            ast.parse(wrapped.group(2))
+            return wrapped.group(1) + wrapped.group(2)
+        except SyntaxError:
+            pass  # ``%pip install x``: not a statement
     if MAGIC_LINE.match(line) or HELP_LINE.match(line) or SHELL_ASSIGN.match(line):
         indent = line[: len(line) - len(line.lstrip())]
         return indent + "pass"
@@ -145,6 +192,23 @@ def _is_fixed_label(node: ast.AST, names: set[str], values: set[str]) -> bool:
         return node.id in names
     if isinstance(node, ast.Attribute):
         return node.attr in names
+    if isinstance(node, ast.Subscript):  # LABELS[0], helpers.LABELS[-1]: indexes the vocabulary
+        container = node.value
+        vocabulary = (
+            container.id
+            if isinstance(container, ast.Name)
+            else container.attr
+            if isinstance(container, ast.Attribute)
+            else None
+        )
+        position = node.slice
+        if isinstance(position, ast.UnaryOp) and isinstance(position.op, ast.USub):
+            position = position.operand
+        return (
+            vocabulary in VOCABULARY_NAMES
+            and isinstance(position, ast.Constant)
+            and isinstance(position.value, int)
+        )
     return False
 
 
@@ -175,7 +239,7 @@ def _fixed_label_answers(
                 fetched = (
                     isinstance(inner, ast.Call)
                     and isinstance(inner.func, ast.Attribute)
-                    and inner.func.attr == "get"
+                    and inner.func.attr in FETCH_METHODS
                     and bool(inner.args)
                     and _is_fixed_label(inner.args[0], names, values)
                 )
@@ -185,10 +249,18 @@ def _fixed_label_answers(
     return found
 
 
+def _recipe_vocabulary(slug: str) -> tuple[set[str], set[str]]:
+    """The label vocabulary of a published recipe: its declared labels, else the module-level
+    constant read from ``helpers.py``."""
+    if slug in DECLARED_VOCABULARY:
+        return set(), set(DECLARED_VOCABULARY[slug])
+    return _label_vocabulary((RECIPES_DIR / slug / "helpers.py").read_text("utf-8"))
+
+
 def _recipe_hits(slug: str) -> list[str]:
     recipe = RECIPES_DIR / slug
     helpers_source = (recipe / "helpers.py").read_text("utf-8")
-    names, values = _label_vocabulary(helpers_source)
+    names, values = _recipe_vocabulary(slug)
     if not names and not values:
         return []
     found = _fixed_label_answers(helpers_source, names, values)
@@ -211,15 +283,29 @@ def test_no_queue_records_an_answer_fixed_to_one_label(slug):
 
 
 def test_the_sweep_covers_the_multi_label_recipes():
-    covered = {
-        slug
-        for slug in PUBLISHED
-        if any(_label_vocabulary((RECIPES_DIR / slug / "helpers.py").read_text("utf-8")))
-    }
+    covered = {slug for slug in PUBLISHED if any(_recipe_vocabulary(slug))}
     assert covered == COVERED, (
         f"newly covered {sorted(covered - COVERED)}, no longer covered {sorted(COVERED - covered)}"
         "; add a new multi-label recipe's vocabulary name to VOCABULARY_NAMES and this set"
     )
+
+
+def test_a_declared_vocabulary_names_strings_the_recipe_still_uses():
+    for slug, labels in DECLARED_VOCABULARY.items():
+        source = (RECIPES_DIR / slug / "helpers.py").read_text("utf-8")
+        strings = {
+            node.value
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        }
+        assert set(labels) <= strings, f"{slug}: {sorted(set(labels) - strings)} not in helpers.py"
+        assert len(labels) > 1
+
+
+def test_the_recipes_left_out_of_scope_stay_out_with_a_reason():
+    assert not set(OUT_OF_SCOPE) & COVERED
+    assert set(OUT_OF_SCOPE) <= set(PUBLISHED)
+    assert all(OUT_OF_SCOPE.values())
 
 
 # --------------------------------------------------------------------------------------------
@@ -250,6 +336,21 @@ VALUES = {"redirect", "discusses", "budget", "timeline"}
         'queue.submit(item, reason, answer=answers["budget"])  # really?',
         'queue.submit(item, reason, note="a = !b", answer=answers["budget"])',
         'x = "= !"\nqueue.submit(item, reason, answer=answers["budget"], note="= !x")',
+        # a line magic wrapped around the submit call itself
+        '%time queue.submit(item, reason, answer=answers["budget"])',
+        'for e in xs:\n    %time queue.submit(item, reason, answer=answers["budget"])',
+        '%timeit -n 3 queue.submit(item, reason, answer=answers["budget"])',
+        "%%time queue.submit(item, reason, answer=answers[helpers.BUDGET])",
+        # .pop and .__getitem__ by a label
+        'queue.submit(item, reason, answer=answers.pop("budget"))',
+        "queue.submit(item, reason, answer=answers.pop(helpers.BUDGET))",
+        'queue.submit(item, reason, answer=answers.__getitem__("budget"))',
+        "queue.submit(item, reason, answer=answers.__getitem__(BUDGET))",
+        # an index into the vocabulary constant
+        "queue.submit(item, reason, answer=answers[helpers.LABELS[0]])",
+        "queue.submit(item, reason, answer=answers[LABELS[-1]])",
+        "queue.submit(item, reason, answer=answers.get(ATTRIBUTES[1]))",
+        "queue.submit(item, reason, answer=answers[helpers.NOUL_NAMES[0]])",
     ],
 )
 def test_the_check_rejects_an_answer_fixed_to_one_label(source):
@@ -269,6 +370,15 @@ def test_the_check_rejects_an_answer_fixed_to_one_label(source):
         'queue.submit(item, result.reason, answer=answers_by_id["ex-01"])',
         "queue.submit(item, reason, answer=answers.get(gating))",
         "%matplotlib inline\nqueue.submit(item, reason, answer=decide(e)[gating])",
+        "%time queue.submit(item, reason, answer=decide(e)[gating])",
+        "%timeit -n 3 queue.submit(item, reason, answer=answers)",
+        "%pip install x\nqueue.submit(item, reason, answer=decide(e)[gating])",
+        "queue.submit(item, reason, answer=answers.pop(gating))",
+        "queue.submit(item, reason, answer=answers.__getitem__(gating))",
+        "queue.submit(item, reason, answer=answers[helpers.LABELS[i]])",
+        "queue.submit(item, reason, answer=answers[OTHER[0]])",
+        "queue.submit(item, reason, answer=[a[label] for label in helpers.LABELS])",
+        "queue.submit(item, reason, answer=answers[sorted(helpers.LABELS)[0]])",
     ],
 )
 def test_the_check_accepts_a_label_chosen_per_item(source):
@@ -312,10 +422,14 @@ def test_a_source_that_does_not_parse_fails_instead_of_being_skipped():
 
 
 def test_the_magic_patterns_are_whole_line_only():
-    assert _neutralise_magic("    %time f()") == "    pass"
+    assert _neutralise_magic("    %time f()") == "    f()"
+    assert _neutralise_magic("    %time") == "    pass"
     assert _neutralise_magic("files = !ls") == "pass"
     assert _neutralise_magic("helpers.decide?") == "pass"
     assert _neutralise_magic("helpers.decide??") == "pass"
     assert _neutralise_magic("x = 'what?'") == "x = 'what?'"
     assert _neutralise_magic("y = 1  # why?") == "y = 1  # why?"
     assert _neutralise_magic('s = "= !x"') == 's = "= !x"'
+    assert _neutralise_magic("%time f(1)") == "f(1)"
+    assert _neutralise_magic("    %timeit -n 3 f(1)") == "    f(1)"
+    assert _neutralise_magic("%pip install x") == "pass"
