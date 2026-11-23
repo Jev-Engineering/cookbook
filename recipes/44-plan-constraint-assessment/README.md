@@ -2,11 +2,11 @@
 
 **Recipe 44** · Level 4 (Advanced) · Decision type: `Noul`
 
-Evaluate each candidate plan against individual user constraints so deterministic policy can reject ineligible plans and route unresolved judgments to review.
+Evaluate each candidate plan against individual user constraints so deterministic policy can reject ineligible plans and route unresolved judgments to [review](../../docs/glossary.md#review).
 
 ## What it teaches
 
-A candidate plan carries four of the user's own constraints — budget, timeline, vendor, data handling — and Jev answers one independent `Noul` per (plan, constraint) pair, all four together in one request: does the plan violate this one constraint? Python never asks the model to weigh the four against each other. Two of the four, budget and timeline, are comparisons of quantities, not judgments: whether the cost is over the limit and whether the completion falls after the deadline are computed in Python (`budget_check`, `timeline_check`) from the plan's structured cost, limit and ISO dates, and Jev is sent only the named bucket ("over the limit", "after the deadline" and their opposites), never a date or an amount. TypeSafe says Jev reads dates as text and cannot reliably judge whether two numbers are near each other. Those two propositions are therefore pure readbacks of a fact Python already holds; they stay in the request so every plan keeps four independent propositions through one shared multi-label evaluation, and Jev's own judgment is the other two, vendor and data handling, which are about prose. A deterministic rule in `helpers.py` composes the four answers into exactly one of three outcomes: `ineligible` the moment any one constraint is confidently flagged as violated, whatever any other constraint's own confidence is doing; `review` when nothing is a confirmed violation but at least one judgment is not confident enough to trust; `eligible` only when every constraint is both confidently resolved and confidently clear. The recipe's named hard case — a plan that satisfies every constraint but one — makes that precedence concrete: one confident violation is always enough, however clean the other three read. A confidence gate on a Noul is measured here, not derived: the band around 0.5 is exact algebra, but whether it actually changes an outcome depends on how the composition wires it in, so the notebook sweeps a 401-point grid through the real rule, with and without the gate, and reports what changed.
+A candidate plan carries four of the user's own constraints — budget, timeline, vendor, data handling — and Jev answers one independent `Noul` per (plan, constraint) pair, all four together in one request: does the plan violate this one constraint? Python never asks the model to weigh the four against each other. Two of the four, budget and timeline, are comparisons of quantities, not judgments: whether the cost is over the limit and whether the completion falls after the deadline are computed in Python (`budget_check`, `timeline_check`) from the plan's structured cost, limit and ISO dates, and Jev is sent only the named bucket ("over the limit", "after the deadline" and their opposites), never a date or an amount. TypeSafe says Jev reads dates as text and cannot reliably judge whether two numbers are near each other. Those two propositions are therefore pure readbacks of a fact Python already holds; they stay in the request so every plan keeps four independent propositions through one shared multi-label evaluation, and Jev's own judgment is the other two, vendor and data handling, which are about prose. A deterministic rule in `helpers.py` composes the four answers into exactly one of three outcomes: `ineligible` the moment any one constraint is confidently flagged as violated, whatever any other constraint's own confidence is doing; `review` when nothing is a confirmed violation but at least one judgment is not confident enough to trust; `eligible` only when every constraint is both confidently resolved and confidently clear. The recipe's named hard case — a plan that satisfies every constraint but one — makes that precedence concrete: one confident violation is always enough, however clean the other three read. A [confidence gate](../../docs/glossary.md#confidence-gate) on a Noul is measured here, not derived: the band around 0.5 is exact algebra, but whether it actually changes an outcome depends on how the composition wires it in, so the notebook sweeps a 401-point grid through the real rule, with and without the gate, and reports what changed.
 
 ## Run it offline
 
@@ -59,7 +59,7 @@ The offline run replays 35 hand-written (synthetic) requests with synthetic answ
 on purpose: a confidently wrong `test` answer slips through the frozen gate as a wrongly-approved
 plan (`t09-adversarial-data`), two confidently wrong answers wrongly reject clean plans
 (`t12-falsepositive-vendor`, `t13-falsepositive-budget`; the budget one is a synthetic misread of a check Python computed correctly), and two low-confidence plans go to
-review regardless of which way their gold label actually falls. Both are gated on the `budget`
+review regardless of which way their [gold label](../../docs/glossary.md#gold-label) actually falls. Both are gated on the `budget`
 readback of a bucket Python computed exactly, and so is the third gated plan, the validation plan
 `v13-gated-clear` (`v14-gated-violation`, written as a gated case at 0.47, sits exactly on the band's
 lower edge, so it passes the gate and resolves `ineligible`):
@@ -67,9 +67,9 @@ no answer about prose (vendor or data handling) is gated in these fixtures, so t
 exercised without showing a judgment Jev would be unsure of when the computed buckets are used
 directly. The plan prose Jev reads still carries qualitative budget and timeline remarks ("on
 track", "some risk of a small overage"), with no raw date or amount, some of which contradict the
-computed bucket. The business thresholds, the
-confidence gate and its measured (not derived) effect on outcomes, the per-constraint precision
-and recall, the plan-level coverage, accuracy and risk, the named hard case, and the three
+computed bucket. The [business thresholds](../../docs/glossary.md#business-threshold), the
+confidence gate and its measured (not derived) effect on outcomes, the per-constraint [precision](../../docs/glossary.md#precision)
+and [recall](../../docs/glossary.md#recall), the plan-level [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy) and [risk](../../docs/glossary.md#risk), the named hard case, and the three
 zero-request baseline comparisons are all checks that the pipeline works; they say nothing about
 how Jev performs, how fast it is, or what it costs.
 

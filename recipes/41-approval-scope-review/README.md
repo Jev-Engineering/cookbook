@@ -57,11 +57,11 @@ it reports, here and in the notebook.
 
 The offline run replays 35 hand-written (synthetic) requests with synthetic answers, some wrong
 on purpose: one on `test` confidently reads `intent_mismatch` as clear when gold says it is a
-mismatch, and because that reading clears both the business threshold and the confidence gate,
-it is confidently, wrongly executed — the one `test` mistake the task-level risk (`0.1000`)
+mismatch, and because that reading clears both the [business threshold](../../docs/glossary.md#business-threshold) and the [confidence gate](../../docs/glossary.md#confidence-gate),
+it is confidently, wrongly executed — the one `test` mistake the task-level [risk](../../docs/glossary.md#risk) (`0.1000`)
 reports, alongside two of thirty pooled business-rule decisions on `validation` that are wrong
 without ever being confidently executed. The business thresholds, the confidence gate, the
-precision and recall on each proposition, the task-level coverage, accuracy and risk, the
+[precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall) on each proposition, the task-level [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy) and risk, the
 baseline comparison and the exhaustive safety sweep are all checks that the pipeline works; they
 say nothing about how Jev performs, how fast it is, or what it costs.
 

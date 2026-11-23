@@ -57,9 +57,9 @@ A recorded recipe states the model version the API returned, the capture date an
 it reports, here and in the notebook.
 
 The offline run replays synthetic answers written for this recipe, so its numbers check that the
-pipeline works, not how Jev performs. The evaluation covers: raw per-question label accuracy
-against the gold outcome; the confidence-gated selective-prediction view (coverage, accuracy and
-risk of "answer when confidence clears the threshold `select_confidence_threshold` chose on
+pipeline works, not how Jev performs. The evaluation covers: raw per-question label [accuracy](../../docs/glossary.md#accuracy)
+against the gold outcome; the confidence-gated [selective-prediction](../../docs/glossary.md#selective-prediction) view ([coverage](../../docs/glossary.md#coverage), accuracy and
+[risk](../../docs/glossary.md#risk) of "answer when confidence clears the threshold `select_confidence_threshold` chose on
 `validation`"); a confusion matrix among the four outcomes on `test`; the store invariants
 `helpers.reconcile` is built to hold (a below-gate answer writes nothing; `corroborating` and
 `superseding` keep the superseded value reachable in history; `contradicting` leaves the live
