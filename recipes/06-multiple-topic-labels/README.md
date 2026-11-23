@@ -10,11 +10,8 @@ Jev answers five independent `Noul` propositions over one piece of feedback, one
 
 ## Run it offline
 
-From the repository root, in an environment with
-`pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the install
-the `Notebook (<recipe>)` CI job uses, and the one that reproduces the committed notebook outputs
-byte for byte, see [docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"`
-alone is enough for the fixture and test commands below, which do not re-execute the notebook):
+From the repository root, in an environment with `pip install -e ".[dev,ml]"` (the `ml` extra adds
+scikit-learn, which the `Tests` jobs install and a recipe's `helpers.py` may use):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/06-multiple-topic-labels
@@ -23,6 +20,12 @@ pytest recipes/06-multiple-topic-labels
 ```
 
 The notebook runs from this folder with no network and no API key, replaying `fixtures/`.
+
+Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
+`Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
+3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
+notebook — the `dev` extra above adds `ruff` and `pytest`, which that job does not run; see
+[docs/recipe-template.md](../../docs/recipe-template.md) step 6).
 
 ## Switch to live
 

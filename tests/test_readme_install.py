@@ -271,7 +271,12 @@ def test_every_published_readme_and_template_keeps_its_accepted_install_verdict(
     for path in paths:
         readme = path.read_text("utf-8")
         assert readme_install.combined_reproduction_installs(readme) == [], path
-        if readme_install.TEST_INSTALL in readme:
+        # After the install convergence (#163) every README carries the scaffold spelling; the
+        # legacy bare ``.[dev]`` spelling is still accepted, so either one is substituted.
+        if (
+            readme_install.TEST_INSTALL in readme
+            or f'pip install -e "{readme_install.COMBINED}"' in readme
+        ):
             documented = readme_install.with_documented_test_install(readme)
             assert readme_install.combined_reproduction_installs(documented) == [], path
             tested += 1
