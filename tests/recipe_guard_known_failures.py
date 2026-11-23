@@ -65,11 +65,6 @@ _THRESHOLD_OBJECTIVE_PIN_REASON = (
     "asserted present against a real read of the committed notebook/helpers.py source; see #244"
 )
 
-_GLOSSARY_FIRST_USE_LINKS_REASON = (
-    "glossary_first_use_links (#211): the first use of a lexicon term in the recipe's README or "
-    "notebook prose is not the relative link ../../docs/glossary.md#anchor; see #211"
-)
-
 KNOWN_FAILURES: dict[tuple[str, str], str] = {
     (slug, "threshold_objective_pin"): _THRESHOLD_OBJECTIVE_PIN_REASON
     for slug in (
@@ -106,13 +101,3 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "35-semantic-feature-extraction",
     )
 }
-
-KNOWN_FAILURES.update(
-    {
-        (slug, "glossary_first_use_links"): _GLOSSARY_FIRST_USE_LINKS_REASON
-        for slug in (
-            "25-change-evidence-review",
-            "31-patch-risk-triage",
-        )
-    }
-)
