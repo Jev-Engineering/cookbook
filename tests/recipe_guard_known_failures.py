@@ -112,13 +112,7 @@ KNOWN_FAILURES.update(
         (slug, "glossary_first_use_links"): _GLOSSARY_FIRST_USE_LINKS_REASON
         for slug in (
             "25-change-evidence-review",
-            "26-prompt-injection-screening",
-            "27-function-selection",
-            "28-skill-selection",
-            "29-tool-outcome-verification",
-            "30-citation-verification",
             "31-patch-risk-triage",
-            "32-regression-test-selection",
             "33-schema-field-mapping",
             "34-evidence-relationship-labels",
             "35-semantic-feature-extraction",

@@ -14,7 +14,7 @@ adapted from TypeSafe's citation-checking cookbook (S06). Python composes the re
 `supported` claim is kept as cited, a confident `unsupported` or `contradicted` claim is flagged
 for correction, and an unconfident answer goes to a person instead. The evaluation scores both
 the raw judgment, over the claims that reached Jev, and the composed, claim-level outcome over
-every claim, resolved or not, including per-class precision, recall and F1 for the `unsupported`
+every claim, resolved or not, including per-class [precision](../../docs/glossary.md#precision), [recall](../../docs/glossary.md#recall) and [F1](../../docs/glossary.md#f1) for the `unsupported`
 and `contradicted` classes.
 
 ## Run it offline
@@ -63,8 +63,8 @@ partway through with `BudgetExceeded`. Never put a key in a notebook or a fixtur
 
 The offline run replays 40 invented claim/citation pairs with hand-written (synthetic) answers for
 the 33 whose citation resolves, several wrong on purpose, including two wrong *and* confident on
-`test` (`t-c5-wrong`, `t-u3-wrongpassage`) so the frozen confidence gate's numbers show a real,
-non-zero risk rather than a guarantee that happens to hold. Its coverage, accuracy, risk,
+`test` (`t-c5-wrong`, `t-u3-wrongpassage`) so the frozen [confidence gate](../../docs/glossary.md#confidence-gate)'s numbers show a real,
+non-zero [risk](../../docs/glossary.md#risk) rather than a guarantee that happens to hold. Its [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy), risk,
 flag/keep agreement and per-class precision/recall/F1 check that the pipeline works; they say
 nothing about how Jev performs, how fast it is, or what it costs. This recipe has no recorded
 fixtures.
