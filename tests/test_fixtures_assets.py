@@ -336,14 +336,24 @@ def test_a_package_folder_wins_over_a_module_file_of_the_same_name(package_dir):
     assert "does not mention 'from_module'" in problem("jev_cookbook.scenes", "from_module")
 
 
-def test_a_package_module_is_read_once_for_many_entries(package_dir):
-    assets_module._module_text.cache_clear()
-    for _ in range(5):
-        assert (
-            assets_module.package_generator_problem("jev_cookbook.tools.draw", "draw_scene") is None
-        )
-    info = assets_module._module_text.cache_info()
-    assert (info.misses, info.hits) == (1, 4)
+def test_a_package_module_is_read_once_for_many_entries(tmp_path, package_dir, monkeypatch):
+    recipe = build(tmp_path)
+    edit_manifest(
+        recipe,
+        lambda m: [e.update(generator="jev_cookbook.tools.draw:draw_scene") for e in m["assets"]],
+    )
+    source = package_dir / "tools" / "draw.py"
+    original = Path.read_text
+    reads = []
+
+    def read_text(path, *args, **kwargs):
+        if path == source:
+            reads.append(path)
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    assert problems(recipe) == []
+    assert reads == [source]
 
 
 @pytest.mark.parametrize(
@@ -361,15 +371,32 @@ def test_a_generator_is_checked_even_when_its_file_is_missing(tmp_path, generato
 
 def _run_python(script: str) -> str:
     """Run ``script`` in a fresh interpreter on this checkout's ``src``; return its stdout."""
-    env = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = str(ROOT / "src") + (os.pathsep + existing if existing else "")
     done = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True, env=env, check=True
     )
     return done.stdout
 
 
-def test_a_package_generator_is_found_without_importing_its_module(tmp_path):
-    """The check parses the module's source; a package generator module is never imported."""
+@pytest.mark.parametrize("existing", [False, True])
+def test_run_python_prepends_src_and_preserves_existing_pythonpath(tmp_path, monkeypatch, existing):
+    inherited = [str(tmp_path / "first"), str(tmp_path / "second")]
+    if existing:
+        monkeypatch.setenv("PYTHONPATH", os.pathsep.join(inherited))
+        second = Path(inherited[1])
+        second.mkdir()
+        (second / "generator_path_sentinel.py").write_text("VALUE = 17\n", "utf-8")
+        assert _run_python("import generator_path_sentinel as m; print(m.VALUE)").strip() == "17"
+    else:
+        monkeypatch.delenv("PYTHONPATH", raising=False)
+    script = "import json, os; print(json.dumps(os.environ['PYTHONPATH'].split(os.pathsep)))"
+    assert json.loads(_run_python(script)) == [str(ROOT / "src"), *(inherited if existing else [])]
+
+
+def test_a_package_generator_is_found_without_importing_its_module():
+    """The check reads the module's source; a package generator module is never imported."""
     script = (
         "import sys, json\n"
         "from jev_cookbook.fixtures._assets import package_generator_problem as p\n"
