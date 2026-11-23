@@ -59,7 +59,9 @@ on purpose: a confidently wrong `test` answer slips through the frozen gate as a
 plan (`t09-adversarial-data`), two confidently wrong answers wrongly reject clean plans
 (`t12-falsepositive-vendor`, `t13-falsepositive-budget`; the budget one is a synthetic misread of a check Python computed correctly), and two low-confidence plans go to
 review regardless of which way their gold label actually falls. Both are gated on the `budget`
-readback of a bucket Python computed exactly, and so are the other two gated validation plans:
+readback of a bucket Python computed exactly, and so is the third gated plan, the validation plan
+`v13-gated-clear` (`v14-gated-violation`, written as a gated case at 0.47, sits exactly on the band's
+lower edge, so it passes the gate and resolves `ineligible`):
 no answer about prose (vendor or data handling) is gated in these fixtures, so the review path is
 exercised without showing a judgment Jev would be unsure of when the computed buckets are used
 directly. The plan prose Jev reads still carries qualitative budget and timeline remarks ("on
