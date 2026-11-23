@@ -15,11 +15,11 @@ reaches the model, and the rule that accepts the chosen option only when it was 
 *and* its `confidence` clears a threshold chosen on `validation` and then frozen. Unlike a Choice
 option that only ever means "the model could not decide," `keep_original` is a real, final answer
 here — it is the correct, scorable outcome whenever no candidate fits, and it is held to the same
-confidence gate as every other option rather than an automatic review, including when it is
+[confidence gate](../../docs/glossary.md#confidence-gate) as every other option rather than an automatic [review](../../docs/glossary.md#review), including when it is
 itself the wrong choice. The notebook shows three typed answers up close (a clear pick, a correct
 `keep_original`, and a wrong, confident pick), then the rule and the confidence sweep behind its
 threshold, then an evaluation that reports the share of selections inside each sentence's own
-acceptable set, how correctly the rule uses `keep_original`, and the coverage, accuracy and risk
+acceptable set, how correctly the rule uses `keep_original`, and the [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy) and [risk](../../docs/glossary.md#risk)
 the frozen threshold buys on `test`.
 
 ## Run it offline
@@ -74,7 +74,7 @@ moderate confidence (the threshold search on `validation` has to exclude it) and
 sentences are wrong at a confidence the frozen threshold does not catch, so the reported risk is
 non-zero: one names the wrong candidate, and one confidently answers `keep_original` when a real
 candidate fit — the fallback's own false-positive direction, which the `keep_original`
-precision/recall figures also report on. The share of selections inside each sentence's
+[precision](../../docs/glossary.md#precision)/[recall](../../docs/glossary.md#recall) figures also report on. The share of selections inside each sentence's
 acceptable set, the precision and recall of `keep_original`, and the coverage, accuracy and risk
 of the frozen rule all check that the pipeline works; they say nothing about how Jev performs, how
 fast it is, or what it costs. This recipe has no recorded fixtures.
