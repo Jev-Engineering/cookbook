@@ -6,7 +6,7 @@ Classify a continuous-integration failure, from its log excerpt, as a test regre
 
 ## What it teaches
 
-Python trims each build's CI log down to the excerpt that matters *before* it ever builds a request, so the trimming is checked against the untrimmed log kept in the fixtures, not merely illustrated. Jev then reads the excerpt and picks exactly one of four outcomes — `test_regression`, `dependency_problem`, `infrastructure_failure`, or `unknown` — and every one of the four goes through the same confidence gate. An answer below the gate is sent to a simulated review queue for a person to decide; an answer at or above it is accepted, and Python looks up the next diagnostic workflow from a fixed table keyed by outcome. Three of the four workflows name an automated remedy, logged to a simulated action log that never executes anything; the fourth, `unknown`'s own workflow (manual triage), names no automated remedy at all, so an accepted `unknown` answer is logged to the *same* review queue instead — accepted, not rejected for low confidence, but still a person's decision either way.
+Python trims each build's CI log down to the excerpt that matters *before* it ever builds a request, so the trimming is checked against the untrimmed log kept in the fixtures, not merely illustrated. Jev then reads the excerpt and picks exactly one of four outcomes — `test_regression`, `dependency_problem`, `infrastructure_failure`, or `unknown` — and every one of the four goes through the same [confidence gate](../../docs/glossary.md#confidence-gate). An answer below the gate is sent to a simulated [review](../../docs/glossary.md#review) queue for a person to decide; an answer at or above it is accepted, and Python looks up the next diagnostic workflow from a fixed table keyed by outcome. Three of the four workflows name an automated remedy, logged to a simulated action log that never executes anything; the fourth, `unknown`'s own workflow (manual triage), names no automated remedy at all, so an accepted `unknown` answer is logged to the *same* review queue instead — accepted, not rejected for low confidence, but still a person's decision either way.
 
 ## Run it offline
 
@@ -57,9 +57,9 @@ it reports, here and in the notebook.
 
 The offline run replays 40 hand-written (synthetic) CI log excerpts with synthetic answers, some
 wrong on purpose: two on `test` are both wrong and confident enough to clear the gate, but only
-one of them, a dependency problem misread as a test regression, reaches the reported risk (1 of
+one of them, a dependency problem misread as a test regression, reaches the reported [risk](../../docs/glossary.md#risk) (1 of
 the 12 answered builds, `0.0833`) — the other confidently names `unknown`, a deferral that
-counts toward review rather than coverage however confident it is. Its accuracy, the confusion
+counts toward review rather than [coverage](../../docs/glossary.md#coverage) however confident it is. Its [accuracy](../../docs/glossary.md#accuracy), the confusion
 matrix, the action log and review queue contents, and the coverage, accuracy and risk the frozen
 gate produces are checks that the pipeline works; they say nothing about how Jev performs, how
 fast it is, or what it costs.

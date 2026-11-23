@@ -6,7 +6,7 @@ Score reported business impact and urgency against separate rubrics so Python ca
 
 ## What it teaches
 
-Jev answers two independent `Score` questions about one incident report, in a single request: how much business impact it has, and how urgently it needs a response, each against its own four-level rubric Python builds. Python owns everything else: it maps each answer's most likely level to a named category, looks up the pair of categories in `PRIORITY_MATRIX` (a fixed table in `helpers.py`, not a formula), and reports that priority only when both answers clear a confidence gate chosen on `validation`; a ticket where either answer is too uncertain goes to an explicit `review` outcome instead. The notebook shows a ticket where the two questions disagree in direction (small impact, critical urgency) up close, prints the matrix, and evaluates both per-question agreement with the gold category and task-level agreement of the composed priority with the gold priority, including the non-zero risk a frozen gate does not catch.
+Jev answers two independent `Score` questions about one incident report, in a single request: how much business impact it has, and how urgently it needs a response, each against its own four-level rubric Python builds. Python owns everything else: it maps each answer's most likely level to a named category, looks up the pair of categories in `PRIORITY_MATRIX` (a fixed table in `helpers.py`, not a formula), and reports that priority only when both answers clear a [confidence gate](../../docs/glossary.md#confidence-gate) chosen on `validation`; a ticket where either answer is too uncertain goes to an explicit [`review`](../../docs/glossary.md#review) outcome instead. The notebook shows a ticket where the two questions disagree in direction (small impact, critical urgency) up close, prints the matrix, and evaluates both per-question agreement with the gold category and task-level agreement of the composed priority with the gold priority, including the non-zero [risk](../../docs/glossary.md#risk) a frozen gate does not catch.
 
 ## Run it offline
 
@@ -59,9 +59,9 @@ The committed run replays 40 invented incident reports with hand-written (synthe
 One `validation` ticket (`v18-wrong`) is wrong at a moderate confidence, so the threshold
 selection has a real mistake to exclude rather than finding every answer trustworthy by default;
 one `test` ticket (`t19-wrong`) is wrong *and* confident, at the same confidence as several
-correctly-answered tickets, so the task-level selective-prediction numbers show a real,
+correctly-answered tickets, so the task-level [selective-prediction](../../docs/glossary.md#selective-prediction) numbers show a real,
 non-zero risk on `test` rather than a guarantee that happens to hold. Business-impact and
-urgency category agreement, task-level priority agreement, and the coverage of the frozen
+urgency category agreement, task-level priority agreement, and the [coverage](../../docs/glossary.md#coverage) of the frozen
 confidence gate check that the pipeline works; they say nothing about how Jev performs, how fast
 it is, or what it costs. This recipe has no recorded fixtures.
 

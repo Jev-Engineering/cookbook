@@ -13,13 +13,13 @@ Python builds the two requests (the candidates in one order, then the same two s
 which candidate is "a" and which is "b" (Jev never sees those labels), and accepts a verdict only
 when both orders agree, once relabelled, and the lower of their two confidences clears a
 threshold chosen on `validation`. A disagreement between the two orders, or a confidence below
-that threshold, sends the comparison to an explicit `review` outcome instead; a comparison both
+that threshold, sends the comparison to an explicit [`review`](../../docs/glossary.md#review) outcome instead; a comparison both
 orders agree is `insufficient_evidence` is accepted immediately, with no confidence check, because
 it promotes neither candidate and has no side effect to protect. The notebook shows one comparison
 the two orders agree on and one they do not, then evaluates the frozen rule against human labels:
-raw accuracy and Cohen's kappa on the rule's accepted verdicts and on every single-request
+raw [accuracy](../../docs/glossary.md#accuracy) and Cohen's kappa on the rule's accepted verdicts and on every single-request
 verdict (so the swap-and-gate pipeline's benefit is visible, not assumed), the order-consistency
-rate, and the coverage, accuracy, and risk `jev_cookbook.evaluation.evaluate_outcomes` computes
+rate, and the [coverage](../../docs/glossary.md#coverage), accuracy, and [risk](../../docs/glossary.md#risk) `jev_cookbook.evaluation.evaluate_outcomes` computes
 from the rule's own decisions.
 
 ## Run it offline
@@ -73,8 +73,8 @@ it reports, here and in the notebook.
 
 The committed run replays 82 stored answers (two per comparison) for 41 hand-written comparisons,
 some deliberately wrong and some deliberately inconsistent between the two orders. Its accuracy,
-Cohen's kappa, order-consistency rate, and the coverage/accuracy/risk of the frozen confidence
-gate check that the pipeline works; they say nothing about how Jev performs, how fast it is, or
+Cohen's kappa, order-consistency rate, and the coverage/accuracy/risk of the frozen [confidence
+gate](../../docs/glossary.md#confidence-gate) check that the pipeline works; they say nothing about how Jev performs, how fast it is, or
 what it costs. This recipe has no recorded fixtures.
 
 ## Pull request rules
