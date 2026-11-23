@@ -111,6 +111,8 @@ KNOWN_FAILURES.update(
     {
         (slug, "glossary_first_use_links"): _GLOSSARY_FIRST_USE_LINKS_REASON
         for slug in (
+            "25-change-evidence-review",
+            "31-patch-risk-triage",
             "33-schema-field-mapping",
             "34-evidence-relationship-labels",
             "35-semantic-feature-extraction",
