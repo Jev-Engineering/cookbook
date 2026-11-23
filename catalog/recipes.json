@@ -608,7 +608,7 @@
       "decision_types": [
         "Noul"
       ],
-      "use_case": "Check whether a proposed change includes sufficient implementation, validation, and rollback evidence so a deterministic checklist can identify review gaps.",
+      "use_case": "Check whether a proposed change includes sufficient implementation, validation, and rollback evidence so a deterministic checklist can identify evidence gaps.",
       "sources": [
         "S02",
         "S03",
@@ -721,7 +721,7 @@
       "decision_types": [
         "Noul"
       ],
-      "use_case": "Assess a small patch for separate authentication, input-validation, and data-loss concerns to prioritize human review using explicit rules.",
+      "use_case": "Assess a small patch for separate authentication, input-validation, and data-loss concerns to prioritize human code review using explicit rules.",
       "sources": [
         "S02",
         "S03",
