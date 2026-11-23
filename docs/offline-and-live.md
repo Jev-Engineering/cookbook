@@ -174,13 +174,13 @@ A run of letters only holds no digit, so it is replaced or kept with the same re
 pool. This also takes the replay keys of a ledger the line-prefix rule cannot reach (indented, or
 after a quote character) out of the pool. No published recipe's pool changes by it.
 
-Both exclusions stay after the tokenizer rule of #542 (a digit run glued on its left to a letter
-or an underscore is not read, so `180ms` is a latency but `sku93` and `e4b7a93` offer no `93`). The
-tokenizer only sees what follows a letter, so it does not replace them: a digest that begins with
+Both exclusions stay after the tokenizer rule of #542 (a digit run glued on its left to an ASCII
+letter or an underscore is not read, so `180ms` is a latency but `sku93` and `e4b7a93` offer no `93`). The
+tokenizer only sees what follows an ASCII letter, so it does not replace them: a digest that begins with
 digits has its first run in front of any letter, and the audit-line rule removes the ledger's other
 fields (call counts and the like). Measured over the 56 published recipes and the template with the
 rule in place, switching off the hash-like rule re-admits 2 occurrences, and switching off both
-re-admits 671 (the audit lines' small integers). The tokenizer rule itself removes 4,386 digit runs
+re-admits 671 (the audit lines' small integers). The tokenizer rule itself removes 4,450 digit runs
 from each of the metric and rate pools, in all 57 recipe directories (mostly metric names and
 fixture ids such as `F1`, `t01`, `v1`, `bid_1`), adds none, and changes no recipe's findings.
 

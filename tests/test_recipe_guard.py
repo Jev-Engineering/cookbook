@@ -12116,7 +12116,7 @@ _METRIC_NOUN = (
     r"(?:accuracy|precision|recall|f1|f-score|ndcg|coverage|risk|agreement|auc|mrr|brier|"
     r"error rate|hit rate|top-\d+|pass rate|false[- ]positive rate|false[- ]negative rate)"
 )
-_AMOUNT = r"(?:(?<![A-Za-z_\d])\d[\d,]*(?:\.\d+)?\s?%|(?<![\w.])\d[\d,]*\.\d+(?!\w|\.\w))"
+_AMOUNT = r"(?:\d[\d,]*(?:\.\d+)?\s?%|(?<![\w.])\d[\d,]*\.\d+(?!\w|\.\w))"
 _CONNECTIVES = (
     r"(?:[\s,:=()`*_~]|\b(?:is|are|was|were|be|been|would|will|could|should|can|of|at|to|in|up|down"
     r"|from|only|just|about|around|roughly|nearly|exactly|reaches|reached|rises|rose|falls|fell"
@@ -12133,18 +12133,36 @@ _AMOUNT_THEN_METRIC = re.compile(
 # 0.0526 beside a printed accuracy of 0.9474).
 _COMPLEMENTARY_RATES = frozenset({"risk", "accuracy", "error rate"})
 _RATE_LINE = re.compile(r"\b(?:accuracy|risk|error rate)\b", re.IGNORECASE)
-# A digit run glued on its left to an ASCII letter or an underscore, or to the decimal or comma tail
-# of such a run (``sku1.93``), is part of an identifier, not a quantity (#542): ``_NOT_GLUED`` opens
-# every pattern below that starts a number. ``180ms`` keeps its trailing unit; ``a1b2c3d`` and
-# ``id42`` offer nothing. The second lookbehind keeps a pattern from restarting after the ``.`` or
-# ``,`` of a refused token.
-_NOT_GLUED = r"(?<![A-Za-z_\d])(?<![A-Za-z_\d][.,])"
-_PERCENT = re.compile(rf"{_NOT_GLUED}(\d+(?:\.\d+)?)\s*%")
+# A digit run glued on its left to an ASCII letter or an underscore, with the decimal or comma tail
+# of that run (``sku1.93``), is part of an identifier, not a quantity (#542). ``_mask_glued``
+# replaces every digit of such a token by ``#`` before any pattern below reads the text, so the
+# patterns need no boundary of their own and cannot restart inside a refused token: ``sku93%``,
+# ``sku1.93%`` and ``v1.180ms`` offer nothing, while ``180ms``, ``accuracy,93%`` and ``0.5,93%``
+# are read as before (only a token glued to a letter is refused, never a number after a ``,``).
+_GLUED_TOKEN = re.compile(r"(?<=[A-Za-z_])\d+(?:[.,]\d+)*")
+
+
+def _mask_glued(text: str, *, keep_f1: bool = False) -> str:
+    """``text`` with the digits of every glued token (``_GLUED_TOKEN``) replaced by ``#``, one
+    for one, so positions are unchanged. ``keep_f1`` leaves the metric word ``F1`` readable, for
+    the prose side, whose metric nouns include ``f1``."""
+
+    def mask(m: re.Match) -> str:
+        if keep_f1 and m.group(0) == "1" and text[m.start() - 1] in "fF":
+            before = text[m.start() - 2] if m.start() >= 2 else " "
+            if not (before.isalnum() or before == "_"):
+                return m.group(0)
+        return re.sub(r"\d", "#", m.group(0))
+
+    return _GLUED_TOKEN.sub(mask, text)
+
+
+_PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 # A price, as a price per unit of work ("$0.0004 a call"), or as a price in a sentence that talks
 # about cost and about Jev, the model or the API. A bare "$500" in a sentence about a fixture's
 # invoice is a number in the example, not a claim about Jev.
 _PRICE_AMOUNT = (
-    rf"(?:[$€£]\s?\d[\d,]*(?:\.\d+)?|{_NOT_GLUED}\d[\d,]*(?:\.\d+)?\s?"
+    r"(?:[$€£]\s?\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?"
     r"(?:USD|EUR|GBP|cents?|dollars?)\b)"
 )
 _UNIT_OF_WORK = (
@@ -12159,17 +12177,13 @@ _COST_WORD = re.compile(
     re.IGNORECASE,
 )
 _ABOUT_JEV = re.compile(r"\b(?:Jev|the model|the API|System One|inference)\b", re.IGNORECASE)
-_LATENCY_MS = re.compile(
-    rf"(?P<q>{_NOT_GLUED}\d[\d,]*(?:\.\d+)?\s?(?:ms|milliseconds?)\b)", re.IGNORECASE
-)
+_LATENCY_MS = re.compile(r"(?P<q>\d[\d,]*(?:\.\d+)?\s?(?:ms|milliseconds?)\b)", re.IGNORECASE)
 _THROUGHPUT = re.compile(
-    rf"(?P<q>{_NOT_GLUED}\d[\d,]*(?:\.\d+)?\s?(?:calls?|requests?|tokens?)\s?(?:/|per )\s?"
+    r"(?P<q>\d[\d,]*(?:\.\d+)?\s?(?:calls?|requests?|tokens?)\s?(?:/|per )\s?"
     r"(?:s|sec|second|minute)\b)",
     re.IGNORECASE,
 )
-_SECONDS = re.compile(
-    rf"(?P<q>{_NOT_GLUED}\d[\d,]*(?:\.\d+)?\s?(?:seconds?|secs?|minutes?)\b)", re.IGNORECASE
-)
+_SECONDS = re.compile(r"(?P<q>\d[\d,]*(?:\.\d+)?\s?(?:seconds?|secs?|minutes?)\b)", re.IGNORECASE)
 # A duration is a claim about Jev when the sentence says latency or response time, or says slow,
 # fast, speed or takes AND names Jev, the model, the API, inference or a live run. A sentence about
 # how long the notebook, an install or the offline replay takes names none of these, and a recipe
@@ -12308,7 +12322,7 @@ def _quoted_quantities(text: str) -> list[tuple[str, str]]:
     ``rate`` for risk, accuracy and error rate, which are each other's complement), as a price
     (``price``), or as a latency or a throughput (``speed``)."""
     found = []
-    for sentence in _sentences(text):
+    for sentence in _sentences(_mask_glued(text, keep_f1=True)):
         for pattern in (_METRIC_THEN_AMOUNT, _AMOUNT_THEN_METRIC):
             found += [
                 ("rate" if m.group("n").lower() in _COMPLEMENTARY_RATES else "metric", m.group("q"))
@@ -12371,10 +12385,10 @@ def _without_hash_like_tokens(text: str) -> str:
 
 
 def _pool_text(text: str) -> str:
-    """``text`` as the metric pool reads it: audit-prefix lines blanked, then hash-like tokens
-    replaced. Both pool sources (committed output and the recipe's own tests) go through this one
-    chain."""
-    return _without_hash_like_tokens(_without_audit_lines(text))
+    """``text`` as the metric pool reads it: audit-prefix lines blanked, hash-like tokens
+    replaced, then the digits of every glued token masked (#542). Both pool sources (committed
+    output and the recipe's own tests) go through this one chain."""
+    return _mask_glued(_without_hash_like_tokens(_without_audit_lines(text)))
 
 
 def _scanned_output(recipe_dir_: Path) -> str:
@@ -12418,7 +12432,8 @@ def _percentage_fractions(line: str, *, percent: bool = True) -> list[Decimal]:
     a rate unit, carries another unit: a printed ``92.6 seconds`` or ``0.926 ms`` does not back
     93%. Other unit words are not recognised, so ``0.926 widgets`` still counts as a fraction.
     A number followed by ``%`` (ASCII or full-width, after any spaces), a per-mille sign or the
-    word ``percent``, ``per cent`` or ``pct`` is a percentage, never a fraction (``0.93%`` is 0.0093). A slash
+    word ``percent``, ``per cent`` or ``pct`` is a percentage, never a fraction (``0.93%`` is
+    0.0093). A slash
     excludes only when it starts a rate unit (``0.93/s``, ``/min``, ``/day``, ``/sample``,
     ``/query``, ``/item``, ``/tok``, ``/1k``, ``/sec`` with a superscript 2); ``0.93/0.91`` and
     ``0.93/step`` are fractions.
@@ -14009,7 +14024,8 @@ def _real_audit_line(n: int = 22) -> str:
 def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell(tmp_path):
     """#376: the committed ``AUDIT_PREFIX`` line's 64-character hex ``replay_key`` runs must not
     back a fabricated prose quantity (the defect: a hex run containing ``093``, so
-    "The accuracy is 93%." used to pass; the figure pinned below is 94, see the precondition). Excluding it must not cost a cell's other, genuine
+    "The accuracy is 93%." used to pass; the figure pinned below is 94, see the precondition).
+    Excluding it must not cost a cell's other, genuine
     output line its own numbers -- one code cell carries both lines here. This is defensive scope
     for any cell of any recipe that prints the prefix, not a claim about a real audited recipe's
     final cell: ``tests/request_audit.py``'s ``audited_evidence`` requires that final cell to hold
@@ -14058,7 +14074,8 @@ def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches
     in its cell rather than between two lines. Dropping the whole line (rather than blanking its
     content) used to splice "180" and "ms" together across the one optional whitespace
     character ``_LATENCY_MS`` (and ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``; ``_PERCENT``
-    has allowed any run of spaces since #542, always within one line) allow, backing a latency the recipe never printed. Since #380 the units are also read per
+    has allowed any run of spaces since #542, always within one line) allow, backing a latency the
+    recipe never printed. Since #380 the units are also read per
     line, so this test alone no longer fails for a mutant that deletes the audit line; the
     scanned text is therefore pinned directly too: the blanked line must remain a line between
     its neighbours (``_scanned_output``), and the end-to-end result must still catch the claim."""
@@ -14088,7 +14105,8 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     *lines* rather than as a sequence of *cell texts* collapses the two-newline gap
     ``origin/main`` leaves between a cell's own trailing newline and the outer join's separator
     down to one, which is exactly the one optional whitespace character ``_LATENCY_MS`` (and
-    ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``; ``_PERCENT`` allows any run of spaces) allow between a number and its
+    ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``; ``_PERCENT`` allows any run of spaces) allow
+    between a number and its
     unit -- no audit line is even needed to exercise this shape. One cell's output ends ``median
     latency 180``, terminated by its own trailing newline (as every cell built by ``_append_cell``
     is); the next cell's output begins ``ms over the sample``. Round 2 repaired the join itself
@@ -14313,6 +14331,33 @@ def test_the_decimal_tail_of_a_glued_token_does_not_back_its_quote(tmp_path, pri
     assert any("quote" in m for m in unbacked), unbacked
 
 
+@pytest.mark.parametrize(
+    ("printed", "sentence"),
+    [
+        ("accuracy,93%", "Jev reaches an accuracy of 93%."),
+        ("jev,93.0%", "Jev reaches an accuracy of 93%."),
+        ("0.5,93%", "Jev reaches an accuracy of 93%."),
+        ("tok/s,93 tokens/s", "Jev reaches 93 tokens/s."),
+        ("latency,180ms", "Jev answers with a median latency of 180 ms."),
+        ("model,accuracy,93.0", "The accuracy is 93.0."),
+    ],
+)
+def test_a_figure_after_a_comma_is_still_backed(tmp_path, printed, sentence):
+    """#542 review: only a token glued to a letter is refused, with its own decimal or comma tail.
+    A figure after a plain ``,`` (a CSV row without spaces) is a printed figure, as on main; the
+    first version of the tail rule, a lookbehind on ``[A-Za-z_\\d][.,]``, refused all of these."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "code", printed, cell_id="printed")
+    _append_cell(folder, "markdown", sentence, cell_id="quote")
+    assert [m for m in _unprinted_quantities(folder) if "quote" in m] == []
+
+
+def test_the_f1_metric_word_is_still_read_beside_a_quote():
+    """#542: the prose side keeps the digit of the metric word ``F1`` (masking it would hide every
+    F1 quote)."""
+    assert _quoted_quantities("The F1 is 0.9474.") == [("metric", "0.9474")]
+
+
 def test_a_percentage_glued_to_an_identifier_is_not_a_quoted_quantity():
     """#542: the prose side reads the same left boundary, so ``sku93%`` is not a quote of 93%
     while a spaced ``93%`` is."""
@@ -14329,6 +14374,7 @@ def test_a_percentage_glued_to_an_identifier_is_not_a_quoted_quantity():
         ("sha e4b7a93 then 12,3456 .5", [Decimal(12345), Decimal(6), Decimal(5)]),
         ("run_1.5 x1,250 QWx1.93Q F1 0.93", [Decimal("0.93")]),
         ("a\u00e993 id-42", [Decimal(93), Decimal(42)]),
+        ("accuracy,93 0.5,93 x,1.93", [Decimal(93), Decimal("0.5"), Decimal(93), Decimal("1.93")]),
     ],
 )
 def test_the_tokenizer_keeps_trailing_units_and_a_punctuation_separated_run(text, expected):
@@ -14407,7 +14453,8 @@ def test_a_plain_number_on_an_audit_line_does_not_back_a_figure(tmp_path, where)
 # (the segment that ends with the number, the segment that opens with the unit, a prose sentence
 # that quotes the fused quantity as a claim about Jev, the unit pattern that binds them, the quote
 # the guard reports for that sentence). The four unit patterns bind a number to its unit with
-# ``\s?`` (``_PERCENT``, with ``\s*`` since #542, the same way), so before #380 the one newline the output joins put
+# ``\s?`` (``_PERCENT``, with ``\s*`` since #542, the same way), so before #380 the one newline the
+# output joins put
 # between the two segments fused them and backed the sentence.
 _UNTERMINATED_SHAPES = {
     "latency": (
@@ -14579,6 +14626,11 @@ _PERCENTAGE_BACKING = {
     "slash-step-is-no-rate-unit": ("accuracy 0.93/step", "Jev reaches an accuracy of 93%.", True),
     "per-capital-s": ("accuracy 0.93/S", "Jev reaches an accuracy of 93%.", False),
     "per-cent-words": ("error rate 0.93 per cent", "Jev reaches an accuracy of 93%.", False),
+    # Only a token glued to a letter is refused, never a figure after a comma (#542 review): a CSV
+    # row without spaces still prints a real percentage.
+    "csv-word-comma-percent": ("accuracy,93%", "Jev reaches an accuracy of 93%.", True),
+    "csv-row-percent": ("jev,93.0%", "Jev reaches an accuracy of 93%.", True),
+    "csv-number-comma-percent": ("0.5,93%", "Jev reaches an accuracy of 93%.", True),
     # Pins ``_PERCENT``'s ``\s*``: a printed percentage after two spaces is still a percentage.
     "printed-percentage-two-spaces": ("accuracy 93  %", "Jev reaches an accuracy of 93%.", True),
     "slash-pair": ("precision/recall: 0.93/0.91", "Jev reaches a precision of 93%.", True),
