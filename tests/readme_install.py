@@ -42,6 +42,8 @@ COMBINED = ".[dev,ml]"
 # Public spelling retained for callers; intent is evaluated by _intent below.
 REPRODUCTION = re.compile(r"constraints-notebooks|reproduc", re.IGNORECASE)
 REPRODUCTION_INSTALL = 'pip install -e ".[ml]" -c .github/constraints-notebooks.txt'
+# The bare-dev tests install: the legacy spelling that published READMEs may still carry. The
+# scaffold and the template README say ``.[dev,ml]`` (COMBINED); both are accepted below.
 TEST_INSTALL = 'pip install -e ".[dev]"'
 
 _scope_spec = importlib.util.spec_from_file_location(
@@ -293,9 +295,10 @@ def combined_reproduction_installs(readme: str) -> list[str]:
 
 
 def with_documented_test_install(readme: str) -> str:
-    """Replace the bare-dev tests install with the documented scikit-learn tests install.
+    """Replace a legacy bare-dev tests install with the documented scikit-learn tests install.
 
-    The scaffold after #466 already has that install. Accept it without weakening the
+    The scaffold after #466 and the template README already say that install; a published
+    README may still carry the legacy spelling. Accept either without weakening the
     assertion that a real tests-install command exists; do not rewrite reproduction.
     """
     if TEST_INSTALL in readme:

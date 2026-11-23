@@ -17,7 +17,7 @@ evaluation that picks its one setting (a confidence threshold) on `validation` a
 
 ## Run it offline
 
-From the repository root, in an environment with `pip install -e ".[dev]"`:
+From the repository root, in an environment with `pip install -e ".[dev,ml]"`:
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/_template   # the fixtures are valid
@@ -102,7 +102,7 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
 [docs/recipe-template.md](../../docs/recipe-template.md).
 
 1. **Branch and install.** Create a branch `recipe/NN-slug` from `main`, a fresh virtual environment, and
-   `pip install -e ".[dev]"` ([docs/development.md](../../docs/development.md)).
+   `pip install -e ".[dev,ml]"` ([docs/development.md](../../docs/development.md)).
 2. **Scaffold.** `python tools/new_recipe.py NN` creates `recipes/NN-slug/` with the title, level,
    decision types, use case and sources filled in, and a `TODO` wherever you must write. It stops with an
    error if the folder already exists. `grep -rn TODO recipes/NN-slug` lists what is left.
