@@ -298,7 +298,9 @@ check id                              rule -> detection
                                        Not seen: markdown; other names, wording or constructs; a
                                        statistic computed inside a helper; a string dict key; an
                                        unparseable cell (``%magic``); text/html-only output.
-                                       "gold-match position" is read like "gold position".
+                                       "gold-match position" and "position of the gold" are
+                                       read like "gold position", and the names
+                                       ``gold_match_pos...`` like ``gold_pos...``.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -15112,7 +15114,7 @@ _POSITION_IDENTIFIER = re.compile(
     re.IGNORECASE,
 )
 _POSITION_PRINT_TEXT = re.compile(
-    r"gold[- ](match[- ])?positions?\b|first[- ](listed[- ])?(option|choice)[- ](share|lean|rate|fraction)"
+    r"gold[-_ ]+(match[-_ ]+)?positions?\b|position of the gold|first[- ](listed[- ])?(option|choice)[- ](share|lean|rate|fraction)"
     r"|first[- ]listed[- ](share|rate|fraction|lean)|position(al)?[- ]bias|lean toward the first",
     re.IGNORECASE,
 )
@@ -15296,7 +15298,8 @@ def test_a_real_import_or_call_of_a_shuffle_helper_exempts_a_recipe(py_source):
     assert not _fixed_order_position_statistic_hits(cells, [py_source])
 
 
-# The code and stored output of recipe 22's cell 23 as it stood on main before #684: a count of
+# The code and stored output of recipe 22's cell 23, abridged from main's cell 23 before #684 (it
+# omits the AssertionError guard and two output lines): a count of
 # ``candidates.index(gold) + 1`` over a Choice whose options are never shuffled, printed as a
 # "gold-match position" table. The guard missed it on its wording alone.
 _RECIPE_22_OLD_POSITION_CELL = {
