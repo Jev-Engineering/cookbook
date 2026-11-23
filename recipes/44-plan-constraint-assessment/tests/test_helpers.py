@@ -468,6 +468,25 @@ def test_review_sort_key_rejects_a_resolution_with_no_label_decisions():
         helpers.review_sort_key(helpers.Resolution(helpers.REVIEW, "x"))
 
 
+def test_gating_label_names_the_constraint_that_sent_the_plan_to_review_not_always_budget():
+    result = helpers.decide(_noul(timeline=0.44), _thresholds(), confidence_gate=0.3)
+    assert result.outcome == helpers.REVIEW
+    assert helpers.gating_label(result) == helpers.TIMELINE
+    assert result.decisions[helpers.gating_label(result)].gated
+    result = helpers.decide(_noul(data_handling=0.5), _thresholds(), confidence_gate=0.3)
+    assert helpers.gating_label(result) == helpers.DATA_HANDLING
+
+
+def test_gating_label_breaks_a_tie_in_constraints_order():
+    result = helpers.decide(_noul(vendor=0.5, timeline=0.5), _thresholds(), confidence_gate=0.3)
+    assert helpers.gating_label(result) == helpers.TIMELINE
+
+
+def test_gating_label_rejects_a_resolution_with_no_label_decisions():
+    with pytest.raises(ValueError):
+        helpers.gating_label(helpers.Resolution(helpers.REVIEW, "x"))
+
+
 def test_queue_item_shows_the_plan_the_constraints_and_every_label_decision():
     result = helpers.decide(_noul(vendor=0.95), _thresholds(), confidence_gate=0.3)
     fields = {

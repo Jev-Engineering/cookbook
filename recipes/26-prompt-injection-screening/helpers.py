@@ -230,6 +230,16 @@ def review_sort_key(result: ScreeningResult) -> float:
     return min(result.redirect.confidence, result.discusses.confidence)
 
 
+def gating_label(result: ScreeningResult) -> str:
+    """The name of the proposition whose confidence is :func:`review_sort_key`'s minimum for
+    ``result`` -- the one that actually sent the passage to review when ``result.outcome`` is
+    ``REVIEW`` (a gated label is by definition below the shared gate, so the lowest-confidence
+    label is always a gated one). Ties break in ``LABELS`` order. A queue entry's recorded
+    ``answer`` should be this label's, not always ``redirect``, so a reviewer reading "the typed
+    answer that sent this item to review" is shown the answer the reason is actually about."""
+    return min(LABELS, key=lambda label: getattr(result, label).confidence)
+
+
 def queue_item(example_id: str, fields: dict[str, Any], result: ScreeningResult) -> dict[str, Any]:
     """What a human reviewer sees for one queued passage: its id, the excerpt Jev was actually
     asked about, and both label decisions -- not only an identifier (CONTRIBUTING.md section 4:
