@@ -2,11 +2,11 @@
 
 **Recipe 15** · Level 2 (Easy) · Decision type: `Noul`
 
-Flag synthetic documents that may contain personal information so a simulated review queue can prioritize redaction checks.
+Flag synthetic documents that may contain personal information so a simulated [review](../../docs/glossary.md#review) queue can prioritize redaction checks.
 
 ## What it teaches
 
-Jev supplies one narrow judgment, a typed `Noul` over a single proposition Python writes: "this document may contain personal information about a real, identifiable person." Python owns everything else: a deterministic candidate-span scan for email-, phone-, and street-address-shaped substrings (shown to the reader, never sent to Jev), the business threshold that turns a probability into a flagged/cleared decision (chosen on `validation` with `select_threshold`, then frozen), a separate confidence gate (`noul_confidence`, distance from an even split, chosen on `validation` with a coverage floor) that sends a document to an explicit `review` outcome instead of a forced guess, and a simulated `ReviewQueue` that Python orders by the stored probability so the documents most likely to contain personal information surface first. The notebook shows four typed answers up close — a document that clearly contains personal information, one that clearly does not, one that is genuinely ambiguous, and one that embeds an instruction trying to steer the triage into clearing it despite containing a fabricated name, phone number and address — then the rule, the queue, and an evaluation that reports precision and recall at the business threshold, the confidence gate's own coverage-versus-accuracy curve, and the recall a fixed review budget would reach working the queue in probability order. This recipe prioritizes review; it does not guarantee detection, and nothing in it redacts anything.
+Jev supplies one narrow judgment, a typed `Noul` over a single proposition Python writes: "this document may contain personal information about a real, identifiable person." Python owns everything else: a deterministic candidate-span scan for email-, phone-, and street-address-shaped substrings (shown to the reader, never sent to Jev), the [business threshold](../../docs/glossary.md#business-threshold) that turns a probability into a flagged/cleared decision (chosen on `validation` with `select_threshold`, then frozen), a separate [confidence gate](../../docs/glossary.md#confidence-gate) (`noul_confidence`, distance from an even split, chosen on `validation` with a [coverage](../../docs/glossary.md#coverage) floor) that sends a document to an explicit `review` outcome instead of a forced guess, and a simulated `ReviewQueue` that Python orders by the stored probability so the documents most likely to contain personal information surface first. The notebook shows four typed answers up close — a document that clearly contains personal information, one that clearly does not, one that is genuinely ambiguous, and one that embeds an instruction trying to steer the triage into clearing it despite containing a fabricated name, phone number and address — then the rule, the queue, and an evaluation that reports [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall) at the business threshold, the confidence gate's own coverage-versus-accuracy curve, and the recall a fixed review budget would reach working the queue in probability order. This recipe prioritizes review; it does not guarantee detection, and nothing in it redacts anything.
 
 ## Run it offline
 
@@ -56,8 +56,8 @@ on purpose: a document that embeds an instruction trying to steer the triage int
 despite containing a fabricated name, phone number and address (one per split, stored well clear
 of the confidence gate, so the gate cannot catch it), a tracking or order reference formatted like
 a phone number that the stored answer mistakes for one (one per split, close enough to an even
-split that the gate does catch it), and several documents held close to an even split with gold
-labels not all one way. Its precision, recall, the threshold sweep, the confidence gate's own
+split that the gate does catch it), and several documents held close to an even split with [gold
+labels](../../docs/glossary.md#gold-label) not all one way. Its precision, recall, the threshold sweep, the confidence gate's own
 coverage-versus-accuracy curve, and the recall a fixed review budget would reach check that the
 pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs. This
 recipe has no recorded fixtures. Clearing a document means this rule did not flag it for a person

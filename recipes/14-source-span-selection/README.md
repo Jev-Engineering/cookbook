@@ -6,7 +6,7 @@ Select the supplier name from text spans already extracted by Python, with a not
 
 ## What it teaches
 
-Jev supplies one narrow judgment, a typed `Choice` over candidate spans a real, deterministic extractor (`helpers.extract_spans`: sentence splitting plus an organisation-name cue) finds in a document, plus a shared `not_stated` fallback. Python owns everything else: the document, the extractor, the span offsets, and a rule that returns a confident pick's exact source text by slicing the document at those offsets, or sends it to an explicit `review` outcome, with `not_stated` reported as final whatever its confidence (and no question built at all for a document with no candidate span). The supplier is not always in the same position among a document's candidates, and three model-free baselines (last span, first span, a disclosure-word cue) each score well below the stored answers. The notebook shows five typed answers up close, then the rule, then an evaluation that picks its one setting (a confidence gate) on `validation`, reports exact-match accuracy and `not_stated` handling on `test`, and shows what the gate costs and buys against answering every document unconditionally.
+Jev supplies one narrow judgment, a typed `Choice` over candidate spans a real, deterministic extractor (`helpers.extract_spans`: sentence splitting plus an organisation-name cue) finds in a document, plus a shared `not_stated` fallback. Python owns everything else: the document, the extractor, the span offsets, and a rule that returns a confident pick's exact source text by slicing the document at those offsets, or sends it to an explicit [`review`](../../docs/glossary.md#review) outcome, with `not_stated` reported as final whatever its confidence (and no question built at all for a document with no candidate span). The supplier is not always in the same position among a document's candidates, and three model-free baselines (last span, first span, a disclosure-word cue) each score well below the stored answers. The notebook shows five typed answers up close, then the rule, then an evaluation that picks its one setting (a [confidence gate](../../docs/glossary.md#confidence-gate)) on `validation`, reports exact-match [accuracy](../../docs/glossary.md#accuracy) and `not_stated` handling on `test`, and shows what the gate costs and buys against answering every document unconditionally.
 
 ## Run it offline
 
@@ -58,9 +58,9 @@ candidate span at all) with hand-written (synthetic) answers, several wrong on p
 across different span positions and branches: one in `validation` (`v20`, picking the first of
 two spans), and four in `test` (`t18`, a confident near-miss decoy the gate does not catch;
 `t19`/`t20`, each caught by the gate; `t21`, a wrong `not_stated` pick the gate is never applied
-to at all). Its exact-match accuracy, three model-free baselines, the coverage/accuracy/risk the
+to at all). Its exact-match accuracy, three model-free baselines, the [coverage](../../docs/glossary.md#coverage)/accuracy/[risk](../../docs/glossary.md#risk) the
 rule's own outcomes produce next to what answering everything would have scored, and the
-`not_stated`-versus-named precision and recall check that the pipeline works; they say nothing
+`not_stated`-versus-named [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall) check that the pipeline works; they say nothing
 about how Jev performs, how fast it is, or what it costs. This recipe has no recorded fixtures.
 
 ## Pull request rules

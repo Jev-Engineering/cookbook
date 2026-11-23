@@ -15,8 +15,8 @@ did not itself answer `unsorted` and the answer's `confidence` clears a threshol
 Python only renders a dry-run preview table of proposed destinations, with a low-confidence or
 no-match proposal left in an `unsorted` row. The notebook shows three typed answers up close (a
 file with conflicting signal, a nearly textless one, and one whose file name is misleading), then
-the rule, then an evaluation that reports accuracy against the gold folder, a confusion matrix
-across all five options, per-option precision and recall, and the coverage, accuracy and risk the
+the rule, then an evaluation that reports [accuracy](../../docs/glossary.md#accuracy) against the gold folder, a confusion matrix
+across all five options, per-option [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall), and the [coverage](../../docs/glossary.md#coverage), accuracy and [risk](../../docs/glossary.md#risk) the
 frozen threshold produces.
 
 ## Run it offline

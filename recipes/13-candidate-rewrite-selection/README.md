@@ -17,12 +17,12 @@ part of its replay key and jev-1.13 is documented to lean toward whichever optio
 Python owns everything else: which candidate sits at which position, the rule that returns a
 confident candidate's own text, keeps the original sentence unchanged whenever Jev says no
 candidate fits (whatever its confidence, since there is no stored rewrite a confidence check
-could protect there), and sends anything else uncertain to an explicit `review` outcome instead
+could protect there), and sends anything else uncertain to an explicit [`review`](../../docs/glossary.md#review) outcome instead
 of guessing. The notebook shows three typed answers up close (an item where two candidates both
 keep the meaning and only one matches the tone, an item where no candidate fits, and a
 `validation` item whose stored answer is simply wrong), then the rule, then an evaluation that
-reports top-1 accuracy, `no_suitable_rewrite`'s own precision and recall, and a selective
-coverage, accuracy and risk computed from what the rule actually did.
+reports top-1 [accuracy](../../docs/glossary.md#accuracy), `no_suitable_rewrite`'s own [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall), and a selective
+[coverage](../../docs/glossary.md#coverage), accuracy and [risk](../../docs/glossary.md#risk) computed from what the rule actually did.
 
 ## Run it offline
 
@@ -69,7 +69,7 @@ through with `BudgetExceeded`. Never put a key in a notebook, a fixture, or any 
 The committed run replays 40 invented sentence-rewrite items with hand-written (synthetic)
 answers, four of them wrong on purpose and in different ways. One is in `validation` itself: a
 refund-refusal rewrite read as acceptably sympathetic when it is actually flat and neutral,
-confidently enough that it is what drives the frozen confidence gate up to exclude it (two
+confidently enough that it is what drives the frozen [confidence gate](../../docs/glossary.md#confidence-gate) up to exclude it (two
 genuinely correct but low-confidence items are swept up with it, the coverage cost of that
 choice). The other three are in `test`: one wrong and confident through the gate (a late-fee
 refusal read the same flat way), one wrong and not confident through the un-gated
