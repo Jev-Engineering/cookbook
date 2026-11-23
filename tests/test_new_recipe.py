@@ -1865,6 +1865,21 @@ def test_the_scaffold_readme_has_pull_request_rules_matching_contributing(catalo
     assert "CONTRIBUTING.md" in section
 
 
+def test_every_published_recipe_readme_carries_the_scaffold_pull_request_rules():
+    """The scaffold always writes this section, so a published README without it (#696) drifted."""
+    heading = "\n## Pull request rules\n"
+    paths = sorted((REPO / "recipes").glob("[0-9]*/README.md"))
+    assert len(paths) >= 52
+    for path in paths:
+        text = path.read_text("utf-8")
+        assert text.count(heading) == 1, path
+        flat = " ".join(text.split(heading)[1].split("\n## ")[0].split())
+        # Older sections word the catalog sentence differently, so only the two clauses every
+        # one of them carries are pinned: the no-claims assertion and the contract link.
+        assert "states or implies Jev's real quality, latency, or cost" in flat, path
+        assert "[CONTRIBUTING.md](../../CONTRIBUTING.md)" in flat, path
+
+
 def test_the_scaffold_readme_states_the_catalog_check_conditionally(catalog, recipes):
     """PR #193 review (comment 6085949784): the generated sentence must describe the
     pre-publication state conditionally, so it stays true once the recipe is merged and the
