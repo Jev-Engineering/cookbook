@@ -12180,8 +12180,13 @@ def _is_printed(quote: str, printed: list[Decimal]) -> bool:
     number, or a longer printed number that rounds to it (0.9167 printed, 0.92 quoted; 0.974
     printed, 97.4% quoted). Precision-independent on purpose: a ``:.2f`` and a ``:.4f`` print of
     one value are one value. Rounds half up and half even, so a printed 0.8650 backs 0.87 and
-    0.86. A bare integer printed anywhere backs the same integer (100% and a printed 100)."""
-    for value, places in _quoted_candidates(quote):
+    0.86. A quoted percentage is read only as the fraction it stands for (93% as 0.93), so its
+    pool holds fractions, never bare magnitudes: a printed 93 does not back 93% (#536). What may
+    enter that pool is decided by ``_percentage_fractions``."""
+    candidates = _quoted_candidates(quote)
+    if "%" in quote:
+        candidates = candidates[-1:]
+    for value, places in candidates:
         step = Decimal(1).scaleb(-places)
         for number in printed:
             if number == value:
@@ -12351,6 +12356,25 @@ def _scanned_output(recipe_dir_: Path) -> str:
     )
 
 
+_PERCENT_FRACTION = re.compile(r"(?<![\w.])(?:0\.\d+|1\.0+)(?!\w|\.\w|\s?/)")
+
+
+def _percentage_fractions(line: str, *, percent: bool = True) -> list[Decimal]:
+    """The fractions one physical line can back a quoted percentage with (#536): a printed
+    percentage (its number and ``%`` on this line) as number / 100, and an explicit unitless
+    decimal fraction (0.0 to 1.0, with a decimal point). A bare integer is a count and backs
+    nothing, and a number inside a price, latency, throughput or seconds figure, or followed by
+    ``/``, carries another unit: a printed ``92.6 seconds`` or ``0.926 ms`` does not back 93%.
+    Other unit words are not recognised, so ``0.926 widgets`` still counts as a fraction."""
+    units = [m.span() for m in re.finditer(_PRICE_AMOUNT, line, re.IGNORECASE)]
+    units += [m.span() for p in (_LATENCY_MS, _THROUGHPUT, _SECONDS) for m in p.finditer(line)]
+    values = [Decimal(m.group(1)) / 100 for m in _PERCENT.finditer(line)] if percent else []
+    for m in _PERCENT_FRACTION.finditer(line):
+        if not any(start < m.end() and m.start() < end for start, end in units):
+            values.append(Decimal(m.group(0)))
+    return values
+
+
 def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     """The numbers a quote of each kind can be backed by. A ``metric`` quote: any number a code
     cell's committed output prints, or the recipe's own ``tests/`` type (CONTRIBUTING.md section
@@ -12365,9 +12389,12 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     ``price``, latency, throughput or seconds figure, and a quoted fraction backed through a
     printed percentage, are backed only when the number and its unit sit on the same committed
     output line, so output printed on two lines (or a segment committed with no trailing newline,
-    followed by one that opens with the unit) backs nothing (#380). A quoted percentage is the
-    exception: it is still backed by a bare printed number on any line (see ``_is_printed``). Prose
-    may wrap a quote across lines; committed output is read line by line.
+    followed by one that opens with the unit) backs nothing (#380). A quoted percentage has its
+    own pools, ``metric_percentage`` and ``rate_percentage`` (#536): fractions from a printed
+    percentage on one line or an explicit decimal fraction (``_percentage_fractions``), read from
+    committed output and from the recipe's tests; a bare printed number or a number with another
+    unit backs none. The rate variant adds the complement on a line naming accuracy, risk or error
+    rate. Prose may wrap a quote across lines; committed output is read line by line.
 
     The audited route's one committed ``AUDIT_PREFIX`` line (#213, #376) is a machine-readable
     ledger, not a printed quantity: its 64-character hex replay keys are excluded here, per line,
@@ -12391,10 +12418,13 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     relies on."""
     output = _scanned_output(recipe_dir_)
     metric = _decimals(output)
+    fractions = [f for line in output.splitlines() for f in _percentage_fractions(line)]
     tests_dir = recipe_dir_ / "tests"
     if tests_dir.is_dir():
         for path in sorted(tests_dir.glob("*.py")):
-            metric += _decimals(_pool_text(path.read_text("utf-8")))
+            test_text = _pool_text(path.read_text("utf-8"))
+            metric += _decimals(test_text)
+            fractions += [f for line in test_text.splitlines() for f in _percentage_fractions(line)]
     # (#380): the unit patterns bind them with ``\s?``, which a newline satisfies, and a segment
     # committed without its own trailing newline would otherwise fuse to the next one.
     output_lines = output.splitlines()
@@ -12414,14 +12444,26 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     percentages = [Decimal(m.group(1)) for line in output_lines for m in _PERCENT.finditer(line)]
     metric += [pct / 100 for pct in percentages]
     complements: list[Decimal] = []
+    fraction_complements: list[Decimal] = []
     for line in output_lines:
         if not _RATE_LINE.search(line):
             continue
+        fraction_complements += [1 - Decimal(m.group(1)) / 100 for m in _PERCENT.finditer(line)]
+        fraction_complements += [
+            1 - f for f in _percentage_fractions(line, percent=False) if -f.as_tuple().exponent >= 2
+        ]
         complements += [
             1 - n for n in _decimals(line) if 0 <= n <= 1 and -n.as_tuple().exponent >= 2
         ]
         complements += [100 - Decimal(m.group(1)) for m in _PERCENT.finditer(line)]
-    return {"metric": metric, "rate": metric + complements, "price": price, "speed": speed}
+    return {
+        "metric": metric,
+        "rate": metric + complements,
+        "price": price,
+        "speed": speed,
+        "metric_percentage": fractions,
+        "rate_percentage": fractions + fraction_complements,
+    }
 
 
 def _unprinted_quantities(recipe_dir_: Path) -> list[str]:
@@ -12430,7 +12472,7 @@ def _unprinted_quantities(recipe_dir_: Path) -> list[str]:
         f"{where}: {quote.strip()!r} is quoted but no committed output of the notebook prints it"
         for where, text in _prose_of(recipe_dir_)
         for kind, quote in _quoted_quantities(text)
-        if not _is_printed(quote, printed[kind])
+        if not _is_printed(quote, printed[f"{kind}_percentage" if "%" in quote else kind])
     ]
 
 
@@ -13319,7 +13361,7 @@ _IS_PRINTED = [
     ("97.4%", ["0.9744"], True),
     ("97.4%", ["0.9754"], False),
     ("90%", ["0.9"], True),
-    ("90%", ["90"], True),
+    ("90%", ["90"], False),
     ("100%", ["1.0000"], True),
     ("1,250.5", ["1250.5"], True),
     ("0.87", ["0.8650"], True),
@@ -13939,7 +13981,11 @@ def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell
     _append_cell(folder, "markdown", "The accuracy is 95%.", cell_id="genuine")
     assert _unprinted_quantities(folder) == []
     _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
+    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 93 cannot back it
+    # anyway); the ordinary decimal 93.0 can, so it pins the exclusion on its own.
+    _append_cell(folder, "markdown", "The accuracy is 93.0.", cell_id="fabricated-decimal")
     unbacked = _unprinted_quantities(folder)
+    assert any("fabricated-decimal" in m and "93.0" in m for m in unbacked), unbacked
     assert any("93" in message for message in unbacked), unbacked
 
 
@@ -14047,7 +14093,11 @@ def test_a_hash_like_token_does_not_back_a_fabricated_figure(tmp_path, where, li
         (folder / "tests").mkdir(exist_ok=True)
         (folder / "tests" / "test_digest.py").write_text(line, "utf-8")
     _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
+    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 93 cannot back it
+    # anyway); the ordinary decimal 93.0 can, so it pins the exclusion on its own.
+    _append_cell(folder, "markdown", "The accuracy is 93.0.", cell_id="fabricated-decimal")
     unbacked = _unprinted_quantities(folder)
+    assert any("fabricated-decimal" in m and "93.0" in m for m in unbacked), unbacked
     assert any("fabricated" in message for message in unbacked), unbacked
 
 
@@ -14064,7 +14114,7 @@ def test_a_genuine_number_beside_a_hash_like_token_still_backs_its_quote(tmp_pat
     )
     (folder / "tests").mkdir(exist_ok=True)
     (folder / "tests" / "test_digest.py").write_text(
-        f'    assert "{_DIGEST_WITH_93}" in out and total == 41\n', "utf-8"
+        f'    assert "{_DIGEST_WITH_93}" in out and total == 0.41\n', "utf-8"
     )
     for i, sentence in enumerate(
         (
@@ -14169,8 +14219,8 @@ def test_a_plain_number_on_an_audit_line_does_not_back_a_figure(tmp_path, where)
 
 
 # #380: committed output whose number-ending segment carries no trailing newline. The last shape is
-# a quoted *fraction* backed through a printed percentage (a quoted percentage is backed by the bare
-# number anywhere, see below). Each shape is
+# a quoted *fraction* backed through a printed percentage (a quoted percentage needs a printed percentage
+# or fraction, see #536 below). Each shape is
 # (the segment that ends with the number, the segment that opens with the unit, a prose sentence
 # that quotes the fused quantity as a claim about Jev, the unit pattern that binds them, the quote
 # the guard reports for that sentence). The four unit patterns and ``_PERCENT``
@@ -14300,17 +14350,59 @@ def test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit(
     assert any("fabricated-quantity" in m and quote in m for m in unbacked), unbacked
 
 
-def test_a_quoted_percentage_is_still_backed_by_a_bare_number_on_another_line(tmp_path):
-    """The documented exception to #380's per-line reading: a quoted percentage is backed by the
-    bare printed number anywhere in the output (the metric pool), so ``93%`` quoted is backed by
-    a ``93`` printed on one line with its ``%`` on none. Intended, not a loophole."""
+def test_a_quoted_percentage_is_not_backed_by_a_bare_number_on_another_line(tmp_path):
+    """#536 closes the exception #380 left: a quoted percentage is not backed by a bare printed
+    number, so ``93%`` quoted is not backed by a ``93`` printed on one line with its ``%`` on
+    another. Pre-existing before #536, which removed it."""
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_unterminated_output(folder, ["rows checked: 93"], "number")
     _append_unterminated_output(folder, ["% of the fixture file was read\n"], "unit")
     sentence = "Jev reaches an accuracy of 93% on this task."
     assert ("rate", "93%") in _quoted_quantities(sentence), _quoted_quantities(sentence)
     _append_cell(folder, "markdown", sentence, cell_id="q")
-    assert [m for m in _unprinted_quantities(folder) if "'93%'" in m] == []
+    assert [m for m in _unprinted_quantities(folder) if "'93%'" in m]
+
+
+# #536: (committed output or recipe test text, quoted sentence, is it backed). Each unbacked row
+# is a number that backed the quote before #536 (or, for a unit row, that the ruling excludes).
+_PERCENTAGE_BACKING = {
+    "issue-count": ("rows checked: 93", "Jev reaches an accuracy of 93%.", False),
+    "rounded-count": ("rows checked: 92.6", "Jev reaches an accuracy of 93%.", False),
+    "seconds": ("latency: 92.6 seconds", "Jev reaches an accuracy of 93%.", False),
+    "fractional-seconds": ("latency: 0.926 seconds", "Jev reaches an accuracy of 93%.", False),
+    "fractional-ms": ("latency: 0.926 ms", "Jev reaches an accuracy of 93%.", False),
+    "price": ("cost: $0.926 per call", "Jev reaches an accuracy of 93%.", False),
+    "per-second": ("rate: 0.926/s", "Jev reaches an accuracy of 93%.", False),
+    "bare-one": ("N: 1", "Jev reaches an accuracy of 100%.", False),
+    "unit-rate-complement": ("accuracy timing: 0.074 seconds", "Jev has a risk of 93%.", False),
+    "percentage": ("accuracy 93%", "Jev reaches an accuracy of 93%.", True),
+    "rounded-percentage": ("accuracy 92.6%", "Jev reaches an accuracy of 93%.", True),
+    "fraction": ("accuracy 0.93", "Jev reaches an accuracy of 93%.", True),
+    "rounded-fraction": ("accuracy 0.926", "Jev reaches an accuracy of 93%.", True),
+    "explicit-one": ("accuracy 1.0000", "Jev reaches an accuracy of 100%.", True),
+    "unit-and-fraction": ("latency 0.926 seconds; accuracy 0.93", "an accuracy of 93%", True),
+    "percentage-complement": ("accuracy 7.4%", "Jev has a risk of 93%.", True),
+    "fraction-complement": ("accuracy 0.074", "Jev has a risk of 93%.", True),
+}
+
+
+@pytest.mark.parametrize("source", ["output", "tests"])
+@pytest.mark.parametrize("case", sorted(_PERCENTAGE_BACKING))
+def test_a_quoted_percentage_needs_a_printed_percentage_or_fraction(tmp_path, case, source):
+    """#536: only a printed percentage or fraction backs a quoted percentage, from committed
+    output or from the recipe's tests; a count or a number with another unit does not."""
+    printed, sentence, backed = _PERCENTAGE_BACKING[case]
+    if source == "tests" and case.endswith("complement"):
+        pytest.skip("a complement is read from committed output lines only")
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "markdown", sentence, cell_id="percentage-quote")
+    assert _unprinted_quantities(folder), "the quote must start unbacked"
+    if source == "output":
+        _append_cell(folder, "code", printed, cell_id="percentage-evidence")
+    else:
+        (folder / "tests").mkdir(exist_ok=True)
+        (folder / "tests" / "test_evidence.py").write_text(f"VALUE = {printed!r}\n", "utf-8")
+    assert bool(_unprinted_quantities(folder)) is not backed, _unprinted_quantities(folder)
 
 
 def test_a_digit_split_across_unterminated_cells_does_not_back_the_joined_number(tmp_path):
@@ -14377,7 +14469,11 @@ def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabricat
         'EXPECTED = """\n' + audit_line + '\n"""\n', "utf-8"
     )
     _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
+    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 93 cannot back it
+    # anyway); the ordinary decimal 93.0 can, so it pins the exclusion on its own.
+    _append_cell(folder, "markdown", "The accuracy is 93.0.", cell_id="fabricated-decimal")
     unbacked = _unprinted_quantities(folder)
+    assert any("fabricated-decimal" in m and "93.0" in m for m in unbacked), unbacked
     assert any("93" in message for message in unbacked), unbacked
 
 
