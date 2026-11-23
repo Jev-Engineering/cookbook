@@ -19,12 +19,22 @@ recipes and to the recipe's own labels: only a recipe whose ``helpers.py`` defin
 module-level ``LABELS`` with more than one entry is checked, and only an index or ``.get``
 argument equal to one of those labels (string value or constant name) counts. An index by any
 other literal, such as ``row["answer"]`` or an id string, is not flagged, and a single-label
-recipe is out of scope because it has no other proposition to confuse. Notebook lines that
-start with ``%`` or ``!`` are replaced by ``pass`` before parsing, so a cell with magics is
-still read.
+recipe is out of scope because it has no other proposition to confuse. The vocabulary is the
+module-level ``LABELS``, ``DOMAINS``, ``RULES`` or ``CONSTRAINTS`` (first one present), read as a
+tuple, a list or the keys of a dict. The set of recipes this covers is pinned exactly in
+``COVERED``. Notebook lines that start with ``%`` or ``!``, end in ``?``, or assign from
+``= !`` / ``= %`` are replaced by ``pass`` at the same indentation before parsing, so a cell with
+magics is still read.
 
 Documented limits, forms this does NOT catch:
 
+* a recipe out of scope because its vocabulary has another name: 35 (``FEATURES``), 39
+  (``FIELDS``), 48 (``CONSISTENCY_LABELS``), 57 (three Noul questions, no vocabulary), 69
+  (``ATTRIBUTES``) and 77 (``NOUL_NAMES``); and 24, which records its two Score answers by
+  position (``[0]``, ``[1]``), not by label. None records a fixed-label answer today;
+* ``.__getitem__("budget")`` or ``.pop("budget")`` by a label, and ``submit`` called inside a
+  wrapper function that receives the answer as an argument;
+* a cell that still does not parse after the magic handling is skipped, not failed;
 * a fixed label passed through a local variable (``label = "budget"; answers[label]``, or
   ``a = answers["budget"]; submit(..., answer=a)``), which needs data-flow analysis;
 * attribute access or ``getattr`` instead of an index (``result.redirect``,
@@ -33,6 +43,10 @@ Documented limits, forms this does NOT catch:
 * a ``submit`` reached through an alias (``submit = queue.submit``) or a ``**{"answer": ...}``
   keyword expansion;
 * a fixed label inside a helper function that a ``submit`` call's ``answer=`` merely calls.
+
+Two theoretical false positives (neither occurs in a published recipe): an explicit all-labels
+record written with label keys (``answer={REDIRECT: a[REDIRECT], DISCUSSES: a[DISCUSSES]}``),
+and a label-keyed lookup that is not the answer itself inside ``answer=`` (``thresholds[REDIRECT]``).
 """
 
 import ast
@@ -49,6 +63,21 @@ PUBLISHED = [
     for recipe in CATALOG["recipes"]
     if (RECIPES_DIR / recipe["slug"] / "notebook.ipynb").is_file()
 ]
+# The module-level names the published recipes use for their several labels, in the order tried.
+VOCABULARY_NAMES = ("LABELS", "DOMAINS", "RULES", "CONSTRAINTS")
+# The recipes whose vocabulary is detected today, pinned exactly: a new multi-label recipe whose
+# vocabulary is not detected fails the coverage test instead of being skipped silently.
+COVERED = {
+    "06-multiple-topic-labels",
+    "23-pairwise-answer-evaluation",
+    "25-change-evidence-review",
+    "26-prompt-injection-screening",
+    "31-patch-risk-triage",
+    "37-research-domain-tagging",
+    "41-approval-scope-review",
+    "42-outbound-disclosure-screening",
+    "44-plan-constraint-assessment",
+}
 
 
 def _label_vocabulary(helpers_source: str) -> tuple[set[str], set[str]]:
@@ -63,13 +92,23 @@ def _label_vocabulary(helpers_source: str) -> tuple[set[str], set[str]]:
             target = node.target
         if isinstance(target, ast.Name):
             consts[target.id] = node.value
-    labels = consts.get("LABELS")
+    labels = None
+    for vocabulary_name in VOCABULARY_NAMES:
+        if vocabulary_name in consts:
+            labels = consts[vocabulary_name]
+            break
     while isinstance(labels, ast.Name):  # LABELS = CONSTRAINTS
         labels = consts.get(labels.id)
-    if not isinstance(labels, ast.Tuple | ast.List) or len(labels.elts) < 2:
+    if isinstance(labels, ast.Dict):  # {label: description}: the keys are the labels
+        elements = [key for key in labels.keys if key is not None]
+    elif isinstance(labels, ast.Tuple | ast.List):
+        elements = list(labels.elts)
+    else:
+        return set(), set()
+    if len(elements) < 2:
         return set(), set()
     names, values = set(), set()
-    for element in labels.elts:
+    for element in elements:
         if isinstance(element, ast.Name):
             names.add(element.id)
             value = consts.get(element.id)
@@ -78,6 +117,19 @@ def _label_vocabulary(helpers_source: str) -> tuple[set[str], set[str]]:
         elif isinstance(element, ast.Constant) and isinstance(element.value, str):
             values.add(element.value)
     return names, values
+
+
+def _neutralise_magic(line: str) -> str:
+    """Replace a notebook magic or shell line with ``pass`` at the same indentation, so the
+    rest of its cell still parses. A line that merely ends in ``?`` (help) is dropped the same
+    way; ``x = !ls`` is handled by replacing the whole assignment."""
+    stripped = line.lstrip()
+    indent = line[: len(line) - len(stripped)]
+    if stripped.startswith(("%", "!")) or stripped.rstrip().endswith("?"):
+        return indent + "pass"
+    if "= !" in stripped or "= %" in stripped:
+        return indent + "pass"
+    return line
 
 
 def _is_fixed_label(node: ast.AST, names: set[str], values: set[str]) -> bool:
@@ -93,9 +145,7 @@ def _is_fixed_label(node: ast.AST, names: set[str], values: set[str]) -> bool:
 def _fixed_label_answers(source: str, names: set[str], values: set[str]) -> list[str]:
     """Source text of every ``.submit(..., answer=<expr>)`` whose expression indexes by, or
     ``.get``s, one of the recipe's labels as a fixed value."""
-    lines = [
-        "pass" if line.lstrip().startswith(("%", "!")) else line for line in source.splitlines()
-    ]
+    lines = [_neutralise_magic(line) for line in source.splitlines()]
     try:
         tree = ast.parse("\n".join(lines))
     except SyntaxError:
@@ -159,7 +209,10 @@ def test_the_sweep_covers_the_multi_label_recipes():
         for slug in PUBLISHED
         if any(_label_vocabulary((RECIPES_DIR / slug / "helpers.py").read_text("utf-8")))
     }
-    assert {"25-change-evidence-review", "26-prompt-injection-screening"} <= covered
+    assert covered == COVERED, (
+        f"newly covered {sorted(covered - COVERED)}, no longer covered {sorted(COVERED - covered)}"
+        "; add a new multi-label recipe's vocabulary name to VOCABULARY_NAMES and this set"
+    )
 
 
 # --------------------------------------------------------------------------------------------
@@ -184,6 +237,9 @@ VALUES = {"redirect", "discusses", "budget", "timeline"}
         "queue.submit(item, reason, answer=answers[helpers.BUDGET][example_id])",
         '%matplotlib inline\nqueue.submit(item, reason, answer=answers["budget"])',
         '!pip list\nqueue.submit(item, reason, answer=answers["budget"])',
+        'for e in xs:\n    %time f()\n    queue.submit(item, reason, answer=answers["budget"])',
+        'files = !ls\nqueue.submit(item, reason, answer=answers["budget"])',
+        'helpers.decide?\nqueue.submit(item, reason, answer=answers["budget"])',
     ],
 )
 def test_the_check_rejects_an_answer_fixed_to_one_label(source):
@@ -216,3 +272,14 @@ def test_a_single_label_vocabulary_is_out_of_scope_and_aliases_resolve():
     assert _label_vocabulary(two) == ({"A", "B"}, {"a", "b"})
     alias = 'A = "a"\nB = "b"\nCS = (A, B)\nLABELS = CS\n'
     assert _label_vocabulary(alias) == ({"A", "B"}, {"a", "b"})
+
+
+def test_a_dict_vocabulary_is_read_by_its_keys_and_other_names_are_accepted():
+    dict_labels = 'LABELS = {"pricing": "p", "support": "s"}\n'
+    assert _label_vocabulary(dict_labels) == (set(), {"pricing", "support"})
+    domains = 'DOMAINS: dict[str, str] = {"bio": "b", "cs": "c"}\n'
+    assert _label_vocabulary(domains) == (set(), {"bio", "cs"})
+    rules = 'PRICING = "pricing"\nCONTACT = "contact"\nRULES = (PRICING, CONTACT)\n'
+    assert _label_vocabulary(rules) == ({"PRICING", "CONTACT"}, {"pricing", "contact"})
+    assert _label_vocabulary('LABELS = {"only": "x"}\n') == (set(), set())
+    assert _label_vocabulary('OTHER = ("a", "b")\n') == (set(), set())
