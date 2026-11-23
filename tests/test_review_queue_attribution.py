@@ -22,9 +22,10 @@ other literal, such as ``row["answer"]`` or an id string, is not flagged, and a 
 recipe is out of scope because it has no other proposition to confuse. The vocabulary is the
 module-level ``LABELS``, ``DOMAINS``, ``RULES`` or ``CONSTRAINTS`` (first one present), read as a
 tuple, a list or the keys of a dict. The set of recipes this covers is pinned exactly in
-``COVERED``. Notebook lines that start with ``%`` or ``!``, end in ``?``, or assign from
-``= !`` / ``= %`` are replaced by ``pass`` at the same indentation before parsing, so a cell with
-magics is still read.
+``COVERED``. In a notebook cell only, a whole line that starts with ``%`` or ``!``, is a lone
+``name?`` help line, or assigns from ``= !`` / ``= %`` is replaced by ``pass`` at the same
+indentation before parsing, so a cell with magics is still read; ``helpers.py`` is never
+touched. A source that still does not parse fails the test (``SyntaxError``).
 
 Documented limits, forms this does NOT catch:
 
@@ -34,7 +35,6 @@ Documented limits, forms this does NOT catch:
   position (``[0]``, ``[1]``), not by label. None records a fixed-label answer today;
 * ``.__getitem__("budget")`` or ``.pop("budget")`` by a label, and ``submit`` called inside a
   wrapper function that receives the answer as an argument;
-* a cell that still does not parse after the magic handling is skipped, not failed;
 * a fixed label passed through a local variable (``label = "budget"; answers[label]``, or
   ``a = answers["budget"]; submit(..., answer=a)``), which needs data-flow analysis;
 * attribute access or ``getattr`` instead of an index (``result.redirect``,
@@ -51,6 +51,7 @@ and a label-keyed lookup that is not the answer itself inside ``answer=`` (``thr
 
 import ast
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -65,8 +66,9 @@ PUBLISHED = [
 ]
 # The module-level names the published recipes use for their several labels, in the order tried.
 VOCABULARY_NAMES = ("LABELS", "DOMAINS", "RULES", "CONSTRAINTS")
-# The recipes whose vocabulary is detected today, pinned exactly: a new multi-label recipe whose
-# vocabulary is not detected fails the coverage test instead of being skipped silently.
+# The recipes whose vocabulary is detected today, pinned exactly. A new multi-label recipe whose
+# vocabulary name is not detected is missing from both sides of the coverage test, so that test
+# does NOT catch it: add the name to VOCABULARY_NAMES and the recipe here when one is published.
 COVERED = {
     "06-multiple-topic-labels",
     "23-pairwise-answer-evaluation",
@@ -119,15 +121,19 @@ def _label_vocabulary(helpers_source: str) -> tuple[set[str], set[str]]:
     return names, values
 
 
+MAGIC_LINE = re.compile(r"^\s*[%!]")
+HELP_LINE = re.compile(r"^\s*[\w.]+\?{1,2}\s*$")
+SHELL_ASSIGN = re.compile(r"^\s*[\w, ]+=\s*[!%]")
+
+
 def _neutralise_magic(line: str) -> str:
-    """Replace a notebook magic or shell line with ``pass`` at the same indentation, so the
-    rest of its cell still parses. A line that merely ends in ``?`` (help) is dropped the same
-    way; ``x = !ls`` is handled by replacing the whole assignment."""
-    stripped = line.lstrip()
-    indent = line[: len(line) - len(stripped)]
-    if stripped.startswith(("%", "!")) or stripped.rstrip().endswith("?"):
-        return indent + "pass"
-    if "= !" in stripped or "= %" in stripped:
+    """Replace a notebook magic, help or shell-assignment line with ``pass`` at the same
+    indentation, so the rest of its cell still parses. Only a whole-line pattern counts (``%``
+    or ``!`` first, ``name?`` alone, ``names = !cmd`` or ``names = %cmd``), so a ``?`` in a
+    comment or docstring, or ``= !`` inside a string, is left alone. Applied to notebook cells
+    only, never to ``helpers.py``."""
+    if MAGIC_LINE.match(line) or HELP_LINE.match(line) or SHELL_ASSIGN.match(line):
+        indent = line[: len(line) - len(line.lstrip())]
         return indent + "pass"
     return line
 
@@ -142,14 +148,15 @@ def _is_fixed_label(node: ast.AST, names: set[str], values: set[str]) -> bool:
     return False
 
 
-def _fixed_label_answers(source: str, names: set[str], values: set[str]) -> list[str]:
+def _fixed_label_answers(
+    source: str, names: set[str], values: set[str], magics: bool = False
+) -> list[str]:
     """Source text of every ``.submit(..., answer=<expr>)`` whose expression indexes by, or
-    ``.get``s, one of the recipe's labels as a fixed value."""
-    lines = [_neutralise_magic(line) for line in source.splitlines()]
-    try:
-        tree = ast.parse("\n".join(lines))
-    except SyntaxError:
-        return []
+    ``.get``s, one of the recipe's labels as a fixed value. ``magics`` is true for a notebook
+    cell. A source that does not parse raises ``SyntaxError``, so it fails the test and is
+    never skipped."""
+    lines = [_neutralise_magic(line) if magics else line for line in source.splitlines()]
+    tree = ast.parse("\n".join(lines))
     found = []
     for node in ast.walk(tree):
         if not (
@@ -188,7 +195,7 @@ def _recipe_hits(slug: str) -> list[str]:
     notebook = json.loads((recipe / "notebook.ipynb").read_text("utf-8"))
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
-            found += _fixed_label_answers("".join(cell["source"]), names, values)
+            found += _fixed_label_answers("".join(cell["source"]), names, values, magics=True)
     return found
 
 
@@ -240,10 +247,13 @@ VALUES = {"redirect", "discusses", "budget", "timeline"}
         'for e in xs:\n    %time f()\n    queue.submit(item, reason, answer=answers["budget"])',
         'files = !ls\nqueue.submit(item, reason, answer=answers["budget"])',
         'helpers.decide?\nqueue.submit(item, reason, answer=answers["budget"])',
+        'queue.submit(item, reason, answer=answers["budget"])  # really?',
+        'queue.submit(item, reason, note="a = !b", answer=answers["budget"])',
+        'x = "= !"\nqueue.submit(item, reason, answer=answers["budget"], note="= !x")',
     ],
 )
 def test_the_check_rejects_an_answer_fixed_to_one_label(source):
-    assert _fixed_label_answers(source, NAMES, VALUES)
+    assert _fixed_label_answers(source, NAMES, VALUES, magics=True)
 
 
 @pytest.mark.parametrize(
@@ -262,7 +272,7 @@ def test_the_check_rejects_an_answer_fixed_to_one_label(source):
     ],
 )
 def test_the_check_accepts_a_label_chosen_per_item(source):
-    assert not _fixed_label_answers(source, NAMES, VALUES)
+    assert not _fixed_label_answers(source, NAMES, VALUES, magics=True)
 
 
 def test_a_single_label_vocabulary_is_out_of_scope_and_aliases_resolve():
@@ -283,3 +293,29 @@ def test_a_dict_vocabulary_is_read_by_its_keys_and_other_names_are_accepted():
     assert _label_vocabulary(rules) == ({"PRICING", "CONTACT"}, {"pricing", "contact"})
     assert _label_vocabulary('LABELS = {"only": "x"}\n') == (set(), set())
     assert _label_vocabulary('OTHER = ("a", "b")\n') == (set(), set())
+
+
+def test_a_docstring_ending_in_a_question_mark_does_not_hide_a_fixed_label_in_helpers():
+    # seat A's recipe 44 mutant: helpers.py is read as plain Python, never as a notebook cell
+    source = (
+        '"""Is this a docstring?\n'
+        'More."""\n'
+        "def enqueue(queue, item, answers):\n"
+        '    queue.submit(item, "r", answer=answers[BUDGET])\n'
+    )
+    assert _fixed_label_answers(source, NAMES, VALUES)
+
+
+def test_a_source_that_does_not_parse_fails_instead_of_being_skipped():
+    with pytest.raises(SyntaxError):
+        _fixed_label_answers("def broken(:\n", NAMES, VALUES)
+
+
+def test_the_magic_patterns_are_whole_line_only():
+    assert _neutralise_magic("    %time f()") == "    pass"
+    assert _neutralise_magic("files = !ls") == "pass"
+    assert _neutralise_magic("helpers.decide?") == "pass"
+    assert _neutralise_magic("helpers.decide??") == "pass"
+    assert _neutralise_magic("x = 'what?'") == "x = 'what?'"
+    assert _neutralise_magic("y = 1  # why?") == "y = 1  # why?"
+    assert _neutralise_magic('s = "= !x"') == 's = "= !x"'
