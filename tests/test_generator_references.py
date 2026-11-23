@@ -198,6 +198,21 @@ def test_invalid_references_keep_the_manifest_field_category(recipe, generator):
         producer(recipe, generator)
 
 
+@pytest.mark.parametrize(
+    "generator",
+    ["sub/build.py:draw_scene", "./build.py:draw_scene", "build.py:", "build.py:draw scene"],
+)
+def test_a_present_script_with_a_malformed_reference_is_refused(recipe, generator):
+    (recipe / "sub").mkdir()
+    for script in (recipe / "build.py", recipe / "sub" / "build.py"):
+        script.write_text("def draw_scene(): pass  # draw scene\n", "utf-8")
+    manifest(recipe, generator)
+    found = messages(recipe)
+    assert len(found) == 1 and "[manifest-field]" in found[0]
+    with pytest.raises(ValueError, match="generator must be"):
+        producer(recipe, generator)
+
+
 @pytest.mark.parametrize("kind", ["script", "package"])
 def test_cache_reused_within_validation_but_fresh_after_same_stat_edit(
     recipe, package_root, monkeypatch, kind

@@ -600,14 +600,15 @@ and checked against the schema by `tests/test_fixtures_assets.py`):
 | `attestations` | All five keys, as booleans: `synthetic` true; `real_photo`, `real_brand`, `real_person`, `third_party_content` false. They state that the image is drawn by code and contains no real photograph, brand or logo, person, or third-party artwork or screenshot. |
 | `shared_across_splits` | Optional boolean, default `false`; see the last rule below. |
 
-The validator and `synthetic_images.manifest_entry` use the same source-word check for both
-forms: the UTF-8 source must mention the name as a whole word. A comment or constant can satisfy that check; it is not proof of a callable or that
-the code drew the image. Recipe script paths must stay inside the recipe directory: an escaping
-symlink is rejected before its source is read. Recipe tests and review establish the generator's
-behavior. Package targets must be regular source files in the installed `jev_cookbook` directory,
-with `__init__.py` in every package directory. Namespace packages and zip installs are
-unsupported. The check reads source without importing the target or its parents. Within one
-validation each source and name is read once; a later validation reads it again.
+The validator and `synthetic_images.manifest_entry` use the same source-word check for both forms:
+the UTF-8 source must mention the name as a whole word. A comment or constant can satisfy that
+check; it is not proof of a callable or that the code drew the image. Recipe script paths must stay
+inside the recipe directory: an escaping symlink is rejected before its source is read. Recipe tests
+and review establish the generator's behavior. Package targets must be regular source files in the
+installed `jev_cookbook` directory, with `__init__.py` in every package directory. Namespace
+packages and zip installs are unsupported. The check reads source without importing the target or
+its parents. Within one validation each source and name is read once; a later validation reads it
+again.
 
 Each failure is one line, `path: [rule] message`, naming the image (or the manifest, or
 `fixtures/inputs.jsonl` and the example id for a `fields` problem):
