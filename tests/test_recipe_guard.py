@@ -13410,12 +13410,36 @@ def _is_printed(quote: str, printed: list[Decimal]) -> bool:
     return False
 
 
+# A link's text may hold one level of brackets and code spans (``[`review`](...)``). An image
+# (``![alt](...)``) is not a link: its alt text is left as it was, with the target dropped (#713).
+_LINK_TEXT = r"((?:[^\[\]]|\[[^\]]*\])*)"
+_INLINE_LINK = re.compile(r"(?<!!)\[" + _LINK_TEXT + r"\]\([^)]*\)")
+_REFERENCE_LINK = re.compile(r"(?<!!)\[" + _LINK_TEXT + r"\]\[[^\]]*\]")
+_REFERENCE_DEFINITION = re.compile(r"^ {0,3}\[([^\]]+)\]:[ \t]*\S+.*$", re.MULTILINE)
+_SHORTCUT_LINK = re.compile(r"(?<!!)\[([^\[\]]+)\](?![\[(:])")
+
+
+def _unwrap_links(text: str) -> str:
+    """``[text](target)``, ``[text][ref]``, ``[text][]`` and ``[text]`` (when a ``[text]: url``
+    definition exists) become ``text``: the target is a URL, not a claim, and a closing ``]`` is
+    not a connective between a linked metric word and its figure (#713)."""
+    text = _INLINE_LINK.sub(r"\1", text)
+    labels = {m.group(1).strip().lower() for m in _REFERENCE_DEFINITION.finditer(text)}
+    text = _REFERENCE_LINK.sub(r"\1", text)
+    if labels:
+        text = _SHORTCUT_LINK.sub(
+            lambda m: m.group(1) if m.group(1).strip().lower() in labels else m.group(0), text
+        )
+    return re.sub(r"(!\[[^\]]*\])\([^)]*\)", r"\1", text)
+
+
 def _clean_markdown(text: str) -> str:
     """``text`` less fenced code, HTML comments and link targets, which hold commands and URLs,
-    not claims. Line breaks are kept: they are what ``_markdown_units`` splits on."""
+    not claims, with each link reduced to its text. Line breaks are kept: they are what
+    ``_markdown_units`` splits on."""
     text = re.sub(r"^\s*(```|~~~).*?^\s*\1", " ", text, flags=re.DOTALL | re.MULTILINE)
     text = re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
-    return re.sub(r"\]\([^)]*\)", "]", text)
+    return _unwrap_links(text)
 
 
 _MD_HEADING = re.compile(r"\s*#{1,6}\s")
@@ -15967,6 +15991,68 @@ def test_a_table_row_quoting_a_printed_figure_is_not_flagged(tmp_path, label, va
     folder = _copy_recipe(tmp_path, "_template")
     _append_cell(folder, "markdown", _TABLE.format(label=label, value=value))
     assert _unprinted_quantities(folder) == []
+
+
+# #713: a Markdown link around a metric word hid the word from the quote reader, because the
+# closing ``]`` is not a connective. Each shape below is the same sentence or row with the metric
+# word linked; the template prints ``accuracy of the choice: 0.80``, so 93% is not printed.
+_LINKED_METRIC = [
+    pytest.param("The [accuracy](../../docs/glossary.md#accuracy) is {value}.", id="inline"),
+    pytest.param("The [`accuracy`](../../docs/glossary.md#accuracy) is {value}.", id="code-span"),
+    pytest.param(
+        "The [accuracy][glossary] is {value}.\n\n[glossary]: ../../docs/glossary.md", id="reference"
+    ),
+    pytest.param(
+        "The [accuracy][] is {value}.\n\n[accuracy]: ../../docs/glossary.md", id="collapsed"
+    ),
+    pytest.param("The [accuracy] is {value}.\n\n[accuracy]: ../../docs/glossary.md", id="shortcut"),
+    pytest.param("| [accuracy](../../docs/glossary.md#accuracy) | {value} |", id="table-inline"),
+    pytest.param(
+        "| [accuracy][glossary] | {value} |\n\n[glossary]: ../../docs/glossary.md",
+        id="table-reference",
+    ),
+]
+
+
+def _linked_text(shape: str, value: str) -> str:
+    text = shape.format(value=value)
+    if shape.startswith("|"):
+        text = "| Metric | Value |\n| --- | --- |\n" + text
+    return text
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("shape", _LINKED_METRIC)
+def test_a_linked_metric_word_next_to_an_unprinted_figure_is_flagged(tmp_path, where, shape):
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _unprinted_quantities(folder) == []
+    text = _linked_text(shape, "93%")
+    if where == "readme":
+        readme = folder / "README.md"
+        readme.write_text(readme.read_text("utf-8") + "\n" + text + "\n", "utf-8")
+    else:
+        _append_cell(folder, "markdown", text)
+    violations = _unprinted_quantities(folder)
+    assert len(violations) == 1 and "'93%'" in violations[0], violations
+
+
+@pytest.mark.parametrize("shape", _LINKED_METRIC)
+def test_a_linked_metric_word_next_to_a_printed_figure_is_not_flagged(tmp_path, shape):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", _linked_text(shape, "80%"))
+    assert [q for _, _, q in _prose_quotes(folder) if q == "80%"], "the linked figure is read"
+    assert _unprinted_quantities(folder) == []
+
+
+def test_link_text_is_kept_and_link_targets_and_images_are_not_read_as_claims():
+    cleaned = _clean_markdown(
+        "[a `b`](x.md#y) [c][r] [d][] ![alt text](p.png)\n\n[r]: u.md\n[d]: v.md"
+    )
+    assert cleaned.startswith("a `b` c d ![alt text]"), cleaned
+    # an image is not a link: its alt text is neither unwrapped nor given a target to read
+    assert "p.png" not in cleaned and "x.md" not in cleaned
+    # brackets that are no link stay as written
+    assert _clean_markdown("see [1] and [note]") == "see [1] and [note]"
 
 
 def _row_quotes(row: str) -> list[tuple[str, str]]:
