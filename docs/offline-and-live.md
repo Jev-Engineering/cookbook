@@ -234,6 +234,10 @@ the README and every markdown cell for them:
   comparisons whose first-listed option was chosen, which offline measures only the person who wrote
   the fixtures. A fixed-order `Choice` prints no position statistic at all
   ([fixtures.md](fixtures.md#per-item-option-order); [CONTRIBUTING.md](../CONTRIBUTING.md), section 2).
+  The recipe guard check `fixed_order_choice_position_statistic` now catches the named, labelled
+  and printed forms in code cells and stored text output; it does not see other names or wording,
+  a statistic computed inside a helper, markdown, a recipe that also shuffles, or a statistic in a
+  shuffled recipe offered as evidence about the model, and those stay the reviewer's job.
 - A metric that is perfect by construction, printed with its pipeline-check label and without
   saying that the fixtures or the selection force it. [CONTRIBUTING.md](../CONTRIBUTING.md), section 2,
   defines "cannot come out otherwise" and lists the three signs to look for by hand.
