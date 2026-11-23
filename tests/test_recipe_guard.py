@@ -12134,14 +12134,15 @@ _AMOUNT_THEN_METRIC = re.compile(
 _COMPLEMENTARY_RATES = frozenset({"risk", "accuracy", "error rate"})
 _RATE_LINE = re.compile(r"\b(?:accuracy|risk|error rate)\b", re.IGNORECASE)
 # A digit run glued on its left to an ASCII letter or an underscore, with its thousands-group and
-# decimal tail (``sku1.93``, ``x1,250``), is part of an identifier, not a quantity (#542).
+# decimal tails (``sku1.93``, ``sku1.2.93``, ``x1,250``), is part of an identifier, not a
+# quantity (#542).
 # ``_mask_glued`` replaces every digit of such a token by ``#`` before any pattern below reads the
 # text, so the patterns need no boundary of their own and cannot restart inside a refused token:
 # ``sku93%``, ``sku1.93%`` and ``v1.180ms`` offer nothing, while ``180ms``, ``accuracy,93%``,
 # ``0.5,93%`` and a cell after a glued id (``t01,0.93``, ``F1,93%``) are read as before. The tail
 # takes a comma only as a thousands group (``,`` and exactly three digits), so a following CSV
 # cell is not swallowed; a cell of exactly three digits right after an id (``t01,930``) is.
-_GLUED_TOKEN = re.compile(r"(?<=[A-Za-z_])\d+(?:,\d{3}(?!\d))*(?:\.\d+)?")
+_GLUED_TOKEN = re.compile(r"(?<=[A-Za-z_])\d+(?:,\d{3}(?!\d))*(?:\.\d+)*")
 
 
 def _mask_glued(text: str, *, keep_f1: bool = False) -> str:
@@ -12195,14 +12196,14 @@ _SPEED_WORD = re.compile(r"\b(?:slow|fast|speed|takes?)\b", re.IGNORECASE)
 _LIVE_RUN = re.compile(r"\blive\b", re.IGNORECASE)
 # The pool's tokenizer (#542). A digit run glued on its left to an ASCII letter or an underscore is
 # part of an identifier (a 7-character git short SHA, a base64 or base32 id, a mixed-case id,
-# ``run_42``), not a quantity, and so is the thousands-group and decimal tail of that run
+# ``run_42``), not a quantity, and so is the thousands-group and decimal tails of that run
 # (``v1.5``, ``x1,250``). The ``glued`` alternative matches the whole token and ``_number_matches``
 # drops it, so the scan resumes after it and cannot restart at one of its later digits. ``180ms``
 # keeps its trailing unit: only the left boundary matters. A digit run separated from its letters
 # by other punctuation (``id-42``) is still read, and so is one glued to a non-ASCII letter
 # (``\u00e993``).
 _NUMBER = re.compile(
-    r"(?P<glued>(?<=[A-Za-z_])\d+(?:,\d{3}(?!\d))*(?:\.\d+)?)"
+    r"(?P<glued>(?<=[A-Za-z_])\d+(?:,\d{3}(?!\d))*(?:\.\d+)*)"
     r"|(?P<n>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
 )
 
@@ -14323,6 +14324,8 @@ def test_the_scan_does_not_restart_at_a_later_digit_of_a_refused_run(text):
         ("commit e4b7a1.93", "The accuracy is 93.0."),
         ("sku1,093", "The accuracy is 1093.0."),
         ("x1,250", "The accuracy is 1250.0."),
+        ("sku1.2.93%", "Jev reaches an accuracy of 93%."),
+        ("build v1.2.180ms", "Jev answers with a median latency of 180 ms."),
     ],
 )
 def test_the_decimal_tail_of_a_glued_token_does_not_back_its_quote(tmp_path, printed, sentence):
@@ -14360,7 +14363,7 @@ def test_the_decimal_tail_of_a_glued_token_does_not_back_its_quote(tmp_path, pri
 )
 def test_a_figure_after_a_comma_is_still_backed(tmp_path, printed, sentence):
     """#542 review: only a token glued to a letter is refused, with its own thousands-group and
-    decimal tail.
+    decimal tails.
     A figure after a plain ``,`` (a CSV row without spaces) is a printed figure, as on main; the
     first version of the tail rule, a lookbehind on ``[A-Za-z_\\d][.,]``, refused all of these."""
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
@@ -14405,6 +14408,7 @@ def test_a_percentage_glued_to_an_identifier_is_not_a_quoted_quantity():
         ("accuracy,93 0.5,93 x,1.93", [Decimal(93), Decimal("0.5"), Decimal(93), Decimal("1.93")]),
         ("t01,0.93 F1,0.93 top5,93", [Decimal("0.93"), Decimal("0.93"), Decimal(93)]),
         ("sku1,093 x1,250.5 t01,930", []),
+        ("v1.2.93 sku1.2.3.4 x1,250.5.6", []),
         ("t01,1234 x1,2500", [Decimal(1234), Decimal(2500)]),
     ],
 )
