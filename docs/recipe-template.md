@@ -143,8 +143,22 @@ sentence defines the term stays with the reviewer.
      `read_text()`, `read_bytes()`, `open(...).read()`, `with open(...)`, any other `open` /
      `.open` / `.read` / `.readlines` call that names the file, or a function in the same test
      file that does one of those), or `inspect.getsource(helpers.<fn>)`, or a call to a
-     `helpers.py` function whose own body makes the selection call. A path under `tmp_path` is a
-     copy, not the committed file, so a read of it does not count.
+     `helpers.py` function whose own body makes the selection call. These do not count: an
+     `open` in a write or append mode (`"w"`, `"a"`, `"x"`, or a mode the guard cannot read,
+     such as `open(p, **kw)`), a path under `tmp_path`/`tmpdir`, a path made by `tempfile.*`
+     (also under `import tempfile as tf`) or the `shutil.copy*`/`move` family, or the destination
+     of such a copy (a test-made copy), a read that spells another recipe's folder (`"42-..."` or
+     `"100-..."`; locate your own from `__file__`), and a value rewritten by `.lower()`,
+     `.upper()`, `.casefold()`, `.swapcase()`, `.title()`, `.capitalize()` or `.translate()` on the
+     source, also through `map(str.lower, ...)`, `functools.partial(str.lower)`,
+     `getattr(x, "lower")` or `operator.methodcaller("lower")` (compare against the
+     untransformed source). A test that writes the committed file (`write_text`, `write_bytes`,
+     an `open` of it for writing) and reads it back credits nothing. A `def test_*` pytest does
+     not run is not credited: in a file other than `test_*.py` and `*_test.py`, in a file a
+     `conftest.py` `collect_ignore`/`collect_ignore_glob` names, in a module or class that sets
+     `__test__` to anything but `True`, in a `Test*` class that inherits an `__init__` or
+     `__test__` from a base defined in the same file, or an earlier `def` that a later `def` of
+     the same name replaces.
   2. **An extraction.** `name = _your_helper(source, "<literal>", ...)`, through a function
      defined in the test file, followed by the bare statement `assert name is not None` (or
      `assert None is not name`). That is the only check credited here: a bare `assert name`, a
@@ -206,6 +220,50 @@ sentence defines the term stays with the reviewer.
   context manager such as `pytest.raises` is not credited. For an extraction (`name = _helper(source, ...)` then
   `assert name is not None`), nothing before the assert may end the test, and an assert inside a
   `with` block is not credited.
+
+  **Limits of the check, recorded in #320.** The guard is a bounded syntax analysis. A pass is
+  never a proof that the objective is pinned, and it does not replace the recipe's own test of the
+  real objective plus a real-call mutation that turns that test red.
+
+  *Accepted wrong-accepts* (a green guard that proves nothing; each needs a manual review, and the
+  author must show that changing the actual objective fails the recipe's test):
+
+  | Residual form | What to do instead |
+  | --- | --- |
+  | A needle that reaches the value through a module-level name, a function parameter, a computed string (`"".join(["min", "_coverage"])`), an f-string split around a placeholder, `%`-formatting, or an alias of the container it is appended to; a nested helper's own bindings | Type the needle in the assert, against the committed source |
+  | One expression that both reads some other file and names the notebook (a read elsewhere in a compound expression credits the whole result) | Read the notebook in its own plain assignment |
+  | `push = parts.append; push(source.lower())` (a stored mutator callback loses its container) | Direct source-selection chain |
+  | `ops.get("pick")()` returning a stored source-normalising method; `f = str.lower` in one statement and `f(source)` in another | Compare against the untransformed source |
+  | `alias = parts; alias.clear(); all(...)` over `parts` (an alias empties the collection behind the non-empty reasoning) | Assert non-emptiness in the test; use the documented `any(...)` shape |
+  | `next(iter(mapping))` where only the mapping's values came from the source (yields keys) | Use the documented source-cell sequence |
+  | A copy placed under a root the guard does not recognise (not `tmp_path`, `tempfile`, `shutil.copy*`/`move`): `os.system("cp ...")`, `subprocess`, `Path.copy`, a literal destination path; symlinks, monkeypatches, opaque helper returns, injected or computed needles | Keep the committed-file read direct, and copy under `tmp_path` |
+  | Another recipe's folder named through a variable, a split string or an f-string (`other = "42-..."`, `"4" + "2-..."`) | Read your own folder from `__file__` |
+  | The committed file written through a path held in a variable, or in another function, before it is read | Write only to a `tmp_path` copy |
+  | `__test__` set without a plain `__test__ = ...` statement (`setattr(...)`, `TestPin.__test__ = False`, `globals()["__test__"] = ...`, tuple assignment) | Set `__test__` by a plain statement, or do not set it |
+  | A pin shadowed by a plain assignment (`test_pin = None`) rather than a later `def` | Do not rebind a test's name |
+  | A `re.sub` whose replacement is a lambda that lowercases | Compare against the untransformed source |
+  | Another recipe's notebook selected through the slug-as-data exemption (`p.name == "42-..."` inside `iterdir()`, or a dict-comprehension subscript) | Read your own folder from `__file__` |
+  | `__test__ = False` set in a plugin or `conftest.py` fixture hook, `pytest_ignore_collect`, `-k`/`--deselect`/`addopts`, or a `Test*` class that inherits an `__init__` from an imported base | Run the recipe's tests and confirm the pin test is collected |
+
+  *Wrong-rejects* (loud and safe: the guard refuses a pin that is real; rewrite the test into the
+  credited shape in the right-hand column):
+
+  | Refused shape | Shape to use instead |
+  | --- | --- |
+  | A path held in a variable: `nb = RECIPE / "notebook.ipynb"; source = nb.read_text()` (the read statement must name the file) | Name the file in the read: `source = (RECIPE / "notebook.ipynb").read_text("utf-8")` |
+  | A module-level read (`SOURCE = (...).read_text()` outside any test), or a fixture that returns the read | Read inside the test function, or through a helper function in the test file that is called there |
+  | `re.search("min_coverage", source)`, `re.findall`, `.find("min_coverage") != -1`, `.index` | `"min_coverage" in source` |
+  | `.startswith(...)`, `.endswith(...)` | `"min_coverage" in source` |
+  | A tuple-unpacked, annotated or walrus read: `source, n = ...`, `source: str = ...`, `assert (hit := ...)` | A plain single-target assignment `source = ...` |
+  | A self-referencing rebind: `text = text.strip()`; a name that is also bound by `+=`, a `for` target or a hand-typed value | Bind each stage to a new name |
+  | A hand-typed needle held in a name (`needle = "min_coverage"; assert needle in source`) | The needle typed in the assert |
+  | A `unittest.TestCase` not named `Test*`, a nested `Test*` class, an `__init__` in the class | A module-level `def test_...`, or a top-level `class Test...` with no `__init__` |
+  | An assert under `if`, `try`, a loop over a non-literal, or a context manager other than `open` (whether it runs, and which way it reads, depends on a context the guard cannot see) | A top-level statement of the test function |
+  | A `.lower()`-family call inside the read statement, even on a cell field (`c["cell_type"].lower() == "code"`), or on a comprehension variable | Compare the exact field value, or do the rewrite in a separate statement that does not build the source |
+  | A string shaped like a recipe folder (`"10-threshold"`) used as a path part or call argument in the read statement; a hard-coded own slug | Use the cell id as a subscript key or in a comparison, and locate your folder from `__file__` |
+  | A slug-shaped dict-literal key (`{"10-threshold": ...}`) in the read statement | Use the cell id as a subscript key or in a comparison |
+  | Any binding of `collect_ignore`/`collect_ignore_glob` in `conftest.py` other than one plain literal assignment (`.append`, `+=`, an annotation, a repeat): nothing in that folder is credited | One plain `collect_ignore = ["file.py"]`, or no `collect_ignore` |
+  | A `shutil.copy*`/`move` or `tempfile.*` call in the read statement or its binding | Do the copy in its own statement, and read the committed file in a different one |
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
   `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:

@@ -251,7 +251,11 @@ check id                              rule -> detection
                                        or run) counts for nothing. A value is tainted by any
                                        read of the committed file (``read_text``,
                                        ``read_bytes``, ``open(...).read()``, ``with open``) or
-                                       by ``inspect.getsource(helpers.<fn>)``.
+                                       by ``inspect.getsource(helpers.<fn>)``; a write-mode
+                                       ``open``, a ``tmp_path``/``tempfile``/``shutil`` copy,
+                                       another recipe's folder and a case-rewritten value (#320)
+                                       do not taint, and only ``test_*.py``/``*_test.py`` are
+                                       collected. Accepted limits: docs/recipe-template.md.
 ``noul_proposition_gold_coverage``    #283: for every ``Noul`` proposition this check can
                                        reach in the recipe's own code (two or more -- a
                                        battery; fewer reached and the check does not apply),
@@ -501,6 +505,7 @@ Scope decisions (see the pull request body for the full reasoning):
 from __future__ import annotations
 
 import ast
+import fnmatch
 import importlib.util
 import inspect
 import io
@@ -6914,18 +6919,27 @@ def _test_function_defs(tree: ast.AST) -> list[ast.FunctionDef]:
     a top-level ``pytest.importorskip(...)`` / ``pytest.skip(..., allow_module_level=True)``)
     carries a ``skip``/``skipif``/``xfail`` mark or skips the file. A ``test_`` def nested in
     another function, a method of a helper class (``class Helper:``), and anything else pytest
-    would not collect is not a test and pins nothing. (A ``unittest.TestCase`` subclass not named
-    ``Test*``, a nested ``Test*`` class, and an inherited ``__init__`` are not credited either: the
-    safe, loud direction.) A module-level ``importorskip`` of a module that IS installed does not
+    would not collect is not a test and pins nothing, nor is one in a module or class that sets
+    ``__test__`` to anything but ``True``, or one a later ``def`` of the same name replaces. (A
+    ``unittest.TestCase`` subclass not named ``Test*`` and a nested ``Test*`` class are not
+    credited either: the safe, loud direction. A ``Test*`` class that inherits an ``__init__`` or
+    ``__test__`` from a base defined in the SAME file is not credited; one inherited from an
+    imported base is, and is recorded as accepted.) A module-level ``importorskip`` of a module that IS installed does not
     really skip the file, but a static check cannot tell, so it is not credited."""
-    if _module_is_marked_not_to_run(tree) or _module_skips_itself(tree):
+    if (
+        _module_is_marked_not_to_run(tree)
+        or _module_skips_itself(tree)
+        or _disables_collection(getattr(tree, "body", []))
+    ):
         return []
     candidates: list[ast.FunctionDef] = []
     for node in getattr(tree, "body", []):
         if isinstance(node, ast.FunctionDef):
             candidates.append(node)
-        elif isinstance(node, ast.ClassDef) and _pytest_collects_class(node):
-            candidates.extend(n for n in node.body if isinstance(n, ast.FunctionDef))
+        elif isinstance(node, ast.ClassDef) and _pytest_collects_class(node, tree):
+            candidates.extend(_unshadowed(node.body))
+    gone = {id(d) for d in _shadowed(getattr(tree, "body", []))}
+    candidates = [n for n in candidates if id(n) not in gone]
     return [
         node
         for node in candidates
@@ -6933,16 +6947,60 @@ def _test_function_defs(tree: ast.AST) -> list[ast.FunctionDef]:
     ]
 
 
-def _pytest_collects_class(node: ast.ClassDef) -> bool:
+def _shadowed(body: list[ast.stmt]) -> list[ast.FunctionDef]:
+    """The functions in ``body`` that a LATER ``def`` of the same name replaces: Python keeps the
+    last binding, so pytest runs only that one, and an assert in the earlier body never runs."""
+    defs = [n for n in body if isinstance(n, ast.FunctionDef)]
+    return [d for i, d in enumerate(defs) if any(later.name == d.name for later in defs[i + 1 :])]
+
+
+def _unshadowed(body: list[ast.stmt]) -> list[ast.FunctionDef]:
+    gone = {id(d) for d in _shadowed(body)}
+    return [n for n in body if isinstance(n, ast.FunctionDef) and id(n) not in gone]
+
+
+def _disables_collection(body: list[ast.stmt]) -> bool:
+    """``__test__ = <anything but True>`` in a module or class body: pytest collects nothing from
+    it. A value this cannot read counts as disabled (the fail-closed side)."""
+    for stmt in body:
+        if isinstance(stmt, ast.Assign):
+            targets = stmt.targets
+        elif isinstance(stmt, ast.AnnAssign) and stmt.value is not None:
+            targets = [stmt.target]
+        else:
+            continue
+        if any(isinstance(t, ast.Name) and t.id == "__test__" for t in targets):
+            value = stmt.value
+            if not (isinstance(value, ast.Constant) and value.value is True):
+                return True
+    return False
+
+
+def _pytest_collects_class(node: ast.ClassDef, tree: ast.AST | None = None) -> bool:
     """True if pytest would collect ``node``'s ``test_`` methods: the name matches the default
     ``python_classes = Test*``, it defines no ``__init__`` / ``__new__`` (pytest warns and skips
     such a class), and it is not marked ``skip``/``skipif``/``xfail`` by a class decorator or a
     class-body ``pytestmark``."""
+    local = {
+        n.name: n for n in getattr(tree, "body", []) if isinstance(n, ast.ClassDef)
+    }  # classes defined in the same module, to follow ``class TestX(Base)``
+
+    def poisoned(cls: ast.ClassDef, seen: frozenset[str]) -> bool:
+        if _disables_collection(cls.body) or any(
+            isinstance(n, ast.FunctionDef) and n.name in ("__init__", "__new__") for n in cls.body
+        ):
+            return True
+        return any(
+            isinstance(b, ast.Name)
+            and b.id in local
+            and b.id not in seen
+            and poisoned(local[b.id], seen | {b.id})
+            for b in cls.bases
+        )
+
     return (
         node.name.startswith("Test")
-        and not any(
-            isinstance(n, ast.FunctionDef) and n.name in ("__init__", "__new__") for n in node.body
-        )
+        and not poisoned(node, frozenset({node.name}))
         and not _is_marked_not_to_run(node.decorator_list)
         and not _module_is_marked_not_to_run(node)
     )
@@ -7021,11 +7079,203 @@ def _mentions_artefact_file(node: ast.AST) -> bool:
     )
 
 
-def _mentions_scratch_dir(node: ast.AST) -> bool:
+# Calls that MAKE a scratch location or a copy of a file somewhere else (#320): a path built from
+# one of these is a test-made copy exactly as a path under ``tmp_path`` is, so a read of it does not
+# taint either. ``tempfile.*`` and ``shutil.*``; a bare name is accepted for the ``from tempfile
+# import mkdtemp`` spelling. A copy placed under any other root is still not seen (accepted).
+_TEMPFILE_NAMES = frozenset(
+    {
+        "mkdtemp",
+        "mkstemp",
+        "gettempdir",
+        "TemporaryDirectory",
+        "NamedTemporaryFile",
+        "SpooledTemporaryFile",
+    }
+)
+_COPY_FUNCS = frozenset({"copy", "copy2", "copyfile", "copytree", "move"})
+
+
+def _module_aliases(tree: ast.AST) -> dict[str, str]:
+    """``{local name: dotted real name}`` for every import in ``tree``: ``import tempfile as tf``
+    gives ``tf -> tempfile`` and ``from tempfile import TemporaryDirectory as TD`` gives ``TD ->
+    tempfile.TemporaryDirectory`` (an unaliased import maps to itself)."""
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                aliases[alias.asname or alias.name.split(".")[0]] = (
+                    alias.name if alias.asname else alias.name.split(".")[0]
+                )
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    return aliases
+
+
+def _scratch_call_kind(call: ast.Call, aliases: dict[str, str] | None) -> str | None:
+    """``"tempfile"`` for a call that makes a scratch location, ``"copy"`` for the ``shutil`` copy
+    family, else ``None``. Resolved through the module's imports (``import tempfile as tf``), and
+    by bare name for ``from tempfile import mkdtemp``. Other ``shutil``/``tempfile`` calls
+    (``shutil.which``) are not scratch makers."""
+    aliases = aliases or {}
+    func = call.func
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+        module = aliases.get(func.value.id, func.value.id)
+        if module == "tempfile":
+            return "tempfile"
+        if module == "shutil" and func.attr in _COPY_FUNCS:
+            return "copy"
+    elif isinstance(func, ast.Name):
+        module, _, name = aliases.get(func.id, func.id).rpartition(".")
+        if module == "tempfile" or (not module and name in _TEMPFILE_NAMES):
+            return "tempfile"
+        if module == "shutil" and name in _COPY_FUNCS:
+            return "copy"
+        if not module and name in {"copy2", "copyfile", "copytree"}:
+            return "copy"
+    return None
+
+
+def _makes_scratch(node: ast.AST, aliases: dict[str, str] | None = None) -> bool:
+    """True if ``node`` contains a call that makes a scratch directory or a copy of a file."""
     return any(
+        isinstance(n, ast.Call) and _scratch_call_kind(n, aliases) is not None
+        for n in ast.walk(node)
+    )
+
+
+def _copy_destinations(func: ast.AST, aliases: dict[str, str] | None) -> set[str]:
+    """The names in the destination of every ``shutil.copy*``/``move`` call in ``func``, however
+    the call is used (a bare statement included): what is copied there is a test-made copy."""
+    names: set[str] = set()
+    for n in ast.walk(func):
+        if isinstance(n, ast.Call) and _scratch_call_kind(n, aliases) == "copy":
+            dst = n.args[1] if len(n.args) > 1 else None
+            for keyword in n.keywords:
+                if keyword.arg == "dst":
+                    dst = keyword.value
+            if dst is not None:
+                names |= _ast_names(dst)
+    return names
+
+
+def _mentions_scratch_dir(node: ast.AST, aliases: dict[str, str] | None = None) -> bool:
+    return _makes_scratch(node, aliases) or any(
         (isinstance(n, ast.Name) and n.id in _SCRATCH_DIR_NAMES)
         or (isinstance(n, ast.arg) and n.arg in _SCRATCH_DIR_NAMES)
         for n in ast.walk(node)
+    )
+
+
+# The committed recipe folders are named ``NN-slug``. A read that spells such a name is a read of
+# ONE recipe's artefact chosen by hand (#320): a recipe's own tests locate their folder from
+# ``__file__``, so a hard-coded slug is another recipe's notebook (or the recipe's own, which the
+# guard cannot tell apart and refuses -- the fail-closed direction).
+_RECIPE_SLUG = re.compile(r"\d{2,3}-[a-z0-9][a-z0-9-]*")
+
+
+def _names_a_recipe_folder(node: ast.AST) -> bool:
+    """A string constant shaped like a recipe folder name (``42-...``, ``100-...``) that is a path
+    part or an argument. A slug-shaped cell id used as a subscript key or compared with ``==``
+    (``c["id"] == "10-threshold"``) is data, not a path, and is not counted. A slug held in a
+    variable, split or built by an f-string is not seen (accepted, recorded in the docs)."""
+    data = set()
+    for n in ast.walk(node):
+        if isinstance(n, ast.Compare):
+            data.update(id(o) for o in [n.left, *n.comparators])
+        elif isinstance(n, ast.Subscript):
+            data.add(id(n.slice))
+    return any(
+        isinstance(n, ast.Constant)
+        and id(n) not in data
+        and isinstance(n.value, str)
+        and any(_RECIPE_SLUG.fullmatch(part) for part in n.value.split("/"))
+        for n in ast.walk(node)
+    )
+
+
+# Methods that rewrite the characters of the text they are called on. A value that went through
+# one is no longer "the committed source": a pin compared against it is satisfied by text the
+# source only matches after the rewrite (``"min_coverage" in source.lower()`` holds for a comment
+# that says ``MIN_COVERAGE`` while the call uses ``target_accuracy``). Such a value is never
+# credited (#320); compare against the untransformed source instead. ``replace`` is not listed:
+# what it types is tracked per name (``_Taint.embedded``).
+_TEXT_REWRITING_METHODS = frozenset(
+    {"lower", "upper", "casefold", "swapcase", "title", "capitalize", "translate"}
+)
+
+
+def _rewrites_text(node: ast.AST, tainted: frozenset[str] = frozenset()) -> bool:
+    """True if ``node`` rewrites the characters of the SOURCE value: a ``.lower()``-family call
+    whose receiver is a read of the committed file, a tainted name or a comprehension variable;
+    the same method named without being called (``map(str.lower, ...)``,
+    ``functools.partial(str.lower)``); or named by string (``getattr(x, "lower")``,
+    ``operator.methodcaller("lower")``). A ``.lower()`` on something that is not the source
+    (``read_text(enc.lower())``) does not count; one on a cell field inside the read
+    (``c["cell_type"].lower()``) does, the fail-closed side. A rewrite stored under a name in
+    another statement (``f = str.lower`` then ``f(source)``) is not seen (accepted)."""
+    call_funcs = {id(n.func) for n in ast.walk(node) if isinstance(n, ast.Call)}
+    targets: set[str] = set()
+    for n in ast.walk(node):
+        if isinstance(n, ast.comprehension):
+            targets |= _ast_names(n.target)
+    for n in ast.walk(node):
+        if isinstance(n, ast.Call):
+            func = n.func
+            if isinstance(func, ast.Attribute) and func.attr in _TEXT_REWRITING_METHODS:
+                # the receiver (``source.lower()``) or an argument (``str.lower(source)``)
+                for operand in (func.value, *n.args):
+                    if _reads_real_committed_source(operand) or (
+                        _ast_names(operand) & (set(tainted) | targets)
+                    ):
+                        return True
+            called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+            if called in {"getattr", "methodcaller"} and any(
+                isinstance(a, ast.Constant) and a.value in _TEXT_REWRITING_METHODS for a in n.args
+            ):
+                return True
+        elif (
+            isinstance(n, ast.Attribute)
+            and n.attr in _TEXT_REWRITING_METHODS
+            and id(n) not in call_funcs
+        ):
+            return True
+    return False
+
+
+def _opens_for_writing(call: ast.Call) -> bool:
+    """True for an ``open`` call that is not provably a READ: a literal mode containing ``w``,
+    ``a`` or ``x``, or a mode this cannot read (a name, an f-string). A missing mode is the
+    default ``"r"``; ``"r+"`` and ``"rb"`` read. ``open(path, "w")`` makes a file, it does not
+    read it (#320), so a ``with open(<committed file>, "w") as f`` binding must not taint ``f``.
+    The mode is the SECOND argument of the builtin ``open`` (and ``io.open``/``codecs.open``) and
+    the FIRST of ``Path.open``; ``mode=`` is accepted either way."""
+    func = call.func
+    builtin = isinstance(func, ast.Name) or (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id in {"io", "codecs"}
+    )
+    if any(isinstance(a, ast.Starred) for a in call.args) or any(
+        k.arg is None for k in call.keywords
+    ):
+        return True  # ``open(p, **kw)``: the mode cannot be read
+    index = 1 if builtin else 0
+    mode: ast.expr | None = call.args[index] if len(call.args) > index else None
+    for keyword in call.keywords:
+        if keyword.arg == "mode":
+            mode = keyword.value
+    if mode is None:
+        return False
+    if isinstance(mode, ast.Constant) and isinstance(mode.value, str):
+        return any(flag in mode.value for flag in "wax")
+    return True
+
+
+def _is_open_call(call: ast.Call) -> bool:
+    return (isinstance(call.func, ast.Name) and call.func.id == "open") or (
+        isinstance(call.func, ast.Attribute) and call.func.attr == "open"
     )
 
 
@@ -7033,9 +7283,10 @@ def _performs_a_file_read(node: ast.AST) -> bool:
     for n in ast.walk(node):
         if not isinstance(n, ast.Call):
             continue
-        if isinstance(n.func, ast.Name) and n.func.id == "open":
-            return True
-        if isinstance(n.func, ast.Attribute) and n.func.attr in _FILE_READ_ATTRS:
+        if _is_open_call(n):
+            if not _opens_for_writing(n):
+                return True
+        elif isinstance(n.func, ast.Attribute) and n.func.attr in _FILE_READ_ATTRS:
             return True
     return False
 
@@ -7056,7 +7307,7 @@ def _reads_helpers_source_via_inspect(node: ast.AST) -> bool:
     return False
 
 
-def _reads_real_committed_source(node: ast.AST) -> bool:
+def _reads_real_committed_source(node: ast.AST, aliases: dict[str, str] | None = None) -> bool:
     """True if one piece of syntax (a single statement's value expression, a ``with`` item's
     context expression, or a whole function definition -- see ``_tainted_names_in_function`` and
     ``_locally_source_reading_function_names`` below) is the actual FILE READ of the *actual
@@ -7077,7 +7328,8 @@ def _reads_real_committed_source(node: ast.AST) -> bool:
     return (
         _mentions_artefact_file(node)
         and _performs_a_file_read(node)
-        and not _mentions_scratch_dir(node)
+        and not _mentions_scratch_dir(node, aliases)
+        and not _names_a_recipe_folder(node)
     ) or _reads_helpers_source_via_inspect(node)
 
 
@@ -7102,7 +7354,9 @@ def _production_wrapper_names(helpers_path: Path) -> set[str]:
     }
 
 
-def _locally_source_reading_function_names(tree: ast.Module, text: str) -> set[str]:
+def _locally_source_reading_function_names(
+    tree: ast.Module, aliases: dict[str, str] | None = None
+) -> set[str]:
     """Names of functions DEFINED IN THIS TEST FILE whose own body reads the real committed
     notebook or ``helpers.py`` (``_reads_real_committed_source`` on the function's own source
     segment) -- a module-level helper like recipes 42's ``_notebook_cell_source`` or 44's
@@ -7114,13 +7368,15 @@ def _locally_source_reading_function_names(tree: ast.Module, text: str) -> set[s
     names = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):
-            if _reads_real_committed_source(node):
+            if _reads_real_committed_source(node, aliases):
                 names.add(node.name)
     return names
 
 
 def _tainted_names_in_function(
-    func: ast.FunctionDef, text: str, taint_producing_names: set[str]
+    func: ast.FunctionDef,
+    taint_producing_names: set[str],
+    aliases: dict[str, str] | None = None,
 ) -> set[str]:
     """Fixed-point taint set, local to one test function: a name is tainted if the statement
     assigning it (a) itself reads the real committed source (``_reads_real_committed_source`` on
@@ -7145,27 +7401,53 @@ def _tainted_names_in_function(
     # anything assigned from it): a read of those is a read of a test-made copy, not of the
     # committed artefact
     scratch = set(_SCRATCH_DIR_NAMES)  # the fixture parameter (or any use of its name)
+    scratch |= _copy_destinations(func, aliases)  # ``shutil.copy(src, dst)`` as a statement
     grew = True
     while grew:
         grew = False
         for name, values in bindings.items():
             if name not in scratch and any(
-                v is not None and scratch & _ast_names(v) for v in values
+                v is not None and (scratch & _ast_names(v) or _makes_scratch(v, aliases))
+                for v in values
             ):
                 scratch.add(name)
                 grew = True
 
+    # a test that WRITES the committed file (``(RECIPE / "notebook.ipynb").write_text(...)``, or an
+    # ``open`` of it for writing) and then reads it back pins the text it typed: nothing it reads
+    # is credited. A write through a name or in another function is not seen (accepted).
+    for call in ast.walk(func):
+        if not isinstance(call, ast.Call):
+            continue
+        callee = call.func
+        if isinstance(callee, ast.Attribute) and callee.attr in {"write_text", "write_bytes"}:
+            target: ast.AST = callee.value
+        elif _is_open_call(call) and _opens_for_writing(call):
+            target = call
+        else:
+            continue
+        if (
+            _mentions_artefact_file(target)
+            and not scratch & _ast_names(target)
+            and not _makes_scratch(target, aliases)
+        ):
+            return set()
+
     def _taints(value: ast.AST | None) -> bool:
         if value is None:  # bound by a form this cannot trace (``+=``, ``for``, unpacking, ``:=``)
             return False
-        if scratch & _ast_names(value):
+        if (
+            scratch & _ast_names(value)
+            or _makes_scratch(value, aliases)
+            or _rewrites_text(value, frozenset(tainted))
+        ):
             return False
         calls_taint_producing = any(
             isinstance(n, ast.Call) and _call_func_name(n) in taint_producing_names
             for n in ast.walk(value)
         )
         return (
-            _reads_real_committed_source(value)
+            _reads_real_committed_source(value, aliases)
             or calls_taint_producing
             or _wholly_tainted(value, frozenset(tainted))
         )
@@ -7527,7 +7809,7 @@ def _wholly_tainted(node: ast.AST, tainted: frozenset[str]) -> bool:
     ``+`` or ``or`` only if each operand is, a hand-typed literal never is. Calls, subscripts and
     attributes are wholly tainted when they reference a tainted name (``notebook["cells"]``,
     ``"".join(cell["source"])``): data flowing out of the read stays tainted."""
-    if isinstance(node, ast.Constant | ast.JoinedStr):
+    if isinstance(node, ast.Constant | ast.JoinedStr) or _rewrites_text(node, tainted):
         return False
     if isinstance(node, ast.List | ast.Tuple | ast.Set):
         return bool(node.elts) and all(
@@ -8164,6 +8446,64 @@ def _spellings_pinned_by_production_discrimination(
     return pinned
 
 
+def _ignored_by_conftest(directory: Path, path: Path) -> bool:
+    """True if ``directory/conftest.py`` sets ``collect_ignore`` / ``collect_ignore_glob`` so that
+    pytest skips ``path``. Anything but one plain literal list of strings per name (a ``.append``,
+    ``+=``, annotation, tuple target, nested or repeated assignment) ignores everything (the
+    fail-closed side). A ``pytest_ignore_collect`` hook is not read (accepted)."""
+    conftest = directory / "conftest.py"
+    if not conftest.is_file():
+        return False
+    try:
+        tree = ast.parse(conftest.read_text("utf-8"))
+    except SyntaxError:
+        return False
+    names = ("collect_ignore", "collect_ignore_glob")
+    mentions = [n for n in ast.walk(tree) if isinstance(n, ast.Name) and n.id in names]
+    if not mentions:
+        return False
+    # Any binding other than ONE plain top-level ``collect_ignore = [<str literals>]`` per name
+    # (``.append``, ``+=``, an annotation, a tuple target, a nested or repeated assignment, ``del``)
+    # leaves a value this cannot read: ignore everything (the fail-closed side).
+    plain: list[ast.Assign] = [
+        stmt
+        for stmt in tree.body
+        if isinstance(stmt, ast.Assign)
+        and len(stmt.targets) == 1
+        and isinstance(stmt.targets[0], ast.Name)
+        and stmt.targets[0].id in names
+        and isinstance(stmt.value, ast.List | ast.Tuple)
+        and all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in stmt.value.elts)
+    ]
+    if len(plain) != len(mentions) or len({s.targets[0].id for s in plain}) != len(plain):
+        return True
+    for stmt in plain:
+        value = stmt.value
+        relative = path.relative_to(directory).as_posix() if path.is_relative_to(directory) else ""
+        for element in value.elts:
+            pattern = element.value
+            if (
+                relative == Path(pattern).as_posix()
+                or relative.startswith(Path(pattern).as_posix().rstrip("/") + "/")
+                or fnmatch.fnmatch(relative, pattern)
+            ):
+                return True
+    return False
+
+
+def _pytest_collected_files(tests_dir: Path) -> list[Path]:
+    """The ``*.py`` files in ``tests_dir`` pytest's default ``python_files`` collects
+    (``test_*.py`` and ``*_test.py``): a ``def test_*`` in ``conftest.py`` or a helper module is
+    never run, so its asserts pin nothing (#320). The repo sets no ``python_files``."""
+    return [
+        p
+        for p in tests_dir.glob("*.py")
+        if (p.name.startswith("test_") or p.stem.endswith("_test"))
+        and not _ignored_by_conftest(tests_dir, p)
+        and not _ignored_by_conftest(tests_dir.parent, p)
+    ]
+
+
 def _pinned_objective_spellings(recipe_dir_: Path) -> set[str]:
     """Every objective spelling this recipe's ``tests/*.py`` pin, by any of the shapes this
     check recognises, pooled across every test function in every test file. Pooling recipe-wide
@@ -8177,19 +8517,20 @@ def _pinned_objective_spellings(recipe_dir_: Path) -> set[str]:
     if not tests_dir.is_dir():
         return pinned
     production_wrapper_names = _production_wrapper_names(recipe_dir_ / "helpers.py")
-    for path in sorted(tests_dir.glob("*.py")):
+    for path in sorted(_pytest_collected_files(tests_dir)):
         text = path.read_text("utf-8")
         try:
             tree = ast.parse(text)
         except SyntaxError:
             continue
         aliases = _import_aliases(tree)
+        module_aliases = _module_aliases(tree)
         taint_producing_names = (
-            _locally_source_reading_function_names(tree, text) | production_wrapper_names
+            _locally_source_reading_function_names(tree, module_aliases) | production_wrapper_names
         )
         locally_defined = _extraction_helper_names(tree)
         for func in _test_function_defs(tree):
-            tainted = _tainted_names_in_function(func, text, taint_producing_names)
+            tainted = _tainted_names_in_function(func, taint_producing_names, module_aliases)
             pinned |= _spellings_pinned_by_assertions(func, tainted, locally_defined)
             pinned |= _spellings_pinned_by_production_discrimination(
                 func, production_wrapper_names, aliases
@@ -8606,6 +8947,9 @@ def _polarity_violations(
     nested: bool = False,
     class_header: str | None = None,
     module_prefix: str = "",
+    test_file: str = "test_threshold_pin.py",
+    module_suffix: str = "",
+    conftest: str | None = None,
 ) -> list[str] | None:
     """Copy recipe 49 into ``tmp_path``, replace its ``tests/`` with a single test whose body is
     ``read`` followed by ``assertions`` (optionally decorated, nested inside a helper function
@@ -8623,9 +8967,11 @@ def _polarity_violations(
         test_text = f"{class_header}\n" + textwrap.indent(test_text, "    ")
     if nested:
         test_text = "def _helper():\n" + textwrap.indent(test_text, "    ")
-    (target / "tests" / "test_threshold_pin.py").write_text(
-        f"{_POLARITY_PREAMBLE}\n\n{module_prefix}{test_text}", encoding="utf-8"
+    (target / "tests" / test_file).write_text(
+        f"{_POLARITY_PREAMBLE}\n\n{module_prefix}{test_text}{module_suffix}", encoding="utf-8"
     )
+    if conftest is not None:
+        (target / "tests" / "conftest.py").write_text(conftest, encoding="utf-8")
     if flip_objective:
         nb_path = target / "notebook.ipynb"
         notebook = json.loads(nb_path.read_text("utf-8"))
@@ -8954,13 +9300,15 @@ _PRESENT_SHAPES = {
         'assert all("min_coverage" in s for s in sources)\n'
     ),
     # re-review of the second head: carrying taint through names must not refuse a pin that is
-    # still wholly derived from the read and types no needle of its own
-    "a neutral transform of the source": 'lowered = source.lower()\nassert "min_coverage" in lowered\n',
+    # still wholly derived from the read and types no needle of its own. (#320: ``.lower()`` was
+    # listed here as neutral; it rewrites the characters, so it is refused -- see
+    # ``test_a_value_whose_characters_were_rewritten_is_not_the_committed_source``.)
+    "a neutral transform of the source": 'stripped = source.strip()\nassert "min_coverage" in stripped\n',
     "a name rebound to another value derived from the read": (
         'text = source\ntext = source.strip()\nassert "min_coverage" in text\n'
     ),
     "a chain of neutral transforms": (
-        'a = source.strip()\nb = a.lower()\nc = b.replace(" ", "")\nassert "min_coverage" in c\n'
+        'a = source.strip()\nb = a.rstrip()\nc = b.replace(" ", "")\nassert "min_coverage" in c\n'
     ),
     "a container filled in place with values derived from the read": (
         'parts = [source]\nparts.append(source.strip())\njoined = "".join(parts)\n'
@@ -9099,6 +9447,338 @@ def test_asserts_of_a_test_pytest_does_not_run_are_not_credited(tmp_path, wrappe
     assert violations, f"{wrapper}: credited an assert that does not run"
 
 
+# --- #320: credit that was wider than the claim -------------------------------------------------
+# Each test below fails on the guard as it stood before #320 (the refused shape was credited) and
+# passes now; each is paired with a control that must still be credited.
+
+_PIN = 'assert "min_coverage" in source\n'
+_COMMITTED = '(RECIPE / "notebook.ipynb")'
+
+
+@pytest.mark.parametrize(
+    "opener",
+    [
+        'open(RECIPE / "notebook.ipynb", "w", encoding="utf-8")',
+        'open(RECIPE / "notebook.ipynb", "a")',
+        'open(RECIPE / "notebook.ipynb", "x")',
+        'open(RECIPE / "notebook.ipynb", "wb")',
+        'open(RECIPE / "notebook.ipynb", mode="w")',
+        'open(RECIPE / "notebook.ipynb", MODE)',
+        'open(RECIPE / "notebook.ipynb", **kw)',
+        f'{_COMMITTED}.open("w", encoding="utf-8")',
+        f"{_COMMITTED}.open(mode='w')",
+    ],
+)
+def test_opening_the_committed_file_for_writing_is_not_a_read_of_it(tmp_path, opener):
+    """``open(path, "w")`` makes the file; it does not read it. Before #320 any ``open`` call that
+    named the committed file seeded taint, whatever its mode, so a value derived from a write
+    handle was credited as "the committed source". A mode that cannot be read (a name) is refused
+    the same way."""
+    read = f"with {opener} as handle:\n    handle.write('')\nsource = handle\n"
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a pin against a file opened for writing: {opener}"
+
+
+@pytest.mark.parametrize(
+    "opener",
+    [
+        'open(RECIPE / "notebook.ipynb", encoding="utf-8")',
+        'open(RECIPE / "notebook.ipynb", "r", encoding="utf-8")',
+        'open(RECIPE / "notebook.ipynb", "rb")',
+        'open(RECIPE / "notebook.ipynb", "r+")',
+        'open(RECIPE / "notebook.ipynb", mode="rt")',
+        f'{_COMMITTED}.open("r")',
+        f"{_COMMITTED}.open(encoding='utf-8')",
+    ],
+)
+def test_opening_the_committed_file_for_reading_is_still_a_read_of_it(tmp_path, opener):
+    needle = 'b"min_coverage"' if '"rb"' in opener else '"min_coverage"'
+    assertion = f"assert {needle} in source\n"
+    assert _polarity_violations(tmp_path, assertion, read=f"source = {opener}.read()\n") == [], (
+        opener
+    )
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        f'source = {_COMMITTED}.read_text("utf-8").lower()\n',
+        f'source = {_COMMITTED}.read_text("utf-8").casefold()\n',
+        f'source = {_COMMITTED}.read_text("utf-8").upper()\n',
+        f'raw = {_COMMITTED}.read_text("utf-8")\nsource = raw.lower()\n',
+        f'raw = {_COMMITTED}.read_text("utf-8")\nfolded = raw.lower()\nsource = folded.strip()\n',
+        f'source = {_COMMITTED}.read_text("utf-8").title()\n',
+        f'source = {_COMMITTED}.read_text("utf-8").translate({{}})\n',
+    ],
+)
+def test_a_value_whose_characters_were_rewritten_is_not_the_committed_source(tmp_path, read):
+    """``"min_coverage" in source.lower()`` holds for a comment that says ``MIN_COVERAGE`` while the
+    call uses another objective, so a case-rewritten value is not credited (before #320 it was,
+    because any value that references a tainted name stayed tainted)."""
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a pin against a rewritten value: {read!r}"
+
+
+def test_an_assert_that_rewrites_the_source_inline_is_not_credited(tmp_path):
+    violations = _polarity_violations(tmp_path, 'assert "min_coverage" in source.lower()\n')
+    assert violations
+    assert _polarity_violations(
+        tmp_path / "unbound", 'assert "min_coverage" in str.lower(source)\n'
+    )
+    assert (
+        _polarity_violations(tmp_path / "plain", 'assert "min_coverage" in source.strip()\n') == []
+    ), "a lossless transform of the committed source must stay credited"
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        "import shutil, tempfile\n"
+        "work = Path(tempfile.mkdtemp())\n"
+        'shutil.copy(RECIPE / "notebook.ipynb", work / "notebook.ipynb")\n'
+        'source = (work / "notebook.ipynb").read_text("utf-8")\n',
+        "import shutil, tempfile\n"
+        "with tempfile.TemporaryDirectory() as scratch:\n"
+        '    shutil.copytree(RECIPE, Path(scratch) / "r")\n'
+        '    source = (Path(scratch) / "r" / "notebook.ipynb").read_text("utf-8")\n',
+        "import tempfile\n"
+        'source = (Path(tempfile.gettempdir()) / "notebook.ipynb").read_text("utf-8")\n',
+        "from tempfile import mkdtemp\n"
+        "work = mkdtemp()\n"
+        'source = open(Path(work) / "notebook.ipynb", encoding="utf-8").read()\n',
+        "import shutil\n"
+        'work = Path(shutil.copy2(RECIPE / "notebook.ipynb", RECIPE.parent)).parent\n'
+        'source = (work / "notebook.ipynb").read_text("utf-8")\n',
+    ],
+)
+def test_a_read_of_a_tempfile_or_shutil_copy_does_not_taint(tmp_path, read):
+    """Before #320 only a path rooted in ``tmp_path`` (or ``tmpdir``) was recognised as a
+    test-made copy; a copy a test mutates under ``tempfile`` or ``shutil`` tainted like the
+    committed file, so the test could pin text it had typed into its own copy."""
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a read of a test-made copy: {read!r}"
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        'source = (RECIPE.parent / "42-outbound-disclosure-screening" / "notebook.ipynb")'
+        '.read_text("utf-8")\n',
+        'source = open(RECIPE.parent / "42-outbound-disclosure-screening/notebook.ipynb").read()\n',
+        'source = open("../28-some-recipe/helpers.py").read()\n',
+        'source = open(RECIPE.parent / "100-some-recipe" / "notebook.ipynb").read()\n',
+        'source = open("../100-some-recipe/notebook.ipynb").read()\n',
+    ],
+)
+def test_another_recipes_notebook_is_not_this_recipes_committed_source(tmp_path, read):
+    """A pin tied to a hand-named recipe folder cannot notice this recipe's objective changing, so
+    it is not credited (before #320 any read that named ``notebook.ipynb`` was). A recipe locates
+    its own folder from ``__file__`` (``RECIPE``), which is still credited."""
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a read of another recipe's artefact: {read!r}"
+
+
+@pytest.mark.parametrize("name", ["conftest.py", "check_objective.py", "helpers_test_data.py"])
+def test_a_test_in_a_file_pytest_does_not_collect_is_not_a_pin(tmp_path, name):
+    """``def test_*`` in ``conftest.py`` or any module that is not ``test_*.py`` / ``*_test.py`` is
+    never run by pytest, so its asserts pin nothing; before #320 the ``tests/*.py`` glob credited
+    them."""
+    assert _polarity_violations(tmp_path / "ok", _PIN) == []
+    violations = _polarity_violations(tmp_path / "bad", _PIN, test_file=name)
+    assert violations, f"{name}: credited a pin in a file pytest does not collect"
+
+
+def test_a_pin_in_a_star_underscore_test_file_is_credited(tmp_path):
+    assert _polarity_violations(tmp_path, _PIN, test_file="objective_test.py") == []
+
+
+# --- #320 fix round: reviewers' gaps --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        "import tempfile as tf\n"
+        "work = Path(tf.mkdtemp())\n"
+        'source = (work / "notebook.ipynb").read_text("utf-8")\n',
+        "from tempfile import TemporaryDirectory as TD\n"
+        "with TD() as scratch:\n"
+        '    source = (Path(scratch) / "notebook.ipynb").read_text("utf-8")\n',
+        "import shutil\n"
+        'dst = Path("/x")\n'
+        'shutil.copy(RECIPE / "notebook.ipynb", dst)\n'
+        'source = (dst / "notebook.ipynb").read_text("utf-8")\n',
+        "import shutil as sh\n"
+        "dst = RECIPE.parent / 'copy'\n"
+        "sh.copytree(RECIPE, dst=dst)\n"
+        'source = (dst / "notebook.ipynb").read_text("utf-8")\n',
+    ],
+)
+def test_aliased_tempfile_and_a_bare_copy_statement_are_scratch(tmp_path, read):
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a read of a test-made copy: {read!r}"
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        f'raw = {_COMMITTED}.read_text("utf-8")\nsource = "".join(map(str.lower, raw))\n',
+        "import functools\n"
+        f'raw = {_COMMITTED}.read_text("utf-8")\n'
+        "source = functools.partial(str.lower)(raw)\n",
+        "import functools\n"
+        f'raw = {_COMMITTED}.read_text("utf-8")\n'
+        "source = functools.reduce(lambda a, f: f(a), [str.lower], raw)\n",
+        "import operator\n"
+        f'raw = {_COMMITTED}.read_text("utf-8")\n'
+        'source = operator.methodcaller("lower")(raw)\n',
+        f'raw = {_COMMITTED}.read_text("utf-8")\nsource = getattr(raw, "lower")()\n',
+        f'raw = {_COMMITTED}.read_text("utf-8")\nsource = str.lower(raw)\n',
+        f'source = str.casefold({_COMMITTED}.read_text("utf-8"))\n',
+    ],
+)
+def test_a_case_rewrite_that_is_not_a_method_call_is_not_the_committed_source(tmp_path, read):
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a pin against a rewritten value: {read!r}"
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        'enc = "UTF-8"\nsource = ' + _COMMITTED + ".read_text(enc.lower())\n",
+        'import shutil\nsource = "".join(\n'
+        "    l for l in "
+        + _COMMITTED
+        + '.read_text("utf-8").splitlines(True) if shutil.which("python")\n)\n',
+        "nb = json.loads(" + _COMMITTED + '.read_text("utf-8"))\n'
+        'source = "".join("".join(c["source"]) for c in nb["cells"] if c.get("id") != "10-threshold")\n',
+        '(tmp_path / "notebook.ipynb").write_text("x", "utf-8")\n'
+        "source = " + _COMMITTED + '.read_text("utf-8")\n',
+    ],
+)
+def test_narrow_refusals_leave_these_legitimate_reads_credited(tmp_path, read):
+    """The refusals above are scoped to the source value: a ``.lower()`` on something else, a
+    ``shutil`` call that makes no copy, a slug-shaped cell id compared as data, and a write to a
+    scratch copy do not refuse a read of the committed notebook."""
+    assert _polarity_violations(tmp_path, _PIN, read=read) == [], read
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        f'{_COMMITTED}.write_text("min_coverage", "utf-8")\n'
+        f'source = {_COMMITTED}.read_text("utf-8")\n',
+        'with open(RECIPE / "notebook.ipynb", "w") as handle:\n'
+        '    handle.write("min_coverage")\n'
+        'source = open(RECIPE / "notebook.ipynb", encoding="utf-8").read()\n',
+        f'{_COMMITTED}.write_bytes(b"min_coverage")\nsource = {_COMMITTED}.read_text("utf-8")\n',
+    ],
+)
+def test_writing_the_committed_file_then_reading_it_back_pins_nothing(tmp_path, read):
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a pin against text the test wrote itself: {read!r}"
+
+
+_NOT_COLLECTED = {
+    "class __test__ = False": {"class_header": "class TestPin:\n    __test__ = False"},
+    "module __test__ = False": {"module_prefix": "__test__ = False\n\n\n"},
+    "inherited __init__ from a local base": {
+        "module_prefix": "class Base:\n    def __init__(self):\n        pass\n\n\n",
+        "class_header": "class TestPin(Base):",
+    },
+    "inherited __test__ = False from a local base": {
+        "module_prefix": "class Base:\n    __test__ = False\n\n\n",
+        "class_header": "class TestPin(Base):",
+    },
+    "a later def of the same name": {"module_suffix": "\n\ndef test_pin():\n    pass\n"},
+    "collect_ignore in conftest.py": {"conftest": 'collect_ignore = ["test_threshold_pin.py"]\n'},
+    "collect_ignore appended to": {
+        "conftest": 'collect_ignore = []\ncollect_ignore.append("test_threshold_pin.py")\n'
+    },
+    "collect_ignore extended with +=": {
+        "conftest": 'collect_ignore = []\ncollect_ignore += ["test_threshold_pin.py"]\n'
+    },
+    "collect_ignore annotated": {"conftest": 'collect_ignore: list = ["test_threshold_pin.py"]\n'},
+    "collect_ignore bound twice": {
+        "conftest": 'collect_ignore = ["a.py"]\ncollect_ignore = ["b.py"]\n'
+    },
+    "collect_ignore_glob in conftest.py": {"conftest": 'collect_ignore_glob = ["test_thr*.py"]\n'},
+    "a collect_ignore pytest cannot be shown to read": {
+        "conftest": "collect_ignore = [name for name in ()]\n"
+    },
+}
+
+
+@pytest.mark.parametrize("shape", sorted(_NOT_COLLECTED))
+def test_a_pin_pytest_does_not_run_through_these_collection_rules_is_not_credited(tmp_path, shape):
+    violations = _polarity_violations(tmp_path, _PIN, **_NOT_COLLECTED[shape])
+    assert violations, f"{shape}: credited a pin pytest does not run"
+
+
+_STILL_COLLECTED = {
+    "a local base without __init__": {
+        "module_prefix": "class Base:\n    helper = 1\n\n\n",
+        "class_header": "class TestPin(Base):",
+    },
+    "__test__ = True": {"class_header": "class TestPin:\n    __test__ = True"},
+    "collect_ignore of another file": {"conftest": 'collect_ignore = ["other.py"]\n'},
+    "an earlier different-name def": {"module_suffix": "\n\ndef test_other():\n    pass\n"},
+}
+
+
+@pytest.mark.parametrize("shape", sorted(_STILL_COLLECTED))
+def test_collection_rules_still_credit_a_pin_pytest_does_run(tmp_path, shape):
+    assert _polarity_violations(tmp_path, _PIN, **_STILL_COLLECTED[shape]) == [], shape
+
+
+_DOCUMENTED_WRONG_REJECTS = {
+    "path held in a variable": {
+        "read": 'nb = RECIPE / "notebook.ipynb"\nsource = nb.read_text("utf-8")\n'
+    },
+    "module-level read": {
+        "read": "",
+        "assertion": 'assert "min_coverage" in SOURCE\n',
+        "module_prefix": f'SOURCE = {_COMMITTED}.read_text("utf-8")\n\n\n',
+    },
+    "fixture that returns the read": {
+        "read": "",
+        "assertion": 'assert "min_coverage" in source\n',
+        "module_prefix": "@pytest.fixture\n"
+        f'def source():\n    return {_COMMITTED}.read_text("utf-8")\n\n\n',
+    },
+    "re.search": {"assertion": 'import re\nassert re.search("min_coverage", source)\n'},
+    "find != -1": {"assertion": 'assert source.find("min_coverage") != -1\n'},
+    "startswith": {"assertion": 'assert source.startswith("min_coverage")\n'},
+    "tuple-unpacked read": {"read": f'source, n = {_COMMITTED}.read_text("utf-8"), 1\n'},
+    "annotated read": {"read": f'source: str = {_COMMITTED}.read_text("utf-8")\n'},
+    "walrus read": {"read": f'(source := {_COMMITTED}.read_text("utf-8"))\n'},
+    "needle held in a name": {"assertion": 'needle = "min_coverage"\nassert needle in source\n'},
+    "lower() inside the read statement": {
+        "read": 'source = "".join(\n'
+        '    "".join(c["source"])\n'
+        f'    for c in json.loads({_COMMITTED}.read_text("utf-8"))["cells"]\n'
+        '    if c["cell_type"].lower() == "code"\n)\n'
+    },
+    "assert under if": {"assertion": 'if source:\n    assert "min_coverage" in source\n'},
+    "slug-shaped path argument": {
+        "read": f'source = {_COMMITTED}.read_text("utf-8") + open("10-threshold").read()\n'
+    },
+}
+
+
+@pytest.mark.parametrize("shape", sorted(_DOCUMENTED_WRONG_REJECTS))
+def test_the_documented_wrong_rejects_are_refused_and_the_plain_shape_is_credited(tmp_path, shape):
+    """docs/recipe-template.md "Limits of the check" lists these as refused, with the shape to use
+    instead (#320). Pinning them here keeps that table true: if one starts being credited the docs
+    must change, and if the plain shape stops being credited the guard has regressed."""
+    options = dict(_DOCUMENTED_WRONG_REJECTS[shape])
+    read = options.pop("read", f'source = {_COMMITTED}.read_text("utf-8")\n')
+    assertion = options.pop("assertion", _PIN)
+    refused = _polarity_violations(tmp_path / "refused", assertion, read=read, **options)
+    assert refused, f"{shape}: documented as refused, but credited"
+    assert _polarity_violations(tmp_path / "plain", _PIN) == []
+
+
 def test_a_read_of_a_scratch_copy_or_a_longer_file_name_does_not_taint(tmp_path):
     """``open(tmp_path / "notebook.ipynb").read()`` reads a copy the test made, and
     ``expected_helpers.py`` is not ``helpers.py``: neither is the committed artefact."""
@@ -9175,7 +9855,31 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
     of it, which is exactly the defence CONTRIBUTING.md section 6 shows failing five times over
     for the same reason. A call this check cannot identify an objective for (not observed in the
     published set), or a cell/``helpers.py`` that does not parse as plain Python at all, fails
-    here too, rather than being silently skipped."""
+    here too, rather than being silently skipped.
+
+    Limits (#320). CORRECTED, each with a mutation test (the refused shapes are the parametrised
+    tests named for them): a write-mode or unreadable-mode ``open`` counted as a read; a value
+    whose characters were rewritten (``.lower()`` and kin, also ``map(str.lower, ...)``,
+    ``partial``, ``getattr``, ``methodcaller``); copies made by ``tempfile`` (aliased imports
+    too) or the ``shutil`` copy family, including a bare ``shutil.copy(src, dst)`` statement;
+    another recipe's ``notebook.ipynb`` (two and three digit folders); a ``def test_*`` in a file
+    pytest does not collect or a ``collect_ignore`` names; ``__test__ = False``; an earlier def
+    shadowed by a later one of the same name; an inherited ``__init__`` or ``__test__`` from a
+    base class in the same file; a test that writes the committed file and reads it back. The
+    extraction route's pooled literals are #338. RECORDED AS ACCEPTED (wrong-accepts: a bounded
+    syntax analysis, and general callback, alias and returned-value tracking would enlarge the
+    trusted code; the recipe's own real-call mutation test remains the evidence): needle
+    provenance, a value that merely contains a read, a stored mutator callback or stored rewrite,
+    a callable returned through ``get``, an alias that empties a collection, ``next(iter(mapping))``
+    over values, copies under other roots, another recipe's folder named through a variable or
+    a computed string, writes through a variable path, and collection switched off by a plugin or
+    command line. DOCUMENTED wrong-rejects, each with the shape to use instead (a loud refusal,
+    never a silent pass): a path held in a variable, a module-level read, a fixture that returns
+    the read, ``re.search``, ``.find(...) != -1``, ``startswith``/``endswith``, tuple-unpacked,
+    annotated and walrus reads, self-referencing rebinds, a hand-typed needle held in a name,
+    ``unittest.TestCase`` not named ``Test*``, a nested ``Test*`` class, asserts under
+    ``if``/``try``, a ``.lower()`` inside the read statement, a slug-shaped path argument, and a
+    copy call in the read statement. The full tables are in docs/recipe-template.md."""
     violations = _objective_pin_violations(recipe_dir(recipe))
     if violations is None:
         pytest.skip(
