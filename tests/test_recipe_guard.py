@@ -13613,12 +13613,18 @@ class _HtmlTableReader(HTMLParser):
 
 
 _CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)", re.DOTALL)
-# A ``<table`` that opens an HTML block (GFM type 6): at the start of a line, after up to three
-# spaces and any blockquote markers. The block ends at ``</table>`` or at the first blank line,
-# whichever comes first (an unclosed table never swallows the paragraphs after it).
-_HTML_TABLE = re.compile(
-    r"^(?:[ ]{0,3}>)*[ \t]{0,3}<table\b.*?(?:</table\s*>|(?=\n[ \t]*\n)|\Z)",
-    re.IGNORECASE | re.DOTALL | re.MULTILINE,
+# An HTML ``<table>`` is read in two cases. A table that a ``</table>`` ends counts wherever its
+# ``<table`` is on a line (``<div><table>``, ``Results: <table>``, a list item's indented table) and
+# runs up to that end tag, across any blank line inside it; the nearest ``<table`` before the end
+# tag opens it, so a ``<table`` mentioned earlier in the text does not pull in everything up to the
+# next table. A table with no end tag counts only where an HTML block starts (at the start of a
+# line, after any indentation and blockquote markers) and ends at the first blank line, so a
+# mention in the middle of a sentence, or an unclosed table, hides no paragraph after it.
+_CLOSED_HTML_TABLE = re.compile(
+    r"<table\b(?:(?!<table\b).)*?</table\s*>", re.IGNORECASE | re.DOTALL
+)
+_OPEN_HTML_TABLE = re.compile(
+    r"^(?:[ \t]*>)*[ \t]*<table\b.*?(?=\n[ \t]*\n|\Z)", re.IGNORECASE | re.DOTALL | re.MULTILINE
 )
 
 
@@ -13652,27 +13658,31 @@ def _html_table_rows(reader: _HtmlTableReader) -> list[tuple[list[str], list[str
 
 
 def _html_tables(text: str) -> tuple[list[tuple[list[str], list[str]]], str]:
-    """``(rows, remaining text)`` for the HTML ``<table>`` blocks of a markdown block (#698): each
-    is replaced by one blank line and its rows are returned as ``(column headers, cells)``
+    """``(rows, remaining text)`` for the HTML ``<table>`` elements of a markdown block (#698):
+    each is replaced by one blank line and its rows are returned as ``(column headers, cells)``
     (``_html_table_rows``). Inline code is masked before the search, so a ``<table>`` mentioned in
-    backticks is prose, and a block starts only where GFM starts an HTML block
-    (``_HTML_TABLE``). Blockquote markers in front of its lines are dropped. Nested tables are not
-    told apart (read as one table up to the first ``</table>``)."""
+    backticks is prose. Which ``<table`` counts is decided by ``_CLOSED_HTML_TABLE`` and
+    ``_OPEN_HTML_TABLE``. Blockquote markers in front of a line are dropped. Nested tables are not
+    told apart: the innermost one is read, and the text around it stays prose; an unclosed table
+    that meets a blank line ends there, so the rows after the blank line are not read as its."""
     masked = _CODE_SPAN.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
+    spans = [m.span() for m in _CLOSED_HTML_TABLE.finditer(masked)]
+    blanked = list(masked)
+    for start, end in spans:
+        blanked[start:end] = [c if c == "\n" else " " for c in masked[start:end]]
+    spans += [m.span() for m in _OPEN_HTML_TABLE.finditer("".join(blanked))]
     rows: list[tuple[list[str], list[str]]] = []
     kept: list[str] = []
     end = 0
-    for match in _HTML_TABLE.finditer(masked):
-        kept.append(text[end : match.start()])
-        block = "\n".join(
-            _table_line(line)[0] for line in text[match.start() : match.end()].split("\n")
-        )
+    for start, stop in sorted(spans):
+        kept.append(text[end:start])
+        block = "\n".join(_table_line(line)[0] for line in text[start:stop].split("\n"))
         reader = _HtmlTableReader()
         reader.feed(block)
         reader.close()
         rows += _html_table_rows(reader)
         kept.append("\n")
-        end = match.end()
+        end = stop
     kept.append(text[end:])
     return rows, "".join(kept)
 
@@ -13794,7 +13804,7 @@ _METRIC_NAME_WORD = rf"(?:{_METRIC_NOUN}|latency|response time|price|cost|throug
 _NOT_A_QUALIFIER = re.compile(
     r"^(?:the|a|an|of|to|for|and|or|in|on|at|by|with|raises?|lowers?|caps?|sets?|controls?"
     r"|limits?|improves?|reduces?|increases?|decreases?|drops?|keeps?|targets?|affects?|is|are"
-    r"|must|should|can|may|if|when|than|vs|per)$",
+    r"|must|should|can|may|if|when|than|vs|per|higher|lower|more|less|better|worse)$",
     re.IGNORECASE,
 )
 
@@ -16315,12 +16325,81 @@ def test_an_html_block_starts_at_a_line_and_ends_at_the_close_tag_or_a_blank_lin
     rows, prose = _scan_tables("<table><tr><td>a</td><td>1</td></tr>\n\nafter\n")
     assert rows == [([], ["a", "1"])] and prose.strip() == "after"
     rows, prose = _scan_tables("> <table><tr><td>a</td><td>1</td></tr></table>\nafter\n")
-    assert rows == [([], ["a", "1"])] and prose.strip() == "after"
+    assert rows == [([], ["a", "1"])] and "after" in prose and "<table" not in prose
     rows, _ = _scan_tables("   <table><tr><td>a</td><td>1</td></tr></table>\n")
     assert rows == [([], ["a", "1"])]
-    # four spaces make a code block, not an HTML block
+    # indented four spaces it is a list item's table or a code block that a reader may take
+    # for one: read, so a figure is never hidden
     rows, _ = _scan_tables("    <table><tr><td>a</td><td>1</td></tr></table>\n")
-    assert rows == []
+    assert rows == [([], ["a", "1"])]
+
+
+_T = "<table><tr><th>model</th><th>accuracy</th></tr><tr><td>jev</td><td>93%</td></tr></table>"
+_TABLE_PLACES = {
+    "div-wrapper": f'<div align="center">{_T}</div>\n',
+    "after-text": f"Results: {_T}\n",
+    "list-item-indented-four": f"-   Results\n\n    {_T}\n",
+    "numbered-item-indented": f"1. Results\n\n   {_T}\n",
+    "blank-line-inside": (
+        "<table><tr><th>model</th><th>accuracy</th></tr>"
+        "<tr><td>jev</td>\n\n<td>93%</td></tr></table>\n"
+    ),
+    "blank-line-inside-in-a-div": (
+        "<div><table><tr><th>model</th><th>accuracy</th></tr>\n\n"
+        "<tr><td>jev</td><td>93%</td></tr></table></div>\n"
+    ),
+    "blockquote-after-text": f"> Results: {_T}\n",
+    "mention-then-a-table": f"Use <table> markup here.\n\n{_T}\n",
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("place", sorted(_TABLE_PLACES))
+def test_a_closed_html_table_is_read_wherever_it_sits_on_its_line(tmp_path, place, where):
+    """GitHub renders each of these as a table, so ``93%`` is a quote under ``accuracy``."""
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _unprinted_quantities(folder) == []
+    _with_markdown(folder, where, _TABLE_PLACES[place])
+    violations = _unprinted_quantities(folder)
+    assert len(violations) == 1 and "'93%'" in violations[0], violations
+
+
+def test_which_html_table_text_is_a_table():
+    # a closed table: wherever its tag is, and across a blank line
+    rows, prose = _scan_tables(f"<div>{_T}</div> tail\n")
+    assert len(rows) == 1 and prose.split() == ["<div>", "</div>", "tail"]
+    rows, _ = _scan_tables("<table><tr><td>a</td>\n\n<td>1</td></tr></table>\n")
+    assert rows == [([], ["a", "1"])]
+    # a mention earlier on the line is not what opens the table
+    rows, prose = _scan_tables("see <table> markup, then " + _T + "\n")
+    assert len(rows) == 1 and "see <table> markup" in prose
+    # no end tag: only at a line start, ending at the blank line
+    assert _scan_tables("Use <table> markup here.\n\nafter\n")[0] == []
+    rows, prose = _scan_tables("Results: <table><tr><td>a</td><td>1</td></tr>\n\nafter\n")
+    assert rows == [] and "after" in prose
+    rows, prose = _scan_tables("  <table><tr><td>a</td><td>1</td></tr>\n\nafter\n")
+    assert rows == [([], ["a", "1"])] and prose.strip() == "after"
+    rows, prose = _scan_tables("    <table><tr><td>a</td><td>1</td></tr>\n\nafter\n")
+    assert rows == [([], ["a", "1"])] and prose.strip() == "after"
+    # an unclosed table that meets a blank line drops the rows after it
+    rows, _ = _scan_tables(
+        "<table><tr><td>a</td><td>1</td></tr>\n\n<tr><td>b</td><td>2</td></tr>\n"
+    )
+    assert rows == [([], ["a", "1"])]
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+def test_a_table_in_a_fence_is_not_read(tmp_path, where):
+    folder = _copy_recipe(tmp_path, "_template")
+    _with_markdown(folder, where, f"```html\n{_T}\n```\n")
+    assert _unprinted_quantities(folder) == []
+
+
+def test_a_directional_word_is_no_metric_name_qualifier():
+    for word in ("higher", "lower", "more", "less", "better", "worse"):
+        assert not _is_metric_name(f"{word} coverage"), word
+    assert _table_row_quantities(["gate", "0.70", "higher coverage"]) == []
+    assert _table_row_quantities(["gate", "0.70", "coverage"]) == [("metric", "0.70")]
 
 
 _PARAMETER_TABLE = (
@@ -16449,7 +16528,7 @@ def _html_rows(markup: str) -> list[tuple[list[str], list[str]]]:
     return rows
 
 
-def test_the_html_header_row_is_the_last_thead_row_or_the_first_all_th_row():
+def test_the_html_header_row_is_the_last_thead_row_or_the_first_row_of_th_cells():
     # a <thead> row of <td> cells is the header
     assert _html_rows(
         "<table><thead><tr><td>model</td><td>accuracy</td></tr></thead>"
