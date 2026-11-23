@@ -12343,12 +12343,27 @@ def _table_line(line: str) -> tuple[str, int]:
     return line, depth
 
 
+# The names of GFM's type 6 HTML blocks (CommonMark 4.6): a line opening with one of these tags is a
+# block-level HTML opener.
+_HTML_BLOCK_TAGS = (
+    "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details"
+    "|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head"
+    "|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p"
+    "|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul"
+)
 # A line that opens a block of its own, which ends a table (GFM: a table ends at a blank line or
-# at the start of another block): a heading, a fence, a list item, an HTML block or a thematic
-# break. Applied to a line without a pipe only (a line with a pipe is always read as a row).
+# at the start of another block): a heading, a fence, a list item, a thematic break, or an HTML
+# block of types 1 to 6 (``<script``, ``<pre``, ``<style``, ``<textarea``, ``<!--``, ``<?``,
+# ``<!X``, ``<![CDATA[`` and a block-level tag from ``_HTML_BLOCK_TAGS``). Type 7, a complete tag
+# alone on its line, cannot interrupt a paragraph, so a line such as ``<span>note</span>``, ``<b>``
+# or ``<sup>`` is not an opener and does not end the table. Applied to a line without a pipe only
+# (a line with a pipe is always read as a row).
 _BLOCK_START = re.compile(
-    r"\s*(?:#{1,6}(?:\s|$)|(?:[-*+]|\d{1,9}[.)])(?:\s|$)|`{3,}|~{3,}|<[A-Za-z/!?]"
-    r"|(?:-\s*){3,}$|(?:\*\s*){3,}$|(?:_\s*){3,}$)"
+    r"\s*(?:#{1,6}(?:\s|$)|(?:[-*+]|\d{1,9}[.)])(?:\s|$)|`{3,}|~{3,}"
+    r"|<(?:script|pre|style|textarea)(?:[\s>]|$)|<!--|<\?|<![A-Za-z]|<!\[CDATA\["
+    rf"|</?(?:{_HTML_BLOCK_TAGS})(?:[\s>]|/>|$)"
+    r"|(?:-\s*){3,}$|(?:\*\s*){3,}$|(?:_\s*){3,}$)",
+    re.IGNORECASE,
 )
 
 
@@ -12368,8 +12383,10 @@ def _table_scan(text: str) -> tuple[list[list[str]], str]:
     in the remaining text, read as prose. Every line after them is a data row, returned as a cell
     list and blanked out of it, until a blank line or, for a line without a pipe, until a line
     that opens another block (``_BLOCK_START``) or sits at another blockquote depth. A line
-    without a pipe in between is a one-cell row, as in GFM, and hides nothing below it. A later
-    row of dashes is a data row too, never a second delimiter. Rows may omit the outer pipes, may
+    without a pipe in between (a filler line, an inline-tag line, a wrapped sentence) is not
+    turned into a row: it stays in the remaining text, read as prose with the lines around it, and
+    it does not end the table, so it hides nothing below it and is never split from its
+    paragraph. A later row of dashes is a data row too, never a second delimiter. Rows may omit the outer pipes, may
     sit in a blockquote and may be indented, a list item's table included."""
     lines = text.splitlines()
     plain = [_table_line(line) for line in lines]
@@ -12393,8 +12410,9 @@ def _table_scan(text: str) -> tuple[list[list[str]], str]:
                     line_depth != depth or _BLOCK_START.match(line)
                 ):
                     break
-                rows.append(_table_cells(line))
-                kept[i] = ""
+                if _UNESCAPED_PIPE.search(line):
+                    rows.append(_table_cells(line))
+                    kept[i] = ""
                 i += 1
         else:
             i += 1
@@ -14644,7 +14662,7 @@ def test_a_table_scan_reads_the_header_as_prose_and_the_rows_as_rows():
 )
 def test_text_that_is_not_a_table_row_yields_no_data_rows(text):
     rows, prose = _table_scan(text)
-    assert rows == [] or rows == [["accuracy", "93%"], ["---", "---"]] and "\n\n" in text
+    assert rows == []
     assert prose.startswith(text.splitlines()[0])
 
 
@@ -14662,6 +14680,10 @@ _PIPELESS_FILLER = {
     "right-under-the-delimiter": "| Metric | Value |\n| --- | --- |\nnote\n| accuracy | 93% |\n",
     "two-lines": "a | b\n- | -\nx | 1\nsee\nthe note\naccuracy | 93%\n",
     "in-a-blockquote": "> | Metric | Value |\n> | --- | --- |\n> note\n> | accuracy | 93% |\n",
+    "inline-span": "| Metric | Value |\n| --- | --- |\n| run | a |\n<span>note</span>\n| accuracy | 93% |\n",
+    "inline-sup": "| Metric | Value |\n| --- | --- |\n| run | a |\n<sup>\n| accuracy | 93% |\n",
+    "inline-b": "| Metric | Value |\n| --- | --- |\n<b>note</b>\n| accuracy | 93% |\n",
+    "inline-link": '| Metric | Value |\n| --- | --- |\n<a href="x">see</a>\n| accuracy | 93% |\n',
 }
 
 
@@ -14696,6 +14718,18 @@ def test_a_line_without_a_pipe_inside_a_table_does_not_hide_the_rows_below_it(
         "```",
         "~~~",
         "<div>",
+        "</div>",
+        "<div class='x'>",
+        "<p>",
+        "<table>",
+        "<pre>",
+        "<script>",
+        "<style>",
+        "<textarea>",
+        "<!-- note -->",
+        "<?php",
+        "<!DOCTYPE html>",
+        "<![CDATA[",
         "---",
         "***",
         "___",
@@ -14705,6 +14739,59 @@ def test_a_line_without_a_pipe_inside_a_table_does_not_hide_the_rows_below_it(
 def test_a_line_that_opens_another_block_ends_the_table(block):
     rows, _ = _table_scan(f"a | b\n- | -\nx | 1\n{block}\naccuracy | 93%\n")
     assert rows == [["x", "1"]]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "<span>note</span>",
+        "<sup>",
+        "<b>",
+        "<em>note</em>",
+        "<br>",
+        '<a href="x">see</a>',
+        "<code>x</code> and more",
+        "<divider>",
+        "<pretty>",
+    ],
+)
+def test_an_inline_tag_line_does_not_end_the_table(line):
+    """GFM ends a table only at an HTML block of type 1 to 6; an inline-tag line is a row."""
+    rows, _ = _table_scan(f"a | b\n- | -\nx | 1\n{line}\naccuracy | 93%\n")
+    assert rows == [["x", "1"], ["accuracy", "93%"]]
+
+
+_WRAPPED_SENTENCE = (
+    "| Metric | Value |\n| --- | --- |\n| run | a |\nOverall accuracy is\n93% on the set.\n"
+)
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+def test_a_sentence_that_wraps_under_a_table_is_read_as_one_paragraph(tmp_path, where):
+    """A pipe-less line stays in the prose, joined with its neighbours, so the metric word and the
+    figure of a wrapped sentence are still read together (a one-cell row each would split them)."""
+    folder = _copy_recipe(tmp_path, "_template")
+    if where == "readme":
+        readme = folder / "README.md"
+        readme.write_text(readme.read_text("utf-8") + "\n" + _WRAPPED_SENTENCE, "utf-8")
+    else:
+        _append_cell(folder, "markdown", _WRAPPED_SENTENCE)
+    before = _prose_quotes(_copy_recipe(tmp_path / "plain", "_template"))
+    new = [t for t in _prose_quotes(folder) if t not in before]
+    assert [(kind, quote) for _, kind, quote in new] == [("rate", "93%")], new
+    violations = _unprinted_quantities(folder)
+    assert len(violations) == 1 and "'93%'" in violations[0], violations
+
+
+def test_what_a_table_scan_quotes_is_the_row_text_not_the_prose_text():
+    rows, prose = _table_scan(_WRAPPED_SENTENCE)
+    assert rows == [["run", "a"]]
+    assert _table_row_quantities(["accuracy", "93%"]) == [("rate", "93%")]
+    assert [q for u in _markdown_units(prose) for q in _quoted_quantities(u)] == [("rate", "93%")]
+    rows, prose = _table_scan(_PIPELESS_FILLER["inline-span"])
+    assert rows == [["run", "a"], ["accuracy", "93%"]]
+    assert [q for row in rows for q in _table_row_quantities(row)] == [("rate", "93%")]
+    assert "<span>note</span>" in prose
 
 
 def test_a_pipeless_line_at_another_blockquote_depth_ends_the_table():
