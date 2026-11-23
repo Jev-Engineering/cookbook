@@ -2,7 +2,7 @@
 
 **Recipe 38** · Level 3 (Intermediate) · Decision type: `Choice`
 
-Route uncertain ticket classifications to review using thresholds selected from validation examples and measure accuracy versus coverage on a held-out set.
+Route uncertain ticket classifications to [review](../../docs/glossary.md#review) using thresholds selected from validation examples and measure [accuracy](../../docs/glossary.md#accuracy) versus [coverage](../../docs/glossary.md#coverage) on a held-out set.
 
 ## What it teaches
 
@@ -12,7 +12,7 @@ confidence threshold from `validation` examples, routes a confident, queue-namin
 automatically, and sends everything else — a low-confidence answer, or the fallback outright,
 whatever its confidence — to a simulated review queue. The notebook reports the frozen rule on
 `test` two ways: a plain per-question classification accuracy that ignores abstention, and the
-coverage, accuracy and risk of the composed routing decision, plus the full risk-coverage curve
+coverage, accuracy and [risk](../../docs/glossary.md#risk) of the composed routing decision, plus the full risk-coverage curve
 swept across every observed confidence.
 
 ## Run it offline
@@ -54,7 +54,7 @@ or a fixture.
 
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable while every answer is synthetic.
-- **N:** 20 validation and 20 test examples (the 2 `demo` tickets carry no gold label and are
+- **N:** 20 validation and 20 test examples (the 2 `demo` tickets carry no [gold label](../../docs/glossary.md#gold-label) and are
   not scored).
 
 A recorded recipe states the model version the API returned, the capture date and N for every number

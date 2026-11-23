@@ -6,7 +6,7 @@ Convert text into predefined semantic features with independent judgments and co
 
 ## What it teaches
 
-Jev answers six independent `Noul` propositions over one piece of customer feedback, one per predefined semantic feature (mentions a price, expresses frustration, asks for a refund or cancellation, names a competitor, reports a technical issue, expresses satisfaction), all sent together in a single request because they share the same state. Python applies a business threshold chosen separately for each feature on `validation`, composes the six into a feature vector, and trains a small Naive Bayes classifier on those vectors against a second, independently-authored gold label (whether the feedback should be escalated to a human specialist) — compared against a fixed majority-class baseline, both frozen on `train` before `test` is ever touched. The lesson is as much methodological as technical: the feature list, the split assignment and the baseline are all fixed in code before any `test`-split number is computed, and the notebook's own order of cells shows that discipline rather than merely stating it.
+Jev answers six independent `Noul` propositions over one piece of customer feedback, one per predefined semantic feature (mentions a price, expresses frustration, asks for a refund or cancellation, names a competitor, reports a technical issue, expresses satisfaction), all sent together in a single request because they share the same state. Python applies a [business threshold](../../docs/glossary.md#business-threshold) chosen separately for each feature on `validation`, composes the six into a feature vector, and trains a small Naive Bayes classifier on those vectors against a second, independently-authored [gold label](../../docs/glossary.md#gold-label) (whether the feedback should be escalated to a human specialist) — compared against a fixed majority-class baseline, both frozen on `train` before `test` is ever touched. The lesson is as much methodological as technical: the feature list, the split assignment and the baseline are all fixed in code before any `test`-split number is computed, and the notebook's own order of cells shows that discipline rather than merely stating it.
 
 ## Run it offline
 
@@ -64,9 +64,9 @@ stops partway through with `BudgetExceeded`. Never put a key in a notebook or a 
 The committed run replays 50 invented feedback messages with hand-written (synthetic) answers,
 several wrong on purpose: of the 192 scored (`validation` and `test`) (text, feature) pairs, 9
 sit on the wrong side of the frozen business threshold from their own gold label (3 of 96 on
-`validation`, 6 of 96 on `test` — the complements of the pooled accuracy figures the notebook
+`validation`, 6 of 96 on `test` — the complements of the pooled [accuracy](../../docs/glossary.md#accuracy) figures the notebook
 prints), spread across all six features so every one of them has at least one real mistake to be
-measured against on `test`. Per-feature precision, recall and F1 on `validation` and `test`, the
+measured against on `test`. Per-feature [precision](../../docs/glossary.md#precision), [recall](../../docs/glossary.md#recall) and [F1](../../docs/glossary.md#f1) on `validation` and `test`, the
 pooled accuracy across all (text, feature) pairs, and the classifier's and baseline's
 held-out accuracy all check that the pipeline works; they say nothing about how Jev performs, how
 fast it is, or what it costs. The classifier (a small Naive Bayes model over the six composed

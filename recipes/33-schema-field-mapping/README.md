@@ -6,7 +6,7 @@ Map source field descriptions to a bounded target schema with ambiguous and unma
 
 ## What it teaches
 
-Jev reads one source field at a time — its name, its declared type, and a full description of what it actually holds — from a fabricated legacy export, and answers one `Choice` over the eight fields of a fixed target schema, plus `ambiguous` and `unmapped`. Jev never sees more than one field at a time and never decides whether a proposed mapping is actually usable: Python does that afterward, in two steps (`helpers.gate_field`, then `helpers.apply_one_to_one`), checking that the declared type is compatible with the chosen target and that no two source fields were mapped to the same one. The notebook shows a field whose name is actively misleading and whose description resolves it anyway, two source fields that collide on the same target even though neither request could have known about the other, and an evaluation that reports mapping accuracy and the conflicts Python's validation catches, at the level of one field and at the level of a whole source batch.
+Jev reads one source field at a time — its name, its declared type, and a full description of what it actually holds — from a fabricated legacy export, and answers one `Choice` over the eight fields of a fixed target schema, plus `ambiguous` and `unmapped`. Jev never sees more than one field at a time and never decides whether a proposed mapping is actually usable: Python does that afterward, in two steps (`helpers.gate_field`, then `helpers.apply_one_to_one`), checking that the declared type is compatible with the chosen target and that no two source fields were mapped to the same one. The notebook shows a field whose name is actively misleading and whose description resolves it anyway, two source fields that collide on the same target even though neither request could have known about the other, and an evaluation that reports mapping [accuracy](../../docs/glossary.md#accuracy) and the conflicts Python's validation catches, at the level of one field and at the level of a whole source batch.
 
 ## Run it offline
 
@@ -58,12 +58,12 @@ A recorded recipe states the model version the API returned, the capture date an
 it reports, here and in the notebook.
 
 The committed run replays 35 invented source fields with hand-written (synthetic) answers, some
-wrong on purpose: a deliberately unconfident mistake (caught by the confidence gate, on
+wrong on purpose: a deliberately unconfident mistake (caught by the [confidence gate](../../docs/glossary.md#confidence-gate), on
 `validation`) is caught by Python's validation, and so is a one-to-one collision, one on each
 split — which is not itself one of the wrong answers, but two fields proposing the same target,
 neither of them identifiable as the wrong one from its own answer; a confident mistake on `test` that neither mechanism catches is
-not, which is where this recipe's non-zero risk on `test` comes from. Its mapping accuracy, the
-field- and task-level coverage/accuracy/risk, and the number of conflicts caught check that the
+not, which is where this recipe's non-zero [risk](../../docs/glossary.md#risk) on `test` comes from. Its mapping accuracy, the
+field- and task-level [coverage](../../docs/glossary.md#coverage)/accuracy/risk, and the number of conflicts caught check that the
 pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs.
 
 ## Pull request rules

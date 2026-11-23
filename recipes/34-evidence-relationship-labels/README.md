@@ -10,12 +10,12 @@ A knowledge-graph candidate is an entity pair with one or more retrieved evidenc
 answers one `Choice` per passage — which of four fixed relationship types, if any, that single
 passage states holds between the two entities, with `no_supported_relation` as the fallback —
 and never decides whether the relationship is true, only whether this passage supports it.
-Python owns everything else: a confidence gate on each passage, and a deterministic rule that
+Python owns everything else: a [confidence gate](../../docs/glossary.md#confidence-gate) on each passage, and a deterministic rule that
 composes every passage decision for one entity pair into a single task-level label, sending the
-pair to review when the evidence disagrees or when any passage was not confident enough to
+pair to [review](../../docs/glossary.md#review) when the evidence disagrees or when any passage was not confident enough to
 trust. The hard case this recipe is built around is a pair that is related in exactly the way
 this recipe's own fixtures establish elsewhere, but whose passage here does not say so — the
-gold label follows the passage in front of Jev, never what the pair's relationship happens to be
+[gold label](../../docs/glossary.md#gold-label) follows the passage in front of Jev, never what the pair's relationship happens to be
 in the world.
 
 ## Run it offline

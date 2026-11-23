@@ -2,11 +2,11 @@
 
 **Recipe 39** · Level 3 (Intermediate) · Decision type: `Choice` + `Noul`
 
-Select candidate values for document fields, verify each selection against its source span, and route uncertain or inconsistent records to review.
+Select candidate values for document fields, verify each selection against its source span, and route uncertain or inconsistent records to [review](../../docs/glossary.md#review).
 
 ## What it teaches
 
-A two-stage extraction cascade over a short purchase document with two fields, `invoice_number` and `total_amount`. Stage 1 is a `Choice` per field, over candidate spans Python extracts from the document text plus a shared `not_found` fallback; stage 2, in a later request, is a `Noul` per field that verifies the chosen span really states that field rather than a related but different figure (a purchase order number, a subtotal, a previous balance). Python composes the two stages into a field result (`not_found`, `extracted`, or sent to review for being uncertain or inconsistent) and then a document result (accepted only when neither field is in review), and evaluates both levels: field-level accuracy, review rate and error rate among records not sent to review, and task-level accuracy, coverage and risk over whole documents. On this fixture pool the two review reasons are not two independent safeguards: the confidence gate sits exactly at the lowest confidence any accepted verification can reach, so it only ever relabels which reason a withheld field carries and never changes which fields are withheld — the notebook demonstrates this directly rather than asking a reader to take it on trust.
+A two-stage extraction cascade over a short purchase document with two fields, `invoice_number` and `total_amount`. Stage 1 is a `Choice` per field, over candidate spans Python extracts from the document text plus a shared `not_found` fallback; stage 2, in a later request, is a `Noul` per field that verifies the chosen span really states that field rather than a related but different figure (a purchase order number, a subtotal, a previous balance). Python composes the two stages into a field result (`not_found`, `extracted`, or sent to review for being uncertain or inconsistent) and then a document result (accepted only when neither field is in review), and evaluates both levels: field-level [accuracy](../../docs/glossary.md#accuracy), review rate and error rate among records not sent to review, and task-level accuracy, [coverage](../../docs/glossary.md#coverage) and [risk](../../docs/glossary.md#risk) over whole documents. On this fixture pool the two review reasons are not two independent safeguards: the [confidence gate](../../docs/glossary.md#confidence-gate) sits exactly at the lowest confidence any accepted verification can reach, so it only ever relabels which reason a withheld field carries and never changes which fields are withheld — the notebook demonstrates this directly rather than asking a reader to take it on trust.
 
 ## Run it offline
 
@@ -60,7 +60,7 @@ it needs another attempt. Never put a key in a notebook or a fixture.
   as many scored examples as there are documents, because this cascade asks up to two questions
   per field and up to two fields per document.
 - **Confidence gate:** on this fixture pool, the frozen confidence gate (`0.7000`) is exactly the
-  lowest confidence any verification clearing the business threshold can have, so it can never
+  lowest confidence any verification clearing the [business threshold](../../docs/glossary.md#business-threshold) can have, so it can never
   withhold a field the business threshold would not already withhold. The notebook samples 1001
   verifier probabilities from 0 through 1. The gate changes 0 field outcomes on either side of the
   threshold and changes 699 review reasons below it. Removing the gate also leaves the `test`
