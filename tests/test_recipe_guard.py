@@ -297,9 +297,8 @@ check id                              rule -> detection
                                        even if it also lists another Choice in a fixed order.
                                        Not seen: markdown; other names, wording or constructs; a
                                        statistic computed inside a helper; a string dict key; an
-                                       unparseable cell (``%magic``); text/html-only output;
-                                       recipe 22's "gold-match position" table over its
-                                       unshuffled option list (Refs #684).
+                                       unparseable cell (``%magic``); text/html-only output.
+                                       "gold-match position" is read like "gold position".
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -15108,12 +15107,12 @@ def test_a_batch_number_is_ordinary_only_after_the_word_process(sentence):
 
 _SHUFFLE_HELPERS = ("stable_permutation", "stable_shuffle")
 _POSITION_IDENTIFIER = re.compile(
-    r"first_?(listed_?|shown_?)?(option|choice)|first_?listed_?(share|rate|fraction|lean)|gold_?pos|position_?(count|share|bias|stat)"
+    r"first_?(listed_?|shown_?)?(option|choice)|first_?listed_?(share|rate|fraction|lean)|gold_?(match_?)?pos|position_?(count|share|bias|stat)"
     r"|option_?position|^lean$|_lean$|^lean_",
     re.IGNORECASE,
 )
 _POSITION_PRINT_TEXT = re.compile(
-    r"gold[- ]positions?\b|first[- ](listed[- ])?(option|choice)[- ](share|lean|rate|fraction)"
+    r"gold[- ](match[- ])?positions?\b|first[- ](listed[- ])?(option|choice)[- ](share|lean|rate|fraction)"
     r"|first[- ]listed[- ](share|rate|fraction|lean)|position(al)?[- ]bias|lean toward the first",
     re.IGNORECASE,
 )
@@ -15207,8 +15206,8 @@ def test_fixed_order_choice_prints_no_position_statistic(recipe):
     ``stable_permutation``/``stable_shuffle`` (a real call or import, see
     ``_uses_shuffle_helper``). Not seen: a statistic computed under other names, other wording or
     in a helper the notebook only calls; a string dict key; an unparseable cell; output that is
-    only ``text/html``; one printed by a shuffled recipe; and recipe 22's "gold-match position"
-    table over its unshuffled option list, which passes on wording alone (Refs #684)."""
+    only ``text/html``; and one printed by a shuffled recipe (#684 closed the "gold-match
+    position" wording gap that let recipe 22's table through)."""
     directory = TEMPLATE if recipe["slug"] == "_template" else recipe_dir(recipe)
     sources = [p.read_text("utf-8") for p in sorted(directory.glob("*.py"))]
     hits = _fixed_order_position_statistic_hits(notebook_cells(directory), sources)
@@ -15295,3 +15294,59 @@ def test_a_mention_of_a_shuffle_helper_does_not_exempt_a_recipe(py_source):
 def test_a_real_import_or_call_of_a_shuffle_helper_exempts_a_recipe(py_source):
     cells = [{"cell_type": "code", "id": "g", "source": 'print("gold positions")', "outputs": []}]
     assert not _fixed_order_position_statistic_hits(cells, [py_source])
+
+
+# The code and stored output of recipe 22's cell 23 as it stood on main before #684: a count of
+# ``candidates.index(gold) + 1`` over a Choice whose options are never shuffled, printed as a
+# "gold-match position" table. The guard missed it on its wording alone.
+_RECIPE_22_OLD_POSITION_CELL = {
+    "cell_type": "code",
+    "id": "rank",
+    "source": (
+        "rank_counts = Counter()\n"
+        "for e in scored:\n"
+        "    gold = labels[e.id]\n"
+        "    if gold == helpers.NO_MATCH:\n"
+        '        rank_counts["no_match"] += 1\n'
+        "        continue\n"
+        "    candidates, _answer = decide(e)\n"
+        '    rank_counts[f"position {candidates.index(gold) + 1}"] += 1\n'
+        "\n"
+        'print(f"gold-match position across {len(scored)} scored assets{check}:")\n'
+        "for position, count in sorted(rank_counts.items()):\n"
+        '    print(f"  {position}: {count}")'
+    ),
+    "outputs": [
+        {
+            "name": "stdout",
+            "output_type": "stream",
+            "text": [
+                "gold-match position across 40 scored assets (a pipeline check, not a Jev result):\n",
+                "  no_match: 10\n",
+                "  position 1: 24\n",
+            ],
+        }
+    ],
+}
+
+
+def test_the_old_recipe_22_gold_match_position_cell_is_a_hit():
+    """#684: the cell recipe 22 printed before it dropped the table is flagged, from its code
+    and, separately, from its stored output alone."""
+    cell = _RECIPE_22_OLD_POSITION_CELL
+    assert _fixed_order_position_statistic_hits([cell], [])
+    assert _cell_position_statistic_hits(cell["source"])
+    output_only = {**cell, "source": "show()"}
+    hits = _fixed_order_position_statistic_hits([output_only], [])
+    assert any("printed output" in hit for hit in hits)
+
+
+def test_the_old_recipe_22_cell_is_exempt_when_the_recipe_shuffles_per_item():
+    cells = [_RECIPE_22_OLD_POSITION_CELL]
+    assert not _fixed_order_position_statistic_hits(cells, ["order = stable_shuffle(key, items)"])
+
+
+@pytest.mark.parametrize("source", ["gold_match_position = 1", "print('gold match positions')"])
+def test_gold_match_position_wording_variants_are_hits(source):
+    cells = [{"cell_type": "code", "id": "c", "source": source, "outputs": []}]
+    assert _fixed_order_position_statistic_hits(cells, [])
