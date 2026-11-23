@@ -111,14 +111,6 @@ KNOWN_FAILURES.update(
     {
         (slug, "glossary_first_use_links"): _GLOSSARY_FIRST_USE_LINKS_REASON
         for slug in (
-            "01-sentiment-classification",
-            "02-refund-intent-detection",
-            "03-response-clarity-scoring",
-            "04-support-ticket-routing",
-            "05-document-classification",
-            "06-multiple-topic-labels",
-            "07-word-sense-selection",
-            "08-faq-selection",
             "09-file-organization",
             "10-answer-relevance-check",
             "11-clarification-selection",

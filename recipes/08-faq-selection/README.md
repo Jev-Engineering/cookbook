@@ -14,11 +14,11 @@ customer's question text, and nothing else), the stored answer text for each FAQ
 never writes it, only picks the identifier), and the rule that returns a confident real match's
 stored answer, reports `no_match` as a final result whatever its confidence (there is no stored
 answer a confidence check could protect there), and sends anything else uncertain to an explicit
-`review` outcome. The notebook shows three typed answers up close (a question that could be
+[`review`](../../docs/glossary.md#review) outcome. The notebook shows three typed answers up close (a question that could be
 `change_email` or `password_reset`, a question no FAQ addresses, and a validation question whose
 stored answer is simply wrong), then the rule, then an evaluation that reports
-top-1 accuracy, `no_match`'s own precision and recall, and a selective accuracy, coverage and
-risk computed from what the rule itself did — not from reapplying a threshold the rule's
+top-1 [accuracy](../../docs/glossary.md#accuracy), `no_match`'s own [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall), and a selective accuracy, [coverage](../../docs/glossary.md#coverage) and
+[risk](../../docs/glossary.md#risk) computed from what the rule itself did — not from reapplying a threshold the rule's
 `no_match` branch never uses.
 
 ## Run it offline
@@ -68,7 +68,7 @@ The committed run replays 40 invented customer questions with hand-written (synt
 four wrong on purpose and in different ways. One is in `validation` itself: a cancellation
 question read as a billing-date question, confidently enough that it is what drives the frozen
 threshold up to exclude it. The other three are in `test`: one wrong and confident through the
-confidence gate (a different cancellation question read as a billing-date question), one wrong
+[confidence gate](../../docs/glossary.md#confidence-gate) (a different cancellation question read as a billing-date question), one wrong
 and confident through the un-gated `no_match` branch (an export question read as having no match
 at all), and one wrong but caught by the gate (a question about automatic trial conversion read
 as a billing-date question, at too low a confidence to be reported). Its top-1 accuracy, confusion

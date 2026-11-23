@@ -12,11 +12,11 @@ a shared `unclear` fallback for a sentence whose context does not decide between
 everything else: the state Jev sees, the identifier that never reaches the model, and the rule that
 accepts a sense only when it is a real sense of that word *and* its `confidence` clears a threshold
 chosen on `validation` and then frozen. Choosing `unclear`, or anything that is not one of the
-word's own senses, always goes to an explicit `review` outcome instead of being reported as a
+word's own senses, always goes to an explicit [`review`](../../docs/glossary.md#review) outcome instead of being reported as a
 result, whatever its confidence. The notebook shows three typed answers up close, all `demo`
 examples never reached into by the evaluation (a sentence too thin to decide a sense, a clear one,
 and one the stored answer gets wrong and confident), then the rule, then an evaluation that reports
-accuracy overall and per target word, and the coverage, accuracy and risk the frozen rule buys on
+[accuracy](../../docs/glossary.md#accuracy) overall and per target word, and the [coverage](../../docs/glossary.md#coverage), accuracy and [risk](../../docs/glossary.md#risk) the frozen rule buys on
 `test`.
 
 ## Run it offline
