@@ -600,6 +600,15 @@ and checked against the schema by `tests/test_fixtures_assets.py`):
 | `attestations` | All five keys, as booleans: `synthetic` true; `real_photo`, `real_brand`, `real_person`, `third_party_content` false. They state that the image is drawn by code and contains no real photograph, brand or logo, person, or third-party artwork or screenshot. |
 | `shared_across_splits` | Optional boolean, default `false`; see the last rule below. |
 
+The validator checks both forms by source word: the UTF-8 source must mention the name as a
+whole word. A comment or constant can satisfy that check; it is not proof of a callable or that
+the code drew the image. Recipe script paths must stay inside the recipe directory: an escaping
+symlink is rejected before its source is read. Recipe tests and review establish the generator's
+behavior. Package targets must be regular source files in the installed `jev_cookbook` directory,
+with `__init__.py` in every package directory. Namespace packages and zip installs are
+unsupported. The check reads source without importing the target or its parents. Within one
+validation each source and name is read once; a later validation reads it again.
+
 Each failure is one line, `path: [rule] message`, naming the image (or the manifest, or
 `fixtures/inputs.jsonl` and the example id for a `fields` problem):
 
@@ -620,12 +629,13 @@ Each failure is one line, `path: [rule] message`, naming the image (or the manif
 
 A **`fields` image path** is any string value in `fields`, at any depth and under any key, that
 has no whitespace and starts with `assets/`, except, in a recipe without images (no file under
-`assets/` and no manifest), a plain word path made of segments of letters, digits, `_` and `-`
+`assets/` and no manifest), a plain word path made of segments of ASCII letters, digits, `_` and `-`
 only (`assets/equity`, `assets/v2/draft`), which is text there. In a recipe that has images (a
 file under `assets/`, or a manifest) a string that ends in `.png`, `.jpg` or `.jpeg` (any case)
-and contains a `/` or a backslash is one too, so a typo such as `../x.png`, `fixtures/x.png`, `./assets/x.png`,
-`assets\x.png` or `C:/x.png` is reported rather than ignored. Every such string must be written
-`assets/<name>.png` (or `.jpg`, `.jpeg`) with forward slashes and equal a manifest `path` exactly,
+and contains a `/` or a backslash is one too, so a typo such as `../x.png`, `fixtures/x.png`,
+`./assets/x.png`, `assets\x.png` or `C:/x.png` is reported rather than ignored. Every such string
+must be written `assets/<name>.png` (or `.jpg`, `.jpeg`) with forward slashes and equal a manifest
+`path` exactly,
 whichever operating system runs the validator; anything else is an `asset-path` failure. A bare
 file name (`IMG_2041.JPG`), a URL in a recipe without images, and a prose sentence that mentions
 `chart.png` are not paths. In a text-only recipe a value such as `assets/equity` is therefore not a
