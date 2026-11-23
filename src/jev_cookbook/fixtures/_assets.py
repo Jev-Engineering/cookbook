@@ -32,7 +32,6 @@ with different bytes is two hashes; or judge that a description is true.
 
 from __future__ import annotations
 
-import functools
 import hashlib
 import os
 import re
@@ -42,6 +41,9 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from .._generator_refs import GENERATOR as _GENERATOR
+from .._generator_refs import SourceCache, source_mentions
+from .._generator_refs import package_generator_problem as _package_generator_problem
 from .._paths import AssetPathError, resolve_asset_path
 from ._schema import check, load_schema
 
@@ -53,10 +55,6 @@ IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg")
 _MAX_READ = 16 * 1024 * 1024
 _ASSET_PATH = re.compile(
     r"^assets/([A-Za-z0-9][A-Za-z0-9_.-]*/)*[A-Za-z0-9][A-Za-z0-9_.-]*[.](png|jpg|jpeg)$"
-)
-# Same text as the "generator" pattern of the schema; group 1 is the file or module, group 3 the function.
-_GENERATOR = re.compile(
-    r"^([A-Za-z0-9_][A-Za-z0-9_.-]*[.]py|jev_cookbook([.][a-z_][a-z0-9_]*)+):([A-Za-z_][A-Za-z0-9_]*)$"
 )
 # In a recipe without images, an assets/ value made only of word segments is text, not a path.
 _ASSETS_WORD = re.compile(r"^assets(/[A-Za-z0-9_-]+)+$")
@@ -106,7 +104,7 @@ def looks_like_image_path(value: str, *, has_images: bool = True) -> bool:
 
     The convention: a string with no whitespace that starts with ``assets/``, except, in a
     recipe without images, a plain word path such as ``assets/equity`` or ``assets/v2/draft``
-    (segments of letters, digits, ``_`` and ``-`` only, see ``_ASSETS_WORD``), which is text
+    (segments of ASCII letters, digits, ``_`` and ``-`` only, see ``_ASSETS_WORD``), which is text
     there; and, in a recipe that has images (``has_images``), also one that ends in ``.png``,
     ``.jpg`` or ``.jpeg`` (any case) and contains a ``/`` or a backslash, which catches
     ``../x.png``, ``C:/x.png`` and ``assets\\x.png`` written as a typo for ``assets/x.png``. A
@@ -140,42 +138,15 @@ def image_path_strings(fields: Any, *, has_images: bool = True) -> list[str]:
 _PACKAGE_DIR = Path(__file__).resolve().parent.parent  # src/jev_cookbook
 
 
-@functools.lru_cache(maxsize=64)
-def _module_text(source: str, mtime_ns: int, size: int) -> str | None:
-    """A package module's source text; cached on its path, mtime and size, so a manifest of 200
-    frames from one generator reads its module once."""
-    del mtime_ns, size  # only part of the cache key
-    try:
-        return Path(source).read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return None
+def package_generator_problem(
+    module: str, function: str, *, cache: SourceCache | None = None
+) -> str | None:
+    """Check installed regular package source without importing it or its parents.
 
-
-def package_generator_problem(module: str, function: str) -> str | None:
-    """Why ``module:function`` (``module`` = ``jev_cookbook.<...>``) is not a package generator.
-
-    The module must be part of the installed package: a package's ``__init__.py`` is looked
-    for before a ``.py`` file of the same name, the order ``import`` uses. Its source must
-    mention ``function`` as a word, the rule a recipe's own generator script has. The module is
-    read, never imported, so a generator module that needs Pillow costs nothing here; whether
-    the name is a function that really drew the image is for the reviewer. ``None`` when both
-    hold.
+    A word mention is sufficient; recipe tests and review establish the generator's behavior.
+    Namespace packages and zip installs are unsupported. The caller owns any per-call cache.
     """
-    parts = module.split(".")[1:]
-    base = _PACKAGE_DIR.joinpath(*parts)
-    source = next((p for p in (base / "__init__.py", base.with_suffix(".py")) if p.is_file()), None)
-    if source is None:
-        return f"{module} is not a module of the jev_cookbook package"
-    try:
-        stat = source.stat()
-    except OSError:
-        stat = None
-    text = None if stat is None else _module_text(str(source), stat.st_mtime_ns, stat.st_size)
-    if text is None:
-        return f"{module} is not a readable Python module"
-    if not re.search(rf"\b{re.escape(function)}\b", text):
-        return f"{module} does not mention {function!r}"
-    return None
+    return _package_generator_problem(module, function, package_dir=_PACKAGE_DIR, cache=cache)
 
 
 def _listed_files(assets: Path) -> set[str]:
@@ -293,6 +264,7 @@ def check_assets(
 
     # Each entry against its file, then its generator, entry by entry.
     hashes: dict[str, str] = {}
+    generator_cache: SourceCache = {}
 
     def file_findings(path: str, entry: dict[str, Any]) -> list[Finding]:
         """The entry against its file: path, size, hash, format and pixel size."""
@@ -342,20 +314,23 @@ def check_assets(
             return found
         file = shown(path)
         if generator.group(1).endswith(".py"):
-            script = recipe / generator.group(1)
-            try:
-                text = script.read_text(encoding="utf-8") if script.is_file() else None
-            except (OSError, UnicodeDecodeError):
-                text = None
             func = generator.group(3)
-            if text is None:
+            try:
+                script = resolve_asset_path(generator.group(1), root=recipe)
+            except (AssetPathError, OSError):
+                mentioned = None
+            else:
+                mentioned = source_mentions(script, func, cache=generator_cache)
+            if mentioned is None:
                 msg = f"[generator] {generator.group(1)} is not a readable file in the recipe"
                 found.append((file, msg, None))
-            elif not re.search(rf"\b{re.escape(func)}\b", text):
+            elif not mentioned:
                 msg = f"[generator] {generator.group(1)} does not mention {func!r}"
                 found.append((file, msg, None))
         else:
-            problem = package_generator_problem(generator.group(1), generator.group(3))
+            problem = package_generator_problem(
+                generator.group(1), generator.group(3), cache=generator_cache
+            )
             if problem:
                 found.append((file, f"[generator] {problem}", None))
         return found
