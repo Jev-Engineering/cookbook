@@ -12363,7 +12363,12 @@ def _scanned_output(recipe_dir_: Path) -> str:
     )
 
 
-_PERCENT_FRACTION = re.compile(r"(?<![\w.])(?:0\.\d+|1\.0+)(?!\w|\.\w|\s?/)")
+_RATE_DENOMINATOR = (
+    r"/\s?(?:s(?:ec(?:ond)?s?)?|min(?:ute)?s?|h(?:rs?|ours?)?|ms|req(?:uests?)?|calls?|tokens?)\b"
+)
+_PERCENT_FRACTION = re.compile(
+    rf"(?<![\w.])(?:0\.\d+|1\.0+)(?!\w|\.\w|\s?%|\s?{_RATE_DENOMINATOR})", re.IGNORECASE
+)
 
 
 def _percentage_fractions(line: str, *, percent: bool = True) -> list[Decimal]:
@@ -12372,7 +12377,11 @@ def _percentage_fractions(line: str, *, percent: bool = True) -> list[Decimal]:
     decimal fraction (0.0 to 1.0, with a decimal point). A bare integer is a count and backs
     nothing, and a number inside a price, latency, throughput or seconds figure, or followed by
     ``/``, carries another unit: a printed ``92.6 seconds`` or ``0.926 ms`` does not back 93%.
-    Other unit words are not recognised, so ``0.926 widgets`` still counts as a fraction."""
+    Other unit words are not recognised, so ``0.926 widgets`` still counts as a fraction.
+    A number followed by ``%`` is a percentage, never a fraction (``0.93%`` is 0.0093). A slash
+    excludes only when it starts a rate unit (``0.93/s``, ``/min``); ``0.93/0.91`` is a fraction.
+    Signs are ignored (``-0.93`` reads as 0.93) and a fraction needs its leading digit (``.93``
+    is not read)."""
     units = [m.span() for m in re.finditer(_PRICE_AMOUNT, line, re.IGNORECASE)]
     units += [m.span() for p in (_LATENCY_MS, _THROUGHPUT, _SECONDS) for m in p.finditer(line)]
     values = [Decimal(m.group(1)) / 100 for m in _PERCENT.finditer(line)] if percent else []
@@ -14380,6 +14389,16 @@ _PERCENTAGE_BACKING = {
     "fractional-ms": ("latency: 0.926 ms", "Jev reaches an accuracy of 93%.", False),
     "price": ("cost: $0.926 per call", "Jev reaches an accuracy of 93%.", False),
     "per-second": ("rate: 0.926/s", "Jev reaches an accuracy of 93%.", False),
+    "tiny-percentage": ("error rate 0.93%", "Jev reaches an accuracy of 93%.", False),
+    "tiny-percentage-spaced": ("error rate 0.93 %", "Jev reaches an accuracy of 93%.", False),
+    "per-second-fraction": ("accuracy 0.93/s", "Jev reaches an accuracy of 93%.", False),
+    "slash-pair": ("precision/recall: 0.93/0.91", "Jev reaches a precision of 93%.", True),
+    "slash-pair-second": ("precision/recall: 0.91/0.93", "Jev reaches a recall of 93%.", True),
+    "spaced-slash-pair": (
+        "accuracy (val / test): 0.93 / 0.95",
+        "Jev reaches an accuracy of 93%.",
+        True,
+    ),
     "bare-one": ("N: 1", "Jev reaches an accuracy of 100%.", False),
     "unit-rate-complement": ("accuracy timing: 0.074 seconds", "Jev has a risk of 93%.", False),
     "percentage": ("accuracy 93%", "Jev reaches an accuracy of 93%.", True),
