@@ -14,7 +14,7 @@ cannot tell two products apart, because a tag covers the one feature that separa
 compares the query image in the state against every reference and answers with the option, a
 probability for each and a confidence. Python decides what the answer is worth: a product or
 `no_match` is delivered only when its confidence clears a threshold frozen on `validation` with
-`select_confidence_threshold`, and every other answer goes to a simulated review
+`select_confidence_threshold`, and every other answer goes to a simulated [review](../../docs/glossary.md#review)
 queue. That includes all answers when validation yields no feasible cutoff. Each reference in
 criteria travels with every request, so the notebook reports the encoded bytes and image copies
 (one query image plus the six references) for each request. Every image is a drawing made by code
@@ -74,7 +74,7 @@ The profile also reports the maximum and summed per-request distinct and expande
 - **Mode:** synthetic (offline replay of hand-written answers about drawn images). Not measured live.
 - **Model, capture date:** not applicable while every answer is synthetic.
 - **N:** 14 `validation` and 16 `test` examples are scored; the 1 `demo` example shown up close
-  carries no gold label and is in no metric.
+  carries no [gold label](../../docs/glossary.md#gold-label) and is in no metric.
 
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
@@ -84,7 +84,7 @@ of them deliberately wrong or unsure, so its numbers check that the pipeline wor
 images in the criteria, the threshold selection, the rule, the review queue and the request
 accounting) and say nothing about how Jev performs, or about how it reads real product
 photographs. The `validation` figures are a selection step. When the policy delivers at least one
-validation answer, its objective forces accuracy among delivered answers to 1.0000 and risk to
+validation answer, its objective forces [accuracy](../../docs/glossary.md#accuracy) among delivered answers to 1.0000 and [risk](../../docs/glossary.md#risk) to
 0.0000. If every answer goes to review, both rates are undefined. Not measured live.
 
 ## Pull request rules
@@ -112,7 +112,7 @@ check. The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md).
 ## Next steps
 
 In the notebook's validation step, change `target_accuracy=1.0` to `0.8`. Restart the kernel
-and run the whole notebook offline so the request audit starts empty. Watch held-out coverage
+and run the whole notebook offline so the request audit starts empty. Watch held-out [coverage](../../docs/glossary.md#coverage)
 and risk rise. Compare the reference-image criteria here
 with the text criteria in [CMDB asset matching](../22-cmdb-asset-matching/) and follow the
 simulated review pattern in [Abstention and review queues](../38-abstention-and-review-queues/).

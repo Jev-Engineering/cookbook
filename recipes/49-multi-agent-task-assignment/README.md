@@ -6,7 +6,7 @@ Score each agent's suitability for a subtask so a deterministic scheduler can as
 
 ## What it teaches
 
-Jev answers one narrow question, asked once per (agent, subtask) pair: how suitable is this agent for this subtask, given only the agent's plain-text track record and what the subtask needs? Python owns everything that decides who actually gets the work: which agents hold the required skill (capability), which subtasks must finish before another can start (dependency), and how much budget each agent has left. A deterministic scheduler combines a pair's score with those three constraints and a frozen confidence gate; a property test proves the three constraints hold for any scores Jev could have returned, by removing each one's enforcement in turn and showing the invariant it protects breaks.
+Jev answers one narrow question, asked once per (agent, subtask) pair: how suitable is this agent for this subtask, given only the agent's plain-text track record and what the subtask needs? Python owns everything that decides who actually gets the work: which agents hold the required skill (capability), which subtasks must finish before another can start (dependency), and how much budget each agent has left. A deterministic scheduler combines a pair's score with those three constraints and a frozen [confidence gate](../../docs/glossary.md#confidence-gate); a property test proves the three constraints hold for any scores Jev could have returned, by removing each one's enforcement in turn and showing the invariant it protects breaks.
 
 ## Run it offline
 

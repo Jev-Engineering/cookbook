@@ -21,9 +21,9 @@ The evaluation is an ablation over a small labelled corpus of invented examples 
 passages show together, contradicting passages, a mirrored pair of passages and claims no passage
 settles. Four verifier-enabled configurations vary whether filtering and reranking run. A fifth
 configuration shares the full pipeline's selected evidence and stops before verification. It sends
-every claim to review, so its answer-support rate is zero. The comparison measures what enabling
+every claim to [review](../../docs/glossary.md#review), so its answer-support rate is zero. The comparison measures what enabling
 automated verdicts adds when the evidence is held fixed. Answer-support rate counts answered
-verdicts that match gold even if the selected evidence missed a gold passage. Evidence recall
+verdicts that match gold even if the selected evidence missed a gold passage. Evidence [recall](../../docs/glossary.md#recall)
 checks the selected evidence against the gold passages. The request counts use the audited
 backend, with the full pipeline's stage-one requests counted for both configurations that use
 that shared execution.
@@ -85,7 +85,7 @@ In live mode this notebook makes exactly **215** requests, of which 202 are dist
 Not measured live. The committed run replays invented claims and passages with hand-written
 (synthetic) answers, including verdicts written from how much of the gold evidence reached the
 verifier, several wrong on purpose and, in the full pipeline, one wrong *and* confident on `test` (`t08`) so the gate's
-numbers show a real, non-zero risk. Its answer-support rates, evidence recall, coverage and request
+numbers show a real, non-zero [risk](../../docs/glossary.md#risk). Its answer-support rates, evidence recall, [coverage](../../docs/glossary.md#coverage) and request
 counts check that the pipeline works (the candidate list, the cut, the composition, the gate and
 the counting); they say nothing about how well Jev filters, reranks or verifies, how fast it is,
 or what it costs. The request counts are counts of requests, not tokens, time or cost. This recipe

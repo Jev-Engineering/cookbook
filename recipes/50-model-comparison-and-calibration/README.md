@@ -17,7 +17,7 @@ on its own validation answers, never on a value borrowed from another backend.
 **The calibration step is inert on these fixtures, and the notebook says so.** The fixtures are
 synthetic and hand-written, and every stored `validation` answer is correct (the `category` and
 both `Noul` propositions, for all three backends). With no validation error the selection has no
-accuracy to trade against coverage, so each selected threshold is simply the lowest confidence
+[accuracy](../../docs/glossary.md#accuracy) to trade against [coverage](../../docs/glossary.md#coverage), so each selected threshold is simply the lowest confidence
 observed on validation: the `min_coverage` floors do not bind, and `target_accuracy=1.0` would
 select the same values. What the run does show is that the three backends sit on different
 confidence scales, so a threshold cannot be borrowed from one backend for another. On recorded
@@ -118,7 +118,7 @@ repository can reach), so a live run of this recipe can only ever produce a reco
     recipe groups nothing, so this equals the input-row count).
 
 **The harness ran and produced tables; none of those cells is evidence about any model's
-quality, latency, or cost.** Every accuracy, coverage, and risk number above is a pipeline
+quality, latency, or cost.** Every accuracy, coverage, and [risk](../../docs/glossary.md#risk) number above is a pipeline
 check: proof that the questions got asked, dispatched identically across backends, and turned
 into a composed outcome, on fixtures written for this recipe. Latency and cost are not printed
 anywhere in the notebook: a replay backend's "latency" is a dict lookup and its "cost" is zero

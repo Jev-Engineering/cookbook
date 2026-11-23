@@ -113,14 +113,6 @@ KNOWN_FAILURES.update(
         for slug in (
             "25-change-evidence-review",
             "31-patch-risk-triage",
-            "49-multi-agent-task-assignment",
-            "50-model-comparison-and-calibration",
-            "51-stalled-loop-detection",
-            "52-retrieval-pipeline-evaluation",
-            "56-adversarial-harness-evaluation",
-            "57-evidence-graph-updates",
-            "69-visual-sku-recognition",
-            "77-visual-browser-element-locator",
         )
     }
 )
