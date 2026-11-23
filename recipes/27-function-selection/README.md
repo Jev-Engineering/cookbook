@@ -6,7 +6,7 @@ Select a function from a preapproved catalog for a request while Python validate
 
 ## What it teaches
 
-Jev picks one function from a preapproved catalog of six, or `no_function`, for a user's request; Python builds the option list from the catalog and shuffles it per request so the model cannot win by always naming whatever is listed first. Every answer passes the same confidence gate, `no_function` included, and a real function that clears it still has to pass a second, deterministic stage: Python validates the arguments a tested extractor recovered from the request against that function's own schema before anything is simulated as executed. The evaluation reports both per-question selection accuracy and a task-level view that also catches the one shape selection accuracy alone cannot: a confidently wrong function whose own schema happens to accept the arguments supplied.
+Jev picks one function from a preapproved catalog of six, or `no_function`, for a user's request; Python builds the option list from the catalog and shuffles it per request so the model cannot win by always naming whatever is listed first. Every answer passes the same [confidence gate](../../docs/glossary.md#confidence-gate), `no_function` included, and a real function that clears it still has to pass a second, deterministic stage: Python validates the arguments a tested extractor recovered from the request against that function's own schema before anything is simulated as executed. The evaluation reports both per-question selection [accuracy](../../docs/glossary.md#accuracy) and a task-level view that also catches the one shape selection accuracy alone cannot: a confidently wrong function whose own schema happens to accept the arguments supplied.
 
 ## Run it offline
 
@@ -58,9 +58,9 @@ it reports, here and in the notebook.
 The offline run replays 40 hand-written (synthetic) requests with synthetic answers, some wrong
 on purpose: one on `test` confidently names a real function other than the gold one, and because
 that wrong function's own schema happens to accept the arguments the request supplies, it is
-confidently, wrongly executed — the one `test` mistake the task-level risk (`0.0714`) reports.
+confidently, wrongly executed — the one `test` mistake the task-level [risk](../../docs/glossary.md#risk) (`0.0714`) reports.
 Its selection accuracy, the confusion matrix, the invalid-argument rejection rate, the action log
-and review queue contents, and the coverage, accuracy and risk the frozen gate produces are
+and [review](../../docs/glossary.md#review) queue contents, and the [coverage](../../docs/glossary.md#coverage), accuracy and risk the frozen gate produces are
 checks that the pipeline works; they say nothing about how Jev performs, how fast it is, or what
 it costs.
 

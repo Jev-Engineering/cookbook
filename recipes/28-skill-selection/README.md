@@ -15,7 +15,7 @@ rule that composes several of those scores into one task-level decision is code,
 only when its score clears a fixed business cutoff *and* it clearly beats the runner-up by a
 margin threshold chosen on `validation` — the margin check being the one for the hard case the
 use case names, two skills whose descriptions are both genuinely plausible for the task, scored
-close together. Either check failing sends the task to review for a person to clarify, never an
+close together. Either check failing sends the task to [review](../../docs/glossary.md#review) for a person to clarify, never an
 automatic guess; each check is independently consequential, proved on the committed fixtures by
 deleting one at a time and confirming the evaluation's reported numbers actually change, not
 just a reason string (`tests/test_helpers.py`). The evaluation reports two different things: per
@@ -76,8 +76,8 @@ numbers check that the pipeline works — that the catalog is retrieved from cor
 relevance rubric is asked and read correctly, and `select_skill` composes several answers into
 one decision correctly — and say nothing about how Jev actually scores skill descriptions for
 relevance. The evaluation covers exact-level agreement and mean absolute error against each
-request's own gold level (per question), and top-1 accuracy among automatically selected tasks,
-risk, and the clarification rate (per task, from `jev_cookbook.evaluation.evaluate_outcomes`,
+request's own gold level (per question), and top-1 [accuracy](../../docs/glossary.md#accuracy) among automatically selected tasks,
+[risk](../../docs/glossary.md#risk), and the clarification rate (per task, from `jev_cookbook.evaluation.evaluate_outcomes`,
 since the rule has two independent review branches — the business cutoff and the margin — so
 a task can be sent to review for either of two separate reasons).
 
