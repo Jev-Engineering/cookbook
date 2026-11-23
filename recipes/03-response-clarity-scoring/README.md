@@ -11,11 +11,11 @@ Jev supplies one narrow judgment, a typed `Score` over a four-level clarity rubr
 the identifier that never reaches the model, the fixed cutoff that decides which levels count as
 needing an edit, and the confidence threshold, chosen on `validation` and then frozen, that
 decides whether an answer is trustworthy enough to act on at all. An answer too uncertain to act
-on goes to an explicit `review` outcome instead of being reported as a result. The notebook shows
+on goes to an explicit [`review`](../../docs/glossary.md#review) outcome instead of being reported as a result. The notebook shows
 three typed answers up close (process-speak that names no outcome, a response written to try to
 steer its own score, and an immediately clear one), then the rule, then an evaluation that reports
 exact-level agreement and mean absolute error against the human rubric, the distribution over
-levels for a couple of `test` responses, and the coverage, accuracy and risk the frozen threshold
+levels for a couple of `test` responses, and the [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy) and [risk](../../docs/glossary.md#risk) the frozen threshold
 buys.
 
 ## Run it offline
@@ -65,7 +65,7 @@ In live mode this notebook makes exactly **40** requests, each decided once. Set
 The committed run replays 40 invented support responses with hand-written (synthetic) answers,
 some wrong on purpose (a self-contradicting response, a response written to try to steer its own
 score, and others). One `test` response (`t14-contradiction`) is scored wrong *and* confidently, at
-a confidence above the threshold this notebook freezes on `validation`, so the selective-prediction
+a confidence above the threshold this notebook freezes on `validation`, so the [selective-prediction](../../docs/glossary.md#selective-prediction)
 numbers show a real, non-zero risk on `test` rather than a guarantee that happens to hold. Its
 exact-level agreement, mean absolute error, and the coverage of the frozen confidence threshold
 check that the pipeline works; they say nothing about how Jev performs, how fast it is, or what it
