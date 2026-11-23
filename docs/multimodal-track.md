@@ -115,11 +115,11 @@ measured 262k-token inference. Follow the evidence and disclosure requirements i
 
 ## Official references
 
-These source IDs match the catalog entries reviewed on October 15, 2026:
+These source IDs match the catalog entries re-reviewed on November 22, 2026:
 
 | Source | Reference | Implementation topic |
 | --- | --- | --- |
 | S09 | [TypeSafe AI: Images](https://docs.typesafe.ai/images) | PNG/JPEG assets, image references, comparisons and ordered still frames. |
-| S10 | [TypeSafe AI: Box](https://docs.typesafe.ai/primitives/box) | One bounding rectangle, normalized coordinates, confidence and absent-target checks. |
-| S11 | [TypeSafe AI: Models and long context](https://docs.typesafe.ai/models) | Versioned models, moving aliases and the opt-in long-context limit. |
+| S10 | [TypeSafe AI: Box](https://docs.typesafe.ai/primitives/box) | One bounding rectangle, normalized coordinates, confidence, absent-target checks and guidance for several instances. |
+| S11 | [TypeSafe AI: Models and long context](https://docs.typesafe.ai/models) | Versioned models, moving aliases, rate limits and the opt-in long-context limit. |
 | S12 | [TypeSafe AI: Jev 1.14 release](https://typesafe.ai/blog/jev-1-14) | The October 14 release and the experimental image, Box and long-context capabilities. |

@@ -244,11 +244,11 @@ such a label up front, so fix the fixture.
 
 A Box returns one rectangle even when its target is absent. Determine presence with a
 **Companion Noul** before treating a rectangle as a detection: a
-[Noul](https://docs.typesafe.ai/primitives/noul) in the same request that asks whether the target
-is in the image, with the box ignored when its answer is low. S10 (the
+[Noul](https://docs.typesafe.ai/primitives/noul) (S15) in the same request that asks whether the
+target is in the image, with the box ignored when its answer is low. S10 (the
 [Box documentation](https://docs.typesafe.ai/primitives/box)) gives this pairing; the name comes
-from the [Companion Noul pattern](https://docs.typesafe.ai/patterns/companion-noul) page, which has
-no source ID in the catalog yet. The name applies to a catalog entry that lists `Noul` in its
+from the [Companion Noul pattern](https://docs.typesafe.ai/patterns/companion-noul) page, S16. The
+name applies to a catalog entry that lists `Noul` in its
 decision types. Ranks 80 and 83 list `Box` and `Choice` only, so they check presence through their
 `Choice` outcomes (absent and ambiguous for 80, no-match and uncertain for 83) and have no
 Companion Noul.

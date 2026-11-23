@@ -42,9 +42,10 @@ def test_questions_are_built_by_python():
     for name in helpers.CONSTRAINTS:
         assert set(questions[name].criteria) == {"true", "false"}
     assert questions[helpers.BUDGET].instructions == (
-        "The plan violates the user's stated budget constraint: its own described costs "
-        "exceed the limit the constraint states, or the plan's own text leaves it unclear "
-        "that it stays within that limit."
+        "The computed budget check reports that the plan is over the user's budget limit."
+    )
+    assert questions[helpers.TIMELINE].instructions == (
+        "The computed timeline check reports that the plan completes after the user's deadline."
     )
     assert questions[helpers.DATA_HANDLING].instructions == (
         "The plan violates the user's stated data handling constraint: it shares the user's "
@@ -61,7 +62,7 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
 
 
-def test_build_state_carries_only_the_constraints_and_the_plan():
+def test_build_state_carries_only_what_the_questions_need_and_the_computed_checks():
     fields = {
         "user_constraints": {
             "budget": "Budget constraint: total plan cost must not exceed $1.",
@@ -71,10 +72,24 @@ def test_build_state_carries_only_the_constraints_and_the_plan():
         },
         "plan": "Do the one approved thing.",
         "cost": 1,
+        "budget_limit": 1,
+        "completion": "2026-01-01",
+        "deadline": "2026-01-01",
     }
     state = helpers.build_state(fields)
-    assert state == {"user_constraints": fields["user_constraints"], "plan": fields["plan"]}
-    assert "cost" not in state
+    assert state == {
+        "user_constraints": {
+            "vendor": fields["user_constraints"]["vendor"],
+            "data_handling": fields["user_constraints"]["data_handling"],
+        },
+        "plan": fields["plan"],
+        "computed_checks": {
+            "budget": helpers.BUDGET_WITHIN,
+            "timeline": helpers.TIMELINE_ON_TIME,
+        },
+    }
+    for raw in ("cost", "budget_limit", "completion", "deadline"):
+        assert raw not in state
 
 
 # --------------------------------------------------------------------------------------------
@@ -458,11 +473,21 @@ def test_queue_item_shows_the_plan_the_constraints_and_every_label_decision():
     fields = {
         "user_constraints": {c: f"{c} text" for c in helpers.CONSTRAINTS},
         "plan": "Do the plan.",
+        "cost": 120,
+        "budget_limit": 100,
+        "completion": "2026-03-10",
+        "deadline": "2026-03-14",
     }
     item = helpers.queue_item("p01", fields, result)
     assert item["id"] == "p01"
     assert item["plan"] == "Do the plan."
     assert item["user_constraints"] == fields["user_constraints"]
+    assert (item["cost"], item["budget_limit"]) == (120, 100)
+    assert (item["completion"], item["deadline"]) == ("2026-03-10", "2026-03-14")
+    assert item["computed_checks"] == {
+        "budget": helpers.BUDGET_OVER,
+        "timeline": helpers.TIMELINE_ON_TIME,
+    }
     assert item[helpers.VENDOR]["noul"] == pytest.approx(0.95)
 
 

@@ -118,9 +118,17 @@ def _string_values(value: Any, *, include_keys: bool = False):
 
 
 def _check_assets(
-    state: Any, questions: Mapping[str, Question], assets: Assets | None
+    state: Any,
+    questions: Mapping[str, Question],
+    assets: Assets | None,
+    *,
+    decoded: dict[str, bytes] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Validate public raw image dictionaries without importing the optional SDK."""
+    """Validate raw image dictionaries, optionally retaining bytes for the current request.
+
+    The optional output is filled only after the complete asset mapping passes validation.
+    No bytes are cached between requests and the optional SDK is never imported here.
+    """
     if assets is not None and not isinstance(assets, Mapping):
         raise TypeError("assets must be a mapping of reference string -> image asset")
     if not assets:
@@ -134,6 +142,7 @@ def _check_assets(
         values.extend(_string_values(question.instructions))
         values.extend(_string_values(getattr(question, "criteria", None)))
     checked = {}
+    decoded_assets = {}
     reference_bytes = 0
     for ref, asset in assets.items():
         if type(ref) is not str or not ref.strip():
@@ -158,8 +167,12 @@ def _check_assets(
             "format": canonical_image_format(asset["format"]),
             "sha256": hashlib.sha256(data).hexdigest(),
         }
+        if decoded is not None:
+            decoded_assets[ref] = data
     if reference_bytes > 65536:
         raise ValueError("all asset references together must be at most 65536 UTF-8 bytes")
+    if decoded is not None:
+        decoded.update(decoded_assets)
     return checked
 
 
@@ -177,6 +190,22 @@ def replay_key(
     Text-only requests retain their original keys.
     """
     plain_state, checked = _check_request(state, questions)
+    key, _ = _request_key(plain_state, checked, assets)
+    return key
+
+
+def _request_key(
+    plain_state: Any,
+    checked: Mapping[str, Question],
+    assets: Assets | None,
+    *,
+    decoded: dict[str, bytes] | None = None,
+) -> tuple[str, dict[str, dict[str, Any]]]:
+    """Key and validated assets for a request already checked by ``_check_request``.
+
+    Live dispatch uses the same validation and key path as replay, retaining decoded bytes
+    only for that call's SDK conversion. Question depth checks and the key envelope stay shared.
+    """
     questions_json = {}
     for name in sorted(checked):
         content = checked[name].to_dict()
@@ -184,7 +213,7 @@ def replay_key(
         # the state; the {"type", "instructions", "criteria"} wrapper is not the caller's level.
         check_question_depth(content, name)
         questions_json[name] = content
-    checked_assets = _check_assets(plain_state, checked, assets)
+    checked_assets = _check_assets(plain_state, checked, assets, decoded=decoded)
     payload = {"v": KEY_VERSION, "state": plain_state, "questions": questions_json}
     if checked_assets:
         # Keep the original envelope byte-for-byte for all text-only requests. Hash image
@@ -198,7 +227,7 @@ def replay_key(
             for ref, asset in sorted(checked_assets.items())
         }
     # The envelope adds levels of its own, so the payload as a whole is not limited.
-    return hashlib.sha256(canonical_json(payload).encode("ascii")).hexdigest()
+    return hashlib.sha256(canonical_json(payload).encode("ascii")).hexdigest(), checked_assets
 
 
 @runtime_checkable
