@@ -13532,32 +13532,52 @@ def _is_delimiter_row(line: str) -> bool:
 
 
 class _HtmlTableReader(HTMLParser):
-    """The rows of one HTML ``<table>``: each row is a list of ``(is_header_cell, text)``."""
+    """The rows of one HTML ``<table>``: each row is ``(in_thead, cells)`` and each cell is
+    ``(is_header_cell, text)``, a cell with ``colspan=n`` repeated n times so the columns stay
+    where they are. Inline tags in a cell are read as a space (``accuracy<br>(%)`` is two words)."""
 
     def __init__(self) -> None:
         super().__init__()
-        self.rows: list[list[tuple[bool, str]]] = []
+        self.rows: list[tuple[bool, list[tuple[bool, str]]]] = []
         self._cell: list[str] | None = None
         self._is_th = False
+        self._span = 1
+        self._in_thead = False
 
     def _close_cell(self) -> None:
         if self._cell is not None and self.rows:
-            self.rows[-1].append((self._is_th, " ".join("".join(self._cell).split())))
+            text = " ".join("".join(self._cell).split())
+            self.rows[-1][1].extend([(self._is_th, text)] * self._span)
         self._cell = None
 
     def handle_starttag(self, tag, attrs):
-        if tag == "tr":
+        if tag == "thead":
             self._close_cell()
-            self.rows.append([])
+            self._in_thead = True
+        elif tag in ("tbody", "tfoot"):
+            self._close_cell()
+            self._in_thead = False
+        elif tag == "tr":
+            self._close_cell()
+            self.rows.append((self._in_thead, []))
         elif tag in ("td", "th"):
             self._close_cell()
             if not self.rows:
-                self.rows.append([])
+                self.rows.append((self._in_thead, []))
             self._cell, self._is_th = [], tag == "th"
+            span = dict(attrs).get("colspan") or "1"
+            self._span = min(int(span), 20) if span.isdigit() and int(span) > 0 else 1
+        elif self._cell is not None:
+            self._cell.append(" ")
 
     def handle_endtag(self, tag):
         if tag in ("td", "th"):
             self._close_cell()
+        elif tag == "thead":
+            self._close_cell()
+            self._in_thead = False
+        elif self._cell is not None:
+            self._cell.append(" ")
 
     def handle_data(self, data):
         if self._cell is not None:
@@ -13568,32 +13588,69 @@ class _HtmlTableReader(HTMLParser):
         self._close_cell()
 
 
-_HTML_TABLE = re.compile(r"<table\b.*?(?:</table\s*>|\Z)", re.IGNORECASE | re.DOTALL)
+_CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)", re.DOTALL)
+# A ``<table`` that opens an HTML block (GFM type 6): at the start of a line, after up to three
+# spaces and any blockquote markers. The block ends at ``</table>`` or at the first blank line,
+# whichever comes first (an unclosed table never swallows the paragraphs after it).
+_HTML_TABLE = re.compile(
+    r"^(?:[ ]{0,3}>)*[ \t]{0,3}<table\b.*?(?:</table\s*>|(?=\n[ \t]*\n)|\Z)",
+    re.IGNORECASE | re.DOTALL | re.MULTILINE,
+)
+
+
+def _is_table_header_row(row: list[tuple[bool, str]]) -> bool:
+    """A header row: at least one ``<th>`` cell, and every other cell empty (the corner of a
+    transposed table is an empty ``<td>``). A single cell spanning the table is a title, not a
+    header, and the caller passes it over."""
+    return any(is_th for is_th, _ in row) and all(is_th or not text for is_th, text in row)
+
+
+def _html_table_rows(reader: _HtmlTableReader) -> list[tuple[list[str], list[str]]]:
+    """``(column headers, cells)`` per data row of one parsed table. The column headers are the
+    last row of the ``<thead>`` when the table has one (its cells may be ``<td>`` or ``<th>``),
+    otherwise the first row that is a header row (``_is_table_header_row``). Empty rows and every
+    row above the header (a title row) are passed over; every row below it is a data row, ``<th>``
+    or ``<td>`` cells alike (a row header is a label like a markdown table's first cell). A table
+    with no header row has no column headers and every non-empty row is a data row."""
+    rows = [(thead, [text for _, text in cells], cells) for thead, cells in reader.rows if cells]
+    head = None
+    thead_rows = [i for i, (thead, _, _) in enumerate(rows) if thead]
+    if thead_rows:
+        head = thead_rows[-1]
+    else:
+        for i, (_, _, cells) in enumerate(rows):
+            title = len({id(c) for c in cells}) == 1 and len(cells) > 1
+            if _is_table_header_row(cells) and not title:
+                head = i
+                break
+    columns = rows[head][1] if head is not None else []
+    return [(columns, texts) for i, (_, texts, _) in enumerate(rows) if head is None or i > head]
 
 
 def _html_tables(text: str) -> tuple[list[tuple[list[str], list[str]]], str]:
-    """``(rows, remaining text)`` for the HTML ``<table>`` elements of a markdown block (#698):
-    each ``<table>`` is replaced by one blank line and its rows are returned as
-    ``(column headers, cells)``. The headers are the cells of the first row made only of ``<th>``
-    cells; every other row is a data row, whether its cells are ``<th>`` or ``<td>``, so a row
-    header is a label like a markdown table's first cell. A table with no all-``<th>`` row has no
-    column headers. Nested tables are not told apart (the outer table's text and the inner one's
-    read as one table up to the first ``</table>``)."""
+    """``(rows, remaining text)`` for the HTML ``<table>`` blocks of a markdown block (#698): each
+    is replaced by one blank line and its rows are returned as ``(column headers, cells)``
+    (``_html_table_rows``). Inline code is masked before the search, so a ``<table>`` mentioned in
+    backticks is prose, and a block starts only where GFM starts an HTML block
+    (``_HTML_TABLE``). Blockquote markers in front of its lines are dropped. Nested tables are not
+    told apart (read as one table up to the first ``</table>``)."""
+    masked = _CODE_SPAN.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
     rows: list[tuple[list[str], list[str]]] = []
-
-    def read(match: re.Match) -> str:
+    kept: list[str] = []
+    end = 0
+    for match in _HTML_TABLE.finditer(masked):
+        kept.append(text[end : match.start()])
+        block = "\n".join(
+            _table_line(line)[0] for line in text[match.start() : match.end()].split("\n")
+        )
         reader = _HtmlTableReader()
-        reader.feed(match.group(0))
+        reader.feed(block)
         reader.close()
-        columns: list[str] = []
-        for number, row in enumerate(reader.rows):
-            if row and all(is_th for is_th, _ in row) and number == 0:
-                columns = [cell for _, cell in row]
-            elif row:
-                rows.append((columns, [cell for _, cell in row]))
-        return "\n"
-
-    return rows, _HTML_TABLE.sub(read, text)
+        rows += _html_table_rows(reader)
+        kept.append("\n")
+        end = match.end()
+    kept.append(text[end:])
+    return rows, "".join(kept)
 
 
 def _scan_tables(text: str) -> tuple[list[tuple[list[str], list[str]]], str]:
@@ -13686,11 +13743,47 @@ def _header_unit(header: str) -> str | None:
     return None
 
 
+_INLINE_TAG = re.compile(r"</?[A-Za-z][^<>]*>")
+_FIGURE = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?\s?%|(?<![\w.])\d[\d,]*\.\d+(?!\w|\.\w)")
+
+
+def _plain_cell(cell: str) -> str:
+    """A cell without its inline HTML tags (``accuracy<br>(%)`` is ``accuracy (%)``), the words
+    whitespace-collapsed."""
+    return " ".join(_INLINE_TAG.sub(" ", cell).split())
+
+
 def _header_words(header: str) -> str:
-    """A column header as a context for its cells: its words, without a bracketed unit
-    (``accuracy (%)`` is ``accuracy``) or a lone ``%`` that would stand between the metric word
-    and the figure."""
+    """A column header, or a label cell, as a context for the figures it heads: its words,
+    without a bracketed unit (``accuracy (%)`` is ``accuracy``), a lone ``%`` or a figure. The
+    unit would stand between the metric word and the figure; a figure in a header row is already
+    read once as prose and is not read again for every row below it."""
+    header = _FIGURE.sub(" ", _plain_cell(header))
     return " ".join(re.sub(r"[(\[][^)\]]*[)\]]|(?<!\w)%", " ", header).split())
+
+
+# A cell that is itself a metric name: a metric noun (or a latency or price word) with at most two
+# short qualifier words around it (``accuracy``, ``top-1 accuracy``, ``mean error rate``). A phrase
+# that only ends in a metric word (``raises coverage``, ``caps risk``) is not one: prose has no
+# adjacency between such a phrase and a figure in another cell either.
+_METRIC_NAME_WORD = rf"(?:{_METRIC_NOUN}|latency|response time|price|cost|throughput|speed)"
+_NOT_A_QUALIFIER = re.compile(
+    r"^(?:the|a|an|of|to|for|and|or|in|on|at|by|with|raises?|lowers?|caps?|sets?|controls?"
+    r"|limits?|improves?|reduces?|increases?|decreases?|drops?|keeps?|targets?|affects?|is|are"
+    r"|must|should|can|may|if|when|than|vs|per)$",
+    re.IGNORECASE,
+)
+
+
+def _is_metric_name(cell: str) -> bool:
+    if _FIGURE.search(_plain_cell(cell)):
+        return False
+    words = _header_words(cell).split()
+    if not 1 <= len(words) <= 3:
+        return False
+    if any(_NOT_A_QUALIFIER.match(w) for w in words):
+        return False
+    return bool(re.search(rf"\b{_METRIC_NAME_WORD}\b", " ".join(words), re.IGNORECASE))
 
 
 def _merge_split_figures(cells: list[str]) -> list[tuple[int, str]]:
@@ -13701,10 +13794,8 @@ def _merge_split_figures(cells: list[str]) -> list[tuple[int, str]]:
     for index, cell in enumerate(cells):
         if merged and _UNIT_ONLY_CELL.fullmatch(cell) and _BARE_NUMBER.fullmatch(merged[-1][1]):
             column, number = merged[-1]
-            merged[-1] = (
-                column,
-                number + ("%" if cell.lower() in ("%", "percent", "pct") else " " + cell),
-            )
+            joined = "%" if cell.lower() in ("%", "percent", "pct") else " " + cell
+            merged[-1] = (column, number + joined)
         else:
             merged.append((index, cell))
     return merged
@@ -13717,22 +13808,33 @@ def _table_row_quantities(
     for each context it has, so ``| accuracy | 93% |`` quotes ``93%`` next to ``accuracy`` and
     ``| median latency | 180 ms |`` quotes a latency under the row's own words. A cell's contexts
     are the header of its column (``header``, the table's header row: ``| model | accuracy |``
-    over ``| jev | 93% |``) and every other cell of the row (``| jev | accuracy | 93% |``, or
-    ``| 93% | accuracy |``), so a metric word in any column counts. A bare number under a header
-    that names a unit (``value (%)``, ``latency (ms)``) is read with that unit, and a unit in its
-    own cell (``| accuracy | 93 | % |``) is joined to the number before it. Every cell is also read
+    over ``| jev | 93% |``), the row's first cell (its label) and any other cell that is itself a
+    metric name (``_is_metric_name``: ``| jev | accuracy | 93% |``, ``| 93% | accuracy |``), so a
+    metric word in any column counts; another cell that only ends in a metric word does not
+    (``| threshold | 0.65 | raises coverage |``). A bare number under a header that names a unit
+    (``value (%)``, ``latency (ms)``), or in a row whose label names one
+    (``| accuracy (%) | 93 |``), is read with that unit (the header's first), and a unit in its
+    own cell (``| accuracy | 93 | % |``) is joined to the number before it. A cell that already
+    has a unit keeps it. Inline HTML tags in a cell are read as spaces. Every cell is also read
     alone, for a cell that carries its own figure in a sentence.
     Limits: a cell with several figures quotes only the ones the prose patterns reach
-    (``0.93 / 0.91`` under ``precision / recall`` quotes ``0.93``); a header that is not the
-    table's header row (a second header block) is not a context; and a figure in one cell next to
-    a metric word in the same cell of a neighbouring row is not related to it."""
+    (``0.93 / 0.91`` under ``precision / recall`` quotes ``0.93``); one figure under two metric
+    words (a header and a metric cell) is quoted once for each, which only adds a flag; and a
+    header that is not the table's header row (a second header block) is not a context."""
+    cells = [_plain_cell(c) for c in cells]
+    header = [_plain_cell(h) for h in header or []]
     figures = _merge_split_figures(cells)
+    label_unit = _header_unit(cells[0]) if cells else None
     found: list[tuple[str, str]] = []
     for position, (column, cell) in enumerate(figures):
-        head = header[column] if header and column < len(header) else ""
-        unit = _header_unit(head)
+        head = header[column] if column < len(header) else ""
+        unit = _header_unit(head) or (label_unit if position else None)
         text = unit.format(n=cell) if unit and _BARE_NUMBER.fullmatch(cell) else cell
-        contexts = [_header_words(head)] + [c for k, (_, c) in enumerate(figures) if k != position]
+        contexts = [_header_words(head)] + [
+            _header_words(c)
+            for k, (_, c) in enumerate(figures)
+            if k != position and (k == 0 or _is_metric_name(c))
+        ]
         found += _quoted_quantities(text)
         for context in dict.fromkeys(c for c in contexts if c):
             found += _quoted_quantities(f"{context}: {text}")
@@ -16085,6 +16187,257 @@ def test_an_html_table_without_a_header_row_or_closing_tag_still_gives_its_rows(
     assert rows == [([], ["accuracy", "93%"])]
     rows, _ = _scan_tables("<table><td>accuracy</td><td>93%</td></table>")
     assert rows == [([], ["accuracy", "93%"])]
+
+
+# --- #698 review round: an HTML block, an over-eager context, a header figure, a header rule ---
+
+_TABLE_MENTIONS = {
+    "inline-code-mention": "Render it as a `<table>` element.\n\nOverall accuracy is 93% on the set.\n",
+    "unclosed-table": "<table><tr><td>a</td><td>b</td></tr>\n\nOverall accuracy is 93% on the set.\n",
+    "mention-mid-line": "Use <table> markup here. Overall accuracy is 93% on the set.\n",
+    "mention-after-a-table": (
+        "<table><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></table>\n\n"
+        "Render it as a `<table>` element. Overall accuracy is 93% on the set.\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("case", sorted(_TABLE_MENTIONS))
+def test_a_table_mention_or_an_unclosed_table_hides_no_sentence_after_it(tmp_path, case, where):
+    """A ``<table`` in inline code or mid-line opens no HTML block, and an unclosed table ends at
+    the first blank line (GFM), so the sentence below is still read, as on main."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _with_markdown(folder, where, _TABLE_MENTIONS[case])
+    violations = _unprinted_quantities(folder)
+    assert len(violations) == 1 and "'93%'" in violations[0], violations
+
+
+def test_a_table_inside_an_inline_code_span_is_prose():
+    """The code span is masked before the search, whatever line of it the tag sits on."""
+    text = "Write `a\n<table><tr><td>x</td><td>1</td></tr></table> b` here.\n"
+    rows, prose = _scan_tables(text)
+    assert rows == [] and prose == text.rstrip()
+    text = "<table><tr><td>x</td><td>1</td></tr>\n`</table>` inside\n\nafter\n"
+    rows, prose = _scan_tables(text)
+    assert rows == [([], ["x", "1"])] and "inside" not in prose and "after" in prose
+
+
+def test_an_html_block_starts_at_a_line_and_ends_at_the_close_tag_or_a_blank_line():
+    rows, prose = _scan_tables("Use `<table>` here.\n\nafter\n")
+    assert rows == [] and "after" in prose
+    rows, prose = _scan_tables("<table><tr><td>a</td><td>1</td></tr>\n\nafter\n")
+    assert rows == [([], ["a", "1"])] and prose.strip() == "after"
+    rows, prose = _scan_tables("> <table><tr><td>a</td><td>1</td></tr></table>\nafter\n")
+    assert rows == [([], ["a", "1"])] and prose.strip() == "after"
+    rows, _ = _scan_tables("   <table><tr><td>a</td><td>1</td></tr></table>\n")
+    assert rows == [([], ["a", "1"])]
+    # four spaces make a code block, not an HTML block
+    rows, _ = _scan_tables("    <table><tr><td>a</td><td>1</td></tr></table>\n")
+    assert rows == []
+
+
+_PARAMETER_TABLE = (
+    "| parameter | value | effect |\n| --- | --- | --- |\n"
+    "| threshold | 0.65 | raises coverage |\n| budget | 0.50 | caps risk |\n"
+)
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+def test_a_phrase_that_only_ends_in_a_metric_word_is_no_context_for_another_cell(tmp_path, where):
+    """Prose quotes nothing for "The threshold 0.65 raises coverage.", so a neighbouring cell
+    counts as context only when it is itself a metric name."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _with_markdown(folder, where, _PARAMETER_TABLE)
+    assert _unprinted_quantities(folder) == []
+
+
+@pytest.mark.parametrize(
+    ("cell", "is_name"),
+    [
+        ("accuracy", True),
+        ("Top-1 accuracy", True),
+        ("error rate", True),
+        ("mean error rate", True),
+        ("latency", True),
+        ("**accuracy**", True),
+        ("accuracy (%)", True),
+        ("raises coverage", False),
+        ("caps risk", False),
+        ("the accuracy of the run", False),
+        ("accuracy 93%", False),
+        ("accuracy on the held-out split", False),
+        ("threshold", False),
+        ("", False),
+    ],
+)
+def test_a_metric_name_cell_is_a_metric_noun_with_a_short_qualifier(cell, is_name):
+    assert _is_metric_name(cell) is is_name
+
+
+def test_the_label_cell_is_always_context_and_a_metric_name_cell_is_context():
+    assert _table_row_quantities(["threshold", "0.65", "raises coverage"]) == []
+    assert _table_row_quantities(["budget", "0.50", "caps risk"]) == []
+    assert _table_row_quantities(["median latency", "1.2 seconds"]) == [("speed", "1.2 seconds")]
+    assert _table_row_quantities(["jev", "accuracy", "0.93"]) == [("rate", "0.93")]
+    assert _table_row_quantities(["jev", "mean accuracy", "0.93"]) == [("rate", "0.93")]
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+def test_a_figure_in_a_header_row_is_read_once_not_once_per_data_row(tmp_path, where):
+    table = "| accuracy 93% | value |\n| --- | --- |\n| a | 1 |\n| b | 2 |\n"
+    folder = _copy_recipe(tmp_path, "_template")
+    _with_markdown(folder, where, table)
+    assert len(_unprinted_quantities(folder)) == 1
+    assert _table_row_quantities(["a", "1"], ["accuracy 93%", "value"]) == []
+    assert _header_words("accuracy 93% (%)") == "accuracy"
+    assert _header_words("top-5 accuracy") == "top-5 accuracy"
+    assert _header_words("accuracy 0.93") == "accuracy"
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize(
+    "table",
+    [
+        "| model | accuracy<br>(%) |\n| --- | --- |\n| jev | 93 |\n",
+        "| model | accuracy<br/>(%) |\n| --- | --- |\n| jev | 93 |\n",
+        "| model | accuracy |\n| --- | --- |\n| jev | 93%<br> |\n",
+        "| model | <b>accuracy</b> |\n| --- | --- |\n| jev | 93% |\n",
+        "| model | accuracy |\n| --- | --- |\n| jev | <b>93%</b> |\n",
+        "<table><tr><th>model</th><th>accuracy<br>(%)</th></tr><tr><td>jev</td><td>93</td></tr></table>\n",
+    ],
+)
+def test_an_inline_tag_in_a_cell_does_not_hide_the_header(tmp_path, table, where):
+    folder = _copy_recipe(tmp_path, "_template")
+    _with_markdown(folder, where, table)
+    violations = _unprinted_quantities(folder)
+    assert len(violations) == 1 and "93" in violations[0], violations
+
+
+_LABEL_UNITS = {
+    "percent-label": "| accuracy (%) | 93 |\n| --- | --- |\n| accuracy (%) | 93 |\n",
+    "percent-label-transposed": "| metric | a | b |\n| --- | --- | --- |\n| accuracy (%) | 93 | 91 |\n",
+    "percent-label-fraction": "| metric | value |\n| --- | --- |\n| accuracy (%) | 0.93 |\n",
+    "percent-label-fraction-printed": "| metric | value |\n| --- | --- |\n| accuracy (%) | 0.80 |\n",
+    "ms-label": "| metric | value |\n| --- | --- |\n| latency (ms) | 93 |\n",
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("case", sorted(_LABEL_UNITS))
+def test_a_unit_in_the_row_label_is_applied_to_a_bare_number(tmp_path, case, where):
+    """``| accuracy (%) | 0.80 |`` claims 0.80 %, a 100x error next to the printed 0.80: flagged."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _with_markdown(folder, where, _LABEL_UNITS[case])
+    assert _unprinted_quantities(folder), case
+
+
+def test_a_label_unit_backs_a_printed_percentage_and_never_a_fraction(tmp_path):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", "| metric | value |\n| --- | --- |\n| accuracy (%) | 80 |\n")
+    assert _unprinted_quantities(folder) == []
+    assert _table_row_quantities(["accuracy (%)", "93"]) == [("rate", "93%")]
+    assert _table_row_quantities(["accuracy (%)", "93", "91"]) == [("rate", "93%"), ("rate", "91%")]
+    # the header's unit comes first
+    assert _table_row_quantities(["latency (ms)", "93"], ["metric", "value (%)"]) == []
+    assert _table_row_quantities(["accuracy (%)", "93"], ["metric", "value (%)"]) == [
+        ("rate", "93%")
+    ]
+
+
+def test_a_header_or_label_unit_is_applied_to_a_bare_number_only():
+    columns = ["metric", "value (%)"]
+    assert _table_row_quantities(["accuracy", "93%"], columns) == [("rate", "93%")]
+    assert _table_row_quantities(["accuracy", "93 %"], columns) == [("rate", "93 %")]
+    assert _table_row_quantities(["accuracy", "0.93"], columns) == [("rate", "0.93%")]
+    assert _table_row_quantities(["latency", "0.18 seconds"], ["metric", "value (ms)"]) == [
+        ("speed", "0.18 seconds")
+    ]
+    assert _table_row_quantities(["accuracy (%)", "93%"]) == [("rate", "93%")]
+    # a cell that is words, not a number, gets no unit
+    assert _table_row_quantities(["accuracy", "about 93"], columns) == []
+
+
+def _html_rows(markup: str) -> list[tuple[list[str], list[str]]]:
+    rows, _ = _scan_tables(markup)
+    return rows
+
+
+def test_the_html_header_row_is_the_last_thead_row_or_the_first_all_th_row():
+    # a <thead> row of <td> cells is the header
+    assert _html_rows(
+        "<table><thead><tr><td>model</td><td>accuracy</td></tr></thead>"
+        "<tbody><tr><td>jev</td><td>93%</td></tr></tbody></table>"
+    ) == [(["model", "accuracy"], ["jev", "93%"])]
+    # the last row of a <thead> is the header; a title row above it is dropped
+    assert _html_rows(
+        "<table><thead><tr><td colspan=2>Results</td></tr><tr><th>model</th><th>accuracy</th></tr>"
+        "</thead><tbody><tr><td>jev</td><td>93%</td></tr></tbody></table>"
+    ) == [(["model", "accuracy"], ["jev", "93%"])]
+    # no <thead>: the first all-<th> row, after an empty row
+    assert _html_rows(
+        "<table><tr></tr><tr><th>model</th><th>accuracy</th></tr><tr><td>jev</td><td>93%</td></tr>"
+        "</table>"
+    ) == [(["model", "accuracy"], ["jev", "93%"])]
+    # a title row spanning the table is not a header, and is not a data row
+    assert _html_rows(
+        "<table><tr><th colspan=2>Results</th></tr><tr><th>model</th><th>accuracy</th></tr>"
+        "<tr><td>jev</td><td>93%</td></tr></table>"
+    ) == [(["model", "accuracy"], ["jev", "93%"])]
+    # a transposed table's empty corner cell does not make its header row a data row
+    assert _html_rows(
+        "<table><tr><td></td><th>accuracy</th></tr><tr><th>jev</th><td>93%</td></tr></table>"
+    ) == [(["", "accuracy"], ["jev", "93%"])]
+    # a row of <td> cells is a header only inside a <thead>
+    assert _html_rows(
+        "<table><tr><td>model</td><td>accuracy</td></tr><tr><td>jev</td><td>1</td></tr></table>"
+    ) == [
+        ([], ["model", "accuracy"]),
+        ([], ["jev", "1"]),
+    ]
+    # the rows above the header are passed over, the rows below are data
+    assert _html_rows(
+        "<table><tr><th>a</th><th>b</th></tr><tr><th>c</th><th>d</th></tr></table>"
+    ) == [(["a", "b"], ["c", "d"])]
+
+
+def test_an_html_colspan_keeps_the_columns_in_place():
+    assert _html_rows(
+        "<table><tr><th colspan=2>model</th><th>accuracy</th></tr>"
+        "<tr><td>jev</td><td>v2</td><td>93%</td></tr></table>"
+    ) == [(["model", "model", "accuracy"], ["jev", "v2", "93%"])]
+    assert _html_rows(
+        "<table><tr><th>model</th><th colspan=2>accuracy</th></tr>"
+        "<tr><td>jev</td><td>93%</td><td>91%</td></tr></table>"
+    ) == [(["model", "accuracy", "accuracy"], ["jev", "93%", "91%"])]
+    # a nonsense span is one column
+    assert _html_rows(
+        "<table><tr><th colspan=x>a</th><th colspan=0>b</th></tr><tr><td>1</td><td>2</td></tr></table>"
+    ) == [(["a", "b"], ["1", "2"])]
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize(
+    "table",
+    [
+        "<table><thead><tr><td>model</td><td>accuracy</td></tr></thead>"
+        "<tbody><tr><td>jev</td><td>93%</td></tr></tbody></table>\n",
+        "<table><tr></tr><tr><th>model</th><th>accuracy</th></tr>"
+        "<tr><td>jev</td><td>93%</td></tr></table>\n",
+        "<table><tr><th colspan=2>Results</th></tr><tr><th>model</th><th>accuracy</th></tr>"
+        "<tr><td>jev</td><td>93%</td></tr></table>\n",
+        "<table><tr><td></td><th>accuracy</th></tr><tr><th>jev</th><td>93%</td></tr></table>\n",
+        "<table><tr><th colspan=2>model</th><th>accuracy</th></tr>"
+        "<tr><td>jev</td><td>v2</td><td>93%</td></tr></table>\n",
+        "<table><tr><th>model</th><th colspan=2>accuracy</th></tr>"
+        "<tr><td>jev</td><td>0.1</td><td>93%</td></tr></table>\n",
+    ],
+)
+def test_an_html_table_is_read_under_its_header_row_whatever_its_shape(tmp_path, table, where):
+    folder = _copy_recipe(tmp_path, "_template")
+    _with_markdown(folder, where, table)
+    violations = _unprinted_quantities(folder)
+    assert any("'93%'" in v for v in violations), violations
 
 
 _LATER_DASH_ROWS = {
