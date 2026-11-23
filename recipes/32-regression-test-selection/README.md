@@ -6,7 +6,7 @@ Score candidate tests against the behavior changed by a patch so Python can prop
 
 ## What it teaches
 
-Jev supplies one narrow judgment, a typed `Score` over a four-level relevance rubric Python builds: `unrelated`, `same_area`, `exercises_change`, `direct_regression`, asked once per (patch, candidate test) pair. Python owns everything else: the state Jev sees, the patch and test identifiers that never reach the model, a small file-path-and-lexical baseline standing in for however the candidate set itself might otherwise be ranked, the fixed business cutoff that decides which levels count as relevant, the confidence gate (chosen on `validation`, then frozen) that decides whether a score is trustworthy enough to act on at all, and the suite-composition function that turns several per-candidate judgments, under a fixed size budget, into one bounded regression suite. The notebook shows three typed answers up close, the rule, the baseline, and the suite-composition function (including two worked patches that isolate what each of the gate and the budget binds), then an evaluation that reports per-candidate agreement with the rubric and selective-prediction numbers, the recall of each patch's gold-relevant tests within the proposed suite against that baseline (per patch and averaged across every patch), and two counterfactuals that show exactly what removing the confidence gate and removing the size budget each cost.
+Jev supplies one narrow judgment, a typed `Score` over a four-level relevance rubric Python builds: `unrelated`, `same_area`, `exercises_change`, `direct_regression`, asked once per (patch, candidate test) pair. Python owns everything else: the state Jev sees, the patch and test identifiers that never reach the model, a small file-path-and-lexical baseline standing in for however the candidate set itself might otherwise be ranked, the fixed business cutoff that decides which levels count as relevant, the [confidence gate](../../docs/glossary.md#confidence-gate) (chosen on `validation`, then frozen) that decides whether a score is trustworthy enough to act on at all, and the suite-composition function that turns several per-candidate judgments, under a fixed size budget, into one bounded regression suite. The notebook shows three typed answers up close, the rule, the baseline, and the suite-composition function (including two worked patches that isolate what each of the gate and the budget binds), then an evaluation that reports per-candidate agreement with the rubric and [selective-prediction](../../docs/glossary.md#selective-prediction) numbers, the [recall](../../docs/glossary.md#recall) of each patch's gold-relevant tests within the proposed suite against that baseline (per patch and averaged across every patch), and two counterfactuals that show exactly what removing the confidence gate and removing the size budget each cost.
 
 ## Run it offline
 
@@ -63,17 +63,17 @@ The committed run replays 163 invented (patch, candidate test) relevance judgmen
 hand-written (synthetic) answers, some wrong on purpose: several `validation` candidates are
 wrong at low confidence (so the confidence gate this notebook selects on `validation` is a real
 choice, not a vacuous one), and two `test` candidates — each written to advertise regression
-coverage it does not actually have — are wrong *and* confident, above the gate this notebook
+protection it does not actually have — are wrong *and* confident, above the gate this notebook
 freezes on `validation`, so the per-candidate selective-prediction numbers on `test` show a
-real, non-zero risk rather than a gate that happens to look perfect, and the task-level recall
+real, non-zero [risk](../../docs/glossary.md#risk) rather than a gate that happens to look perfect, and the task-level recall
 of the gold-relevant tests at the size budget, against the file-path-and-lexical baseline, shows
 a real, non-degenerate number rather than a perfect score the budget and the gate could not have
 produced any other way (several patches have more gold-relevant candidates than the budget can
 ever hold, and several others have a gold-relevant candidate stored at too low a confidence to
-be trusted). Exact agreement, mean absolute error, the coverage of the frozen confidence gate,
+be trusted). Exact agreement, mean absolute error, the [coverage](../../docs/glossary.md#coverage) of the frozen confidence gate,
 and the recall of the gold-relevant tests within the proposed suite all check that the pipeline
 works; they say nothing about how Jev performs, how fast it is, or what it costs. Every stored
-answer was written from its gold label except the three deliberately adversarial ones, so the
+answer was written from its [gold label](../../docs/glossary.md#gold-label) except the three deliberately adversarial ones, so the
 proposed suite reproduces that label wherever it decides a patch away from those; any margin
 over the baseline is a property of this fixture set, not a measurement of a real suite proposer.
 
