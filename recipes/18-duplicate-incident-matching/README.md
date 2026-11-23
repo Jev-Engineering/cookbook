@@ -12,13 +12,13 @@ own symptoms (no model call), and the explicit fallback `no_match` the use case 
 that matches none of them. Python owns everything else: the state Jev sees (the ticket's symptoms
 and affected service, as separate fields), the retrieval, and the rule that links a confident real
 match to its candidate — the one outcome with a simulated side effect — reports `no_match` as a
-final result whatever its confidence, and sends anything else uncertain to an explicit `review`
+final result whatever its confidence, and sends anything else uncertain to an explicit [`review`](../../docs/glossary.md#review)
 outcome. The notebook shows three typed answers up close (a near duplicate on the wrong service,
 this recipe's central trap; a ticket that matches nothing; and a `validation` ticket whose stored
 answer falls into the trap and gets it wrong), then the rule and its one simulated action (an
-`ActionLog` entry recording a link, never executed), a sweep of the confidence gate so the choice
+`ActionLog` entry recording a link, never executed), a sweep of the [confidence gate](../../docs/glossary.md#confidence-gate) so the choice
 of cut-off can be checked rather than taken on faith, then an evaluation that reports top-1 match
-accuracy, and coverage, risk and the false-merge rate taken from
+[accuracy](../../docs/glossary.md#accuracy), and [coverage](../../docs/glossary.md#coverage), [risk](../../docs/glossary.md#risk) and the false-merge rate taken from
 `jev_cookbook.evaluation.evaluate_outcomes` and the rule's own outcomes.
 
 ## Run it offline
@@ -74,10 +74,10 @@ three in `test` (the same wrong-service trap, confident enough this time to clea
 and become a real false merge; a real duplicate reported as `no_match`, confidently, and never
 checked by any confidence gate at all; and a real duplicate named with the wrong candidate at a
 low confidence, caught and sent to review). A fifth ticket breaks a pattern the rest of the
-fixtures share without meaning to: every other real-incident gold label happens to be the
+fixtures share without meaning to: every other real-incident [gold label](../../docs/glossary.md#gold-label) happens to be the
 shortlist's top-ranked candidate, so this one's gold match is deliberately the second-ranked
 candidate instead, worded to outrank it on word overlap while naming the matching service. Its
-top-1 match accuracy, confusion matrix, per-option precision and recall for `no_match`, and the
+top-1 match accuracy, confusion matrix, per-option [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall) for `no_match`, and the
 coverage, accuracy, risk and false-merge rate taken from the rule's own outcomes check that the
 pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs. This
 recipe has no recorded fixtures.

@@ -2,7 +2,7 @@
 
 **Recipe 21** · Level 2 (Easy) · Decision type: `Choice`
 
-Judge whether a typed quiz response matches an accepted answer by meaning, with partial-match and review outcomes for ambiguous responses.
+Judge whether a typed quiz response matches an accepted answer by meaning, with partial-match and [review](../../docs/glossary.md#review) outcomes for ambiguous responses.
 
 ## What it teaches
 
@@ -13,14 +13,14 @@ number is never sent to Jev at all, settled or not, because TypeSafe's own notes
 (S07) say arithmetic belongs in code. Jev supplies one narrow judgment, a typed `Choice` over
 four options the use case names: `match`, `partial_match`, `no_match`, `needs_review`. Python
 decides what a model-chosen answer is allowed to do: a `review` outcome — whether Jev named
-the `needs_review` option outright or a confidence gate put a response there — is never
+the `needs_review` option outright or a [confidence gate](../../docs/glossary.md#confidence-gate) put a response there — is never
 reported as a final grade, because awarding or withholding a point is a side effect
 CONTRIBUTING.md section 4 keeps in Python's hands; every such response goes into a simulated
 `ReviewQueue` for a human adjudicator instead. The notebook shows both the settled and the
 model-assisted path on one pair of examples, then the rule, then an evaluation that reports how
-many responses never needed a call, agreement with the gold label, a confusion matrix and
-per-class metrics, and the causes of `review` outcomes. It shows selective coverage, accuracy
-and risk side by side for the whole test split and the responses that reached Jev. On those
+many responses never needed a call, agreement with the [gold label](../../docs/glossary.md#gold-label), a confusion matrix and
+per-class metrics, and the causes of `review` outcomes. It shows selective [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy)
+and [risk](../../docs/glossary.md#risk) side by side for the whole test split and the responses that reached Jev. On those
 same responses it compares the rule's decisions with each baseline.
 
 ## Run it offline

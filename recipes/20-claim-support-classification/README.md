@@ -11,14 +11,14 @@ Jev supplies one narrow judgment, a typed `Choice` over three fixed options Pyth
 cookbook pattern (S06): one `Choice` named `relation` that asks how a passage relates to a claim,
 adapted here so the third option, `unresolved`, is a real outcome of its own rather than a last
 resort. Python keeps the passage identifier out of the state entirely and reattaches it to every
-result, accepted or sent to review, so a result can always be traced back to the passage it came
+result, accepted or sent to [review](../../docs/glossary.md#review), so a result can always be traced back to the passage it came
 from. The one setting Python tunes, a confidence threshold, is chosen on `validation` and frozen
 before `test` is touched. The notebook shows typed answers across the hard cases this use case
 names (a passage that is on topic but does not settle the claim, a passage that only supports a
 narrower version of the claim, a passage that shares the claim's keywords but is about something
 else), then an evaluation that checks the stored answers against a majority-label baseline chosen
-on `validation`, reports per-class precision, recall and F1 with `unresolved` discussed on its
-own, and the coverage, accuracy and risk the frozen threshold buys on `test`, including one
+on `validation`, reports per-class [precision](../../docs/glossary.md#precision), [recall](../../docs/glossary.md#recall) and [F1](../../docs/glossary.md#f1) with `unresolved` discussed on its
+own, and the [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy) and [risk](../../docs/glossary.md#risk) the frozen threshold buys on `test`, including one
 answer that is confidently wrong on purpose.
 
 ## Run it offline
@@ -66,7 +66,7 @@ committed file.
 
 The committed run replays 40 invented claim/passage pairs with hand-written (synthetic) answers,
 several wrong on purpose, including one wrong *and* confident on `test` (`t16-confident-wrong`) so
-the frozen confidence threshold's selective-prediction numbers show a real, non-zero risk rather
+the frozen confidence threshold's [selective-prediction](../../docs/glossary.md#selective-prediction) numbers show a real, non-zero risk rather
 than a guarantee that happens to hold. Its accuracy, per-class precision/recall/F1 and the
 coverage of the frozen threshold check that the pipeline works; they say nothing about how Jev
 performs, how fast it is, or what it costs. This recipe has no recorded fixtures.
