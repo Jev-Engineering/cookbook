@@ -65,6 +65,11 @@ _THRESHOLD_OBJECTIVE_PIN_REASON = (
     "asserted present against a real read of the committed notebook/helpers.py source; see #244"
 )
 
+_GLOSSARY_FIRST_USE_LINKS_REASON = (
+    "glossary_first_use_links (#211): the first use of a lexicon term in the recipe's README or "
+    "notebook prose is not the relative link ../../docs/glossary.md#anchor; see #211"
+)
+
 KNOWN_FAILURES: dict[tuple[str, str], str] = {
     (slug, "threshold_objective_pin"): _THRESHOLD_OBJECTIVE_PIN_REASON
     for slug in (
@@ -101,3 +106,67 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "35-semantic-feature-extraction",
     )
 }
+
+KNOWN_FAILURES.update(
+    {
+        (slug, "glossary_first_use_links"): _GLOSSARY_FIRST_USE_LINKS_REASON
+        for slug in (
+            "01-sentiment-classification",
+            "02-refund-intent-detection",
+            "03-response-clarity-scoring",
+            "04-support-ticket-routing",
+            "05-document-classification",
+            "06-multiple-topic-labels",
+            "07-word-sense-selection",
+            "08-faq-selection",
+            "09-file-organization",
+            "10-answer-relevance-check",
+            "11-clarification-selection",
+            "12-thesaurus-word-selection",
+            "13-candidate-rewrite-selection",
+            "14-source-span-selection",
+            "15-sensitive-text-triage",
+            "16-discord-moderation-triage",
+            "17-passage-reranking",
+            "18-duplicate-incident-matching",
+            "19-ci-failure-classification",
+            "20-claim-support-classification",
+            "21-quiz-answer-adjudication",
+            "22-cmdb-asset-matching",
+            "23-pairwise-answer-evaluation",
+            "24-incident-priority-composition",
+            "25-change-evidence-review",
+            "26-prompt-injection-screening",
+            "27-function-selection",
+            "28-skill-selection",
+            "29-tool-outcome-verification",
+            "30-citation-verification",
+            "31-patch-risk-triage",
+            "32-regression-test-selection",
+            "33-schema-field-mapping",
+            "34-evidence-relationship-labels",
+            "35-semantic-feature-extraction",
+            "36-card-game-action-selection",
+            "37-research-domain-tagging",
+            "38-abstention-and-review-queues",
+            "39-document-extraction-cascade",
+            "40-hierarchical-classification",
+            "41-approval-scope-review",
+            "42-outbound-disclosure-screening",
+            "43-failure-recovery-selection",
+            "44-plan-constraint-assessment",
+            "45-memory-reconciliation",
+            "46-semantic-context-paging",
+            "47-evidence-conflict-diagnosis",
+            "48-document-revision-consistency",
+            "49-multi-agent-task-assignment",
+            "50-model-comparison-and-calibration",
+            "51-stalled-loop-detection",
+            "52-retrieval-pipeline-evaluation",
+            "56-adversarial-harness-evaluation",
+            "57-evidence-graph-updates",
+            "69-visual-sku-recognition",
+            "77-visual-browser-element-locator",
+        )
+    }
+)

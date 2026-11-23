@@ -781,6 +781,17 @@ cannot go stale in that direction either (one check narrower since #203: a
 a foundation pull request that adds a stricter guard check may add the entries that check newly
 reveals, never one for a check that already existed and already passed.
 
+`glossary_first_use_links` (#211) is such a check. It reads each recipe's README and notebook markdown
+with a Markdown parser and requires the first use of each lexicon term in `docs/recipe-template.md`
+to be the link `../../docs/glossary.md#anchor` to an anchor `docs/glossary.md` defines (first use is the
+first markdown cell in notebook order that uses the term; the README is checked on its own). The
+recipes whose first uses were already unlinked when it landed are its allowlist entries, which a
+sweep removes recipe by recipe. What stays with a reviewer, and is not checked: that the sentence
+actually defines the term, everyday senses of a lexicon word that the check's short named list
+(a customer review, some risk of, test coverage, support outside a sentence naming precision, recall
+or F1) does not cover, an inflection other than the plural of gold label, business threshold and
+confidence gate, and a term used only in a heading, a quotation or a code cell.
+
 ## Local commands
 
 The commands that reproduce a job on one recipe, including the network guard and the scope check,
