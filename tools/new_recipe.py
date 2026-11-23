@@ -2138,7 +2138,7 @@ def _draw_images(target: Path) -> None:
         raise ScaffoldError(
             "--mode replay-images draws the example images by running the new folder's "
             "build_fixtures.py, which needs the installed package and Pillow "
-            f'(pip install -e ".[dev]"); it failed, so nothing was created:\n{problem}'
+            f'(pip install -e ".[dev,ml]"); it failed, so nothing was created:\n{problem}'
         )
     if not canonical:
         print(

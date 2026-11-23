@@ -34,7 +34,7 @@ from jev_cookbook.evaluation import noul_confidence, select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, select_split, validate_recipe
 from jev_cookbook.vision import box_confidence, box_iou, gold_box, localization_report
 
-from .module_loader import load_module_at
+from .module_loader import load_module_at, load_module_at_isolated
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "recipes" / "_template"
@@ -58,8 +58,9 @@ executor_budget = load_module_at(
 )
 # tests/test_recipe_guard.py's own _backend_budget_verdict, loaded by file path (an import, not an
 # edit) so test_a_fresh_scaffold_also_passes_the_one_backend_per_budget_guard below calls the real
-# guard rather than a local reimplementation of its rules.
-recipe_guard = load_module_at(
+# guard rather than a local reimplementation of its rules. The isolated load restores sys.modules:
+# the second execution would otherwise replace the guard's registered scope-tool module (#690).
+recipe_guard = load_module_at_isolated(
     Path(__file__).with_name("test_recipe_guard.py"), "test_recipe_guard_for_test"
 )
 
@@ -467,6 +468,23 @@ def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, re
     with pytest.raises(AssertionError, match="request_budget.json"):
         _request_audit.audit_recipe(folder, cells)
     budget_path.write_text(saved, encoding="utf-8", newline="\n")
+
+
+def test_loading_the_guard_again_leaves_sys_modules_as_it_was():
+    """#690: this file loads tests/test_recipe_guard.py a second time, and that must not replace the
+    scope-tool module the first load registered, or the guard's citation test fails by order."""
+    before = dict(sys.modules)
+    load_module_at_isolated(Path(__file__).with_name("test_recipe_guard.py"), "second_guard_load")
+    assert sys.modules == before
+    assert all(sys.modules[name] is module for name, module in before.items())
+
+
+def test_the_collected_guard_still_owns_its_registered_scope_tool_module():
+    guard = sys.modules.get("tests.test_recipe_guard")
+    if guard is None:
+        pytest.skip("tests/test_recipe_guard.py is not collected in this run")
+    module = sys.modules[guard.without_code_fences.__module__]
+    assert guard.without_code_fences is module.without_code_fences
 
 
 @pytest.mark.parametrize("mode", new_recipe.MODES)
