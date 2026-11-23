@@ -209,18 +209,7 @@ def test_the_validator_rejects_excess_padding_with_a_permissive_decoder(encoded,
         vision._decode_base64(encoded)
 
 
-def test_the_validator_accepts_exactly_correctly_padded_base64_on_every_python_version():
-    for length in range(0, 9):
-        for chars in itertools.product("Aw+=", repeat=length):
-            encoded = "".join(chars)
-            accepted = _validator_length(encoded) is not None
-            assert accepted == bool(_PADDED_BASE64.fullmatch(encoded)), encoded
-    for excess in ("=", "==", "AAAA=", "AAAA==", "Aw==="):
-        with pytest.raises(ValueError, match="standard base64"):
-            vision._decode_base64(excess)
-
-
-def test_the_size_count_agrees_with_the_validator_for_every_short_string_including_excess_padding():
+def test_the_validator_and_size_count_agree_for_every_short_string_including_excess_padding():
     # Every string of length 0 to 8 over a small alphabet that includes padding, so excess or
     # misplaced "=" is covered; runs on every interpreter in CI, Python 3.10 included.
     alphabet = "Aw+="
@@ -229,8 +218,12 @@ def test_the_size_count_agrees_with_the_validator_for_every_short_string_includi
         for chars in itertools.product(alphabet, repeat=length):
             encoded = "".join(chars)
             decoded = _validator_length(encoded)
+            assert (decoded is not None) == bool(_PADDED_BASE64.fullmatch(encoded)), encoded
             if decoded is None:
                 continue
             checked += 1
             assert vision._encoded_size({"data_base64": encoded}) == decoded, encoded
     assert checked > 1000
+    for excess in ("=", "==", "AAAA=", "AAAA==", "Aw==="):
+        with pytest.raises(ValueError, match="standard base64"):
+            vision._decode_base64(excess)
