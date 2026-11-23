@@ -12133,12 +12133,40 @@ _AMOUNT_THEN_METRIC = re.compile(
 # 0.0526 beside a printed accuracy of 0.9474).
 _COMPLEMENTARY_RATES = frozenset({"risk", "accuracy", "error rate"})
 _RATE_LINE = re.compile(r"\b(?:accuracy|risk|error rate)\b", re.IGNORECASE)
-_PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s?%")
+# A digit run glued on its left to an ASCII letter or an underscore, with its thousands-group and
+# decimal tails (``sku1.93``, ``sku1.2.93``, ``x1,250``), is part of an identifier, not a
+# quantity (#542).
+# ``_mask_glued`` replaces every digit of such a token by ``#`` before any pattern below reads the
+# text, so the patterns need no boundary of their own and cannot restart inside a refused token:
+# ``sku93%``, ``sku1.93%`` and ``v1.180ms`` offer nothing, while ``180ms``, ``accuracy,93%``,
+# ``0.5,93%`` and a cell after a glued id (``t01,0.93``, ``F1,93%``) are read as before. The tail
+# takes a comma only as a thousands group (``,`` and exactly three digits), so a following CSV
+# cell is not swallowed; a cell of exactly three digits right after an id (``t01,930``) is.
+_GLUED_TOKEN = re.compile(r"(?<=[A-Za-z_])\d+(?:,\d{3}(?!\d))*(?:\.\d+)*")
+
+
+def _mask_glued(text: str, *, keep_f1: bool = False) -> str:
+    """``text`` with the digits of every glued token (``_GLUED_TOKEN``) replaced by ``#``, one
+    for one, so positions are unchanged. ``keep_f1`` leaves the metric word ``F1`` readable, for
+    the prose side, whose metric nouns include ``f1``."""
+
+    def mask(m: re.Match) -> str:
+        if keep_f1 and m.group(0) == "1" and text[m.start() - 1] in "fF":
+            before = text[m.start() - 2] if m.start() >= 2 else " "
+            if not (before.isalnum() or before == "_"):
+                return m.group(0)
+        return re.sub(r"\d", "#", m.group(0))
+
+    return _GLUED_TOKEN.sub(mask, text)
+
+
+_PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 # A price, as a price per unit of work ("$0.0004 a call"), or as a price in a sentence that talks
 # about cost and about Jev, the model or the API. A bare "$500" in a sentence about a fixture's
 # invoice is a number in the example, not a claim about Jev.
 _PRICE_AMOUNT = (
-    r"(?:[$€£]\s?\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?(?:USD|EUR|GBP|cents?|dollars?)\b)"
+    r"(?:[$€£]\s?\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?"
+    r"(?:USD|EUR|GBP|cents?|dollars?)\b)"
 )
 _UNIT_OF_WORK = (
     r"(?:call|request|token|query|queries|inference|decision|answer|question|example|prediction"
@@ -12166,20 +12194,35 @@ _SECONDS = re.compile(r"(?P<q>\d[\d,]*(?:\.\d+)?\s?(?:seconds?|secs?|minutes?)\b
 _SERVICE_SPEED_WORD = re.compile(r"\b(?:latency|response time)\b", re.IGNORECASE)
 _SPEED_WORD = re.compile(r"\b(?:slow|fast|speed|takes?)\b", re.IGNORECASE)
 _LIVE_RUN = re.compile(r"\blive\b", re.IGNORECASE)
-_NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
+# The pool's tokenizer (#542). A digit run glued on its left to an ASCII letter or an underscore is
+# part of an identifier (a 7-character git short SHA, a base64 or base32 id, a mixed-case id,
+# ``run_42``), not a quantity, and so is the thousands-group and decimal tails of that run
+# (``v1.5``, ``x1,250``). The ``glued`` alternative matches the whole token and ``_number_matches``
+# drops it, so the scan resumes after it and cannot restart at one of its later digits. ``180ms``
+# keeps its trailing unit: only the left boundary matters. A digit run separated from its letters
+# by other punctuation (``id-42``) is still read, and so is one glued to a non-ASCII letter
+# (``\u00e993``).
+_NUMBER = re.compile(
+    r"(?P<glued>(?<=[A-Za-z_])\d+(?:,\d{3}(?!\d))*(?:\.\d+)*)"
+    r"|(?P<n>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+)
+
+
+def _number_matches(text: str) -> list[re.Match]:
+    return [m for m in _NUMBER.finditer(text) if m.group("n") is not None]
 
 
 def _decimals(text: str) -> list[Decimal]:
-    return [Decimal(m.group(0).replace(",", "")) for m in _NUMBER.finditer(text)]
+    return [Decimal(m.group("n").replace(",", "")) for m in _number_matches(text)]
 
 
 def _quoted_candidates(quote: str) -> list[tuple[Decimal, int]]:
     """``(value, decimal places)`` readings of a quoted amount: a percentage is read as itself
     and as the fraction it stands for (97.4% as 97.4 and as 0.974)."""
-    digits = _NUMBER.search(quote)
-    if digits is None:
+    digits = _number_matches(quote)
+    if not digits:
         return []
-    value = Decimal(digits.group(0).replace(",", ""))
+    value = Decimal(digits[0].group("n").replace(",", ""))
     places = max(0, -value.as_tuple().exponent)
     if "%" in quote:
         return [(value, places), (value / 100, places + 2)]
@@ -12283,7 +12326,7 @@ def _quoted_quantities(text: str) -> list[tuple[str, str]]:
     ``rate`` for risk, accuracy and error rate, which are each other's complement), as a price
     (``price``), or as a latency or a throughput (``speed``)."""
     found = []
-    for sentence in _sentences(text):
+    for sentence in _sentences(_mask_glued(text, keep_f1=True)):
         for pattern in (_METRIC_THEN_AMOUNT, _AMOUNT_THEN_METRIC):
             found += [
                 ("rate" if m.group("n").lower() in _COMPLEMENTARY_RATES else "metric", m.group("q"))
@@ -12346,10 +12389,10 @@ def _without_hash_like_tokens(text: str) -> str:
 
 
 def _pool_text(text: str) -> str:
-    """``text`` as the metric pool reads it: audit-prefix lines blanked, then hash-like tokens
-    replaced. Both pool sources (committed output and the recipe's own tests) go through this one
-    chain."""
-    return _without_hash_like_tokens(_without_audit_lines(text))
+    """``text`` as the metric pool reads it: audit-prefix lines blanked, hash-like tokens
+    replaced, then the digits of every glued token masked (#542). Both pool sources (committed
+    output and the recipe's own tests) go through this one chain."""
+    return _mask_glued(_without_hash_like_tokens(_without_audit_lines(text)))
 
 
 def _scanned_output(recipe_dir_: Path) -> str:
@@ -12367,11 +12410,21 @@ def _scanned_output(recipe_dir_: Path) -> str:
     )
 
 
+# A slash starts a rate unit when a unit word follows it. The word ends at a character that is not
+# an ASCII letter, digit or underscore (not ``\b``), so ``/sec²`` ends its unit while ``/step`` and
+# ``/secure`` do not start one.
 _RATE_DENOMINATOR = (
-    r"/\s?(?:s(?:ec(?:ond)?s?)?|min(?:ute)?s?|h(?:rs?|ours?)?|ms|req(?:uests?)?|calls?|tokens?)\b"
+    r"/\s?(?:s(?:ec(?:ond)?s?)?|min(?:ute)?s?|h(?:rs?|ours?)?|days?|ms|req(?:uests?)?|calls?"
+    r"|tok(?:en)?s?|samples?|quer(?:y|ies)|items?|1k)(?![A-Za-z\d_])"
 )
+# What follows a number that makes it something other than a fraction: a percent sign (ASCII or
+# full-width U+FF05, after any run of spaces), a per-mille sign (U+2030), the word percent, per cent
+# or pct,
+# or a rate unit.
 _PERCENT_FRACTION = re.compile(
-    rf"(?<![\w.])(?:0\.\d+|1\.0+)(?!\w|\.\w|\s?%|\s?{_RATE_DENOMINATOR})", re.IGNORECASE
+    r"(?<![\w.])(?:0\.\d+|1\.0+)"
+    rf"(?!\w|\.\w|\s*(?:[%％‰]|(?:per\s?cent|percent|pct)\b)|\s*{_RATE_DENOMINATOR})",
+    re.IGNORECASE,
 )
 
 
@@ -12380,10 +12433,14 @@ def _percentage_fractions(line: str, *, percent: bool = True) -> list[Decimal]:
     percentage (its number and ``%`` on this line) as number / 100, and an explicit unitless
     decimal fraction (0.0 to 1.0, with a decimal point). A bare integer is a count and backs
     nothing, and a number inside a price, latency, throughput or seconds figure, or followed by
-    ``/``, carries another unit: a printed ``92.6 seconds`` or ``0.926 ms`` does not back 93%.
-    Other unit words are not recognised, so ``0.926 widgets`` still counts as a fraction.
-    A number followed by ``%`` is a percentage, never a fraction (``0.93%`` is 0.0093). A slash
-    excludes only when it starts a rate unit (``0.93/s``, ``/min``); ``0.93/0.91`` is a fraction.
+    a rate unit, carries another unit: a printed ``92.6 seconds`` or ``0.926 ms`` does not back
+    93%. Other unit words are not recognised, so ``0.926 widgets`` still counts as a fraction.
+    A number followed by ``%`` (ASCII or full-width, after any spaces), a per-mille sign or the
+    word ``percent``, ``per cent`` or ``pct`` is a percentage, never a fraction (``0.93%`` is
+    0.0093). A slash
+    excludes only when it starts a rate unit (``0.93/s``, ``/min``, ``/day``, ``/sample``,
+    ``/query``, ``/item``, ``/tok``, ``/1k``, ``/sec`` with a superscript 2); ``0.93/0.91`` and
+    ``0.93/step`` are fractions.
     Signs are ignored (``-0.93`` reads as 0.93) and a fraction needs its leading digit (``.93``
     is not read)."""
     units = [m.span() for m in re.finditer(_PRICE_AMOUNT, line, re.IGNORECASE)]
@@ -13971,7 +14028,8 @@ def _real_audit_line(n: int = 22) -> str:
 def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell(tmp_path):
     """#376: the committed ``AUDIT_PREFIX`` line's 64-character hex ``replay_key`` runs must not
     back a fabricated prose quantity (the defect: a hex run containing ``093``, so
-    "The accuracy is 93%." used to pass). Excluding it must not cost a cell's other, genuine
+    "The accuracy is 93%." used to pass; the figure pinned below is 94, see the precondition).
+    Excluding it must not cost a cell's other, genuine
     output line its own numbers -- one code cell carries both lines here. This is defensive scope
     for any cell of any recipe that prints the prefix, not a claim about a real audited recipe's
     final cell: ``tests/request_audit.py``'s ``audited_evidence`` requires that final cell to hold
@@ -13982,13 +14040,15 @@ def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell
     the ledger's hex alone used to supply is caught.
 
     The precondition below pins the defect to the hex rather than to an accident of it: the
-    states this builds the line from must actually produce a literal ``93`` somewhere in the
-    line's own digits, or this test could silently stop being a regression test for #376 (a
-    schema bump or a different request count can change which digits a hash produces)."""
+    states this builds the line from must actually produce a literal ``94`` that the tokenizer
+    still reads (a key's leading digit run, in front of any letter: since #542 the digit runs
+    glued to a letter are not read at all), or this test could silently stop being a regression
+    test for #376 (a schema bump or a different request count can change which digits a hash
+    produces)."""
     audit_line = _real_audit_line()
     assert audit_line.startswith(AUDIT_PREFIX)
-    assert Decimal(93) in _decimals(audit_line), (
-        "the synthetic audit line no longer contains the literal '93' this test pins -- "
+    assert Decimal(94) in _decimals(audit_line), (
+        "the synthetic audit line no longer reads a literal '94' this test pins -- "
         "its states must be changed so the defect it guards against is still exercised"
     )
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
@@ -14000,13 +14060,13 @@ def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell
     )
     _append_cell(folder, "markdown", "The accuracy is 95%.", cell_id="genuine")
     assert _unprinted_quantities(folder) == []
-    _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
-    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 93 cannot back it
-    # anyway); the ordinary decimal 93.0 can, so it pins the exclusion on its own.
-    _append_cell(folder, "markdown", "The accuracy is 93.0.", cell_id="fabricated-decimal")
+    _append_cell(folder, "markdown", "The accuracy is 94%.", cell_id="fabricated")
+    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 94 cannot back it
+    # anyway); the ordinary decimal 94.0 can, so it pins the exclusion on its own.
+    _append_cell(folder, "markdown", "The accuracy is 94.0.", cell_id="fabricated-decimal")
     unbacked = _unprinted_quantities(folder)
-    assert any("fabricated-decimal" in m and "93.0" in m for m in unbacked), unbacked
-    assert any("93" in message for message in unbacked), unbacked
+    assert any("fabricated-decimal" in m and "94.0" in m for m in unbacked), unbacked
+    assert any("94" in message for message in unbacked), unbacked
 
 
 def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches_a_fabrication(
@@ -14017,8 +14077,9 @@ def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches
     ``_append_cell`` never otherwise exercises, since every other test here puts the ledger last
     in its cell rather than between two lines. Dropping the whole line (rather than blanking its
     content) used to splice "180" and "ms" together across the one optional whitespace
-    character ``_LATENCY_MS`` (and ``_PERCENT``, ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``)
-    allow, backing a latency the recipe never printed. Since #380 the units are also read per
+    character ``_LATENCY_MS`` (and ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``; ``_PERCENT``
+    has allowed any run of spaces since #542, always within one line) allow, backing a latency the
+    recipe never printed. Since #380 the units are also read per
     line, so this test alone no longer fails for a mutant that deletes the audit line; the
     scanned text is therefore pinned directly too: the blanked line must remain a line between
     its neighbours (``_scanned_output``), and the end-to-end result must still catch the claim."""
@@ -14048,7 +14109,8 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     *lines* rather than as a sequence of *cell texts* collapses the two-newline gap
     ``origin/main`` leaves between a cell's own trailing newline and the outer join's separator
     down to one, which is exactly the one optional whitespace character ``_LATENCY_MS`` (and
-    ``_PERCENT``, ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``) allow between a number and its
+    ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``; ``_PERCENT`` allows any run of spaces) allow
+    between a number and its
     unit -- no audit line is even needed to exercise this shape. One cell's output ends ``median
     latency 180``, terminated by its own trailing newline (as every cell built by ``_append_cell``
     is); the next cell's output begins ``ms over the sample``. Round 2 repaired the join itself
@@ -14080,6 +14142,10 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
 # "The accuracy is 93%."; and a UUID with the same property.
 _DIGEST_WITH_93 = "f" * 30 + "a93b" + "e" * 30
 _UUID_WITH_93 = "deadbeef-cafe-4a93-bead-facefacefeed"
+# Since #542 the tokenizer refuses the "93" glued to letters in the two above, so the filter is
+# pinned by digests whose first digit run is the 93 itself, in front of any letter.
+_DIGEST_LEADING_93 = "93" + "f" * 30 + "e" * 32
+_UUID_LEADING_93 = "93adbeef-cafe-4aab-bead-facefacefeed"
 
 
 @pytest.mark.parametrize(
@@ -14087,6 +14153,10 @@ _UUID_WITH_93 = "deadbeef-cafe-4a93-bead-facefacefeed"
     [
         ("output", f"fixture digest (sha256): {_DIGEST_WITH_93}"),
         ("output", f"run id: {_UUID_WITH_93}"),
+        ("output", f"fixture digest (sha256): {_DIGEST_LEADING_93}"),
+        ("output", f"run id: {_UUID_LEADING_93}"),
+        ("output", f"cache key {_DIGEST_LEADING_93.upper()}"),
+        ("tests", f'    assert \'"replay_key":"{_DIGEST_LEADING_93}"\' in out\n'),
         ("output", f"cache key {_DIGEST_WITH_93.upper()}"),
         # A digest glued to a word character, ``0x`` or a dot is still a digest.
         ("output", f"fixture cache file: cache_{_DIGEST_WITH_93}.json"),
@@ -14105,7 +14175,9 @@ def test_a_hash_like_token_does_not_back_a_fabricated_figure(tmp_path, where, li
     cache key) or to pin one in its tests; its hex digit runs are not quantities. Before: the
     token's own digits hold the quoted 93 (asserted on the raw text, which is what the pool read).
     After: the fabricated sentence is reported."""
-    assert Decimal("93") in _decimals(line)
+    assert _without_hash_like_tokens(line) != line
+    legacy_runs = [Decimal(m) for m in re.findall(r"\d+", line)]
+    assert Decimal("93") in legacy_runs
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     if where == "output":
         _append_cell(folder, "code", line, cell_id="prints-a-digest")
@@ -14172,6 +14244,178 @@ def test_a_digit_free_hex_run_has_no_effect_on_the_pool():
     and its neighbours (a hex run cannot touch a digit, the lookarounds forbid it), unchanged."""
     text = "n 7 deadbeefdeadbeef 8.5 cafebabecafebabe.9 x1"
     assert _decimals(_without_hash_like_tokens(text)) == _decimals(text)
+
+
+# #542: a digit run glued on its left to a letter or an underscore is part of an identifier. Each
+# shape below carries a "93" inside the identifier (so before the fix it alone backed a fabricated
+# "93.0"), in a form no hash-like or audit-line filter reaches: the docs listed the first four as
+# leaks.
+_IDENTIFIERS_WITH_93 = {
+    "git-short-sha": "commit e4b7a93",
+    "base64-id": "object QWJj93RlZg==",
+    "base32-id": "ticket MFRGG93DFEBRW63",
+    "mixed-case-id": "session Xk93Qz",
+    "underscore-id": "fixture run_93",
+}
+
+
+@pytest.mark.parametrize("where", ["output", "tests"])
+@pytest.mark.parametrize("shape", sorted(_IDENTIFIERS_WITH_93))
+def test_a_digit_run_inside_an_identifier_does_not_back_a_fabricated_figure(tmp_path, shape, where):
+    """#542: the tokenizer, not another filter, refuses a digit run glued to a letter or an
+    underscore, from committed output and from the recipe's own tests. Each identifier is
+    ASCII-clean and no hash-like or audit-line rule touches it."""
+    line = _IDENTIFIERS_WITH_93[shape]
+    assert _without_hash_like_tokens(line) == line
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    if where == "output":
+        _append_cell(folder, "code", line, cell_id="prints-an-identifier")
+    else:
+        (folder / "tests").mkdir(exist_ok=True)
+        (folder / "tests" / "test_identifier.py").write_text(f"ID = {line!r}\n", "utf-8")
+    _append_cell(folder, "markdown", "The accuracy is 93.0.", cell_id="fabricated-decimal")
+    unbacked = _unprinted_quantities(folder)
+    assert any("fabricated-decimal" in m and "93.0" in m for m in unbacked), unbacked
+
+
+def test_a_genuine_figure_beside_an_identifier_still_backs_its_quote(tmp_path):
+    """#542: ``run_93`` backs nothing, but the genuine ``93ms`` after it (a trailing unit) is
+    still a latency, so its quote is backed."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "code", "run_93 median latency 93ms", cell_id="printed")
+    _append_cell(folder, "markdown", "Jev answers with a median latency of 93 ms.", cell_id="q")
+    assert [m for m in _unprinted_quantities(folder) if "'93 ms'" in m] == []
+
+
+@pytest.mark.parametrize(
+    ("printed", "sentence"),
+    [
+        ("sku93ms", "Jev answers with a median latency of 93 ms."),
+        ("sku93%", "Jev reaches an accuracy of 93%."),
+        ("sku93 USD", "Jev costs 93 USD per call."),
+        ("sku93 tokens/s", "Jev reaches 93 tokens/s."),
+        ("sku93 seconds", "Jev is slow: the live run takes 93 seconds."),
+    ],
+)
+def test_a_glued_unit_figure_does_not_back_its_quote(tmp_path, printed, sentence):
+    """#542: an identifier whose digits are followed by a unit (``sku93ms``, ``sku93%``) is not a
+    printed latency, percentage, price, throughput or seconds figure: the left boundary also
+    holds in the unit patterns, which read their own digits."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "code", printed, cell_id="printed")
+    _append_cell(folder, "markdown", sentence, cell_id="quote")
+    unbacked = _unprinted_quantities(folder)
+    assert any("quote" in m for m in unbacked), unbacked
+
+
+@pytest.mark.parametrize("text", ["token Qx931", "id Qx9314Zk", "run_8801 x"])
+def test_the_scan_does_not_restart_at_a_later_digit_of_a_refused_run(text):
+    """#542: a lookbehind alone would refuse the run at its first digit and then read it again
+    from its second (``931`` as ``31``); the whole run is consumed instead."""
+    assert _decimals(text) == []
+
+
+@pytest.mark.parametrize(
+    ("printed", "sentence"),
+    [
+        ("sku1.93%", "Jev reaches an accuracy of 93%."),
+        ("build v1.180ms", "Jev answers with a median latency of 180 ms."),
+        ("ver v1.93", "The accuracy is 93.0."),
+        ("commit e4b7a1.93", "The accuracy is 93.0."),
+        ("sku1,093", "The accuracy is 1093.0."),
+        ("x1,250", "The accuracy is 1250.0."),
+        ("sku1.2.93%", "Jev reaches an accuracy of 93%."),
+        ("build v1.2.180ms", "Jev answers with a median latency of 180 ms."),
+    ],
+)
+def test_the_decimal_tail_of_a_glued_token_does_not_back_its_quote(tmp_path, printed, sentence):
+    """#542 review: the scan must not restart after the ``.`` of a refused token. Each row is
+    unbacked on main (which reads the whole ``1.93`` or ``1.180ms``) and was backed by the first
+    head of this change, which refused the ``1`` and then read the tail."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "code", printed, cell_id="printed")
+    _append_cell(folder, "markdown", sentence, cell_id="quote")
+    unbacked = _unprinted_quantities(folder)
+    assert any("quote" in m for m in unbacked), unbacked
+
+
+@pytest.mark.parametrize(
+    ("printed", "sentence"),
+    [
+        ("accuracy,93%", "Jev reaches an accuracy of 93%."),
+        ("jev,93.0%", "Jev reaches an accuracy of 93%."),
+        ("0.5,93%", "Jev reaches an accuracy of 93%."),
+        ("tok/s,93 tokens/s", "Jev reaches 93 tokens/s."),
+        ("latency,180ms", "Jev answers with a median latency of 180 ms."),
+        ("model,accuracy,93.0", "The accuracy is 93.0."),
+        ("t01,0.93", "The accuracy is 0.93."),
+        ("t01,93%", "Jev reaches an accuracy of 93%."),
+        ("t01,0.9474", "Jev reaches an accuracy of 95%."),
+        ("case_7,0.93", "The accuracy is 0.93."),
+        ("F1,0.93", "The accuracy is 0.93."),
+        ("metric,F1,0.93", "The accuracy is 0.93."),
+        ("top5,93%", "Jev reaches an accuracy of 93%."),
+        ("top5,0.93", "Jev reaches an accuracy of 93%."),
+        ("gpt4,93%", "Jev reaches an accuracy of 93%."),
+        ("run_1,93%", "Jev reaches an accuracy of 93%."),
+        ("R2,0.93", "The accuracy is 0.93."),
+    ],
+)
+def test_a_figure_after_a_comma_is_still_backed(tmp_path, printed, sentence):
+    """#542 review: only a token glued to a letter is refused, with its own thousands-group and
+    decimal tails.
+    A figure after a plain ``,`` (a CSV row without spaces) is a printed figure, as on main; the
+    first version of the tail rule, a lookbehind on ``[A-Za-z_\\d][.,]``, refused all of these."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "code", printed, cell_id="printed")
+    _append_cell(folder, "markdown", sentence, cell_id="quote")
+    assert [m for m in _unprinted_quantities(folder) if "quote" in m] == []
+
+
+def test_the_mask_replaces_digits_one_for_one():
+    """#542: ``_mask_glued`` keeps every position (digits become ``#``, nothing is deleted), so a
+    span found in the masked text is a span of the original."""
+    text = "sku1.93% t01,0.93 x1,250 F1 0.9"
+    masked = _mask_glued(text)
+    assert masked == "sku#.##% t##,0.93 x#,### F# 0.9"
+    assert len(masked) == len(text)
+    assert _mask_glued("t01,1234 x1,2500") == "t##,1234 x#,2500"
+
+
+def test_the_f1_metric_word_is_still_read_beside_a_quote():
+    """#542: the prose side keeps the digit of the metric word ``F1`` (masking it would hide every
+    F1 quote)."""
+    assert _quoted_quantities("The F1 is 0.9474.") == [("metric", "0.9474")]
+    assert _quoted_quantities("The F1,0.93 holds.") == [("metric", "0.93")]
+
+
+def test_a_percentage_glued_to_an_identifier_is_not_a_quoted_quantity():
+    """#542: the prose side reads the same left boundary, so ``sku93%`` is not a quote of 93%
+    while a spaced ``93%`` is."""
+    assert _quoted_quantities("It reaches sku93% accuracy.") == []
+    assert _quoted_quantities("It reaches 93% accuracy.") == [("rate", "93%")]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("latency 180ms", [Decimal(180)]),
+        ("p50 latency 180ms", [Decimal(180)]),
+        ("rows=1,250 x1", [Decimal(1250)]),
+        ("sha e4b7a93 then 12,3456 .5", [Decimal(12345), Decimal(6), Decimal(5)]),
+        ("run_1.5 x1,250 QWx1.93Q F1 0.93", [Decimal("0.93")]),
+        ("a\u00e993 id-42", [Decimal(93), Decimal(42)]),
+        ("accuracy,93 0.5,93 x,1.93", [Decimal(93), Decimal("0.5"), Decimal(93), Decimal("1.93")]),
+        ("t01,0.93 F1,0.93 top5,93", [Decimal("0.93"), Decimal("0.93"), Decimal(93)]),
+        ("sku1,093 x1,250.5 t01,930", []),
+        ("v1.2.93 sku1.2.3.4 x1,250.5.6", []),
+        ("t01,1234 x1,2500", [Decimal(1234), Decimal(2500)]),
+    ],
+)
+def test_the_tokenizer_keeps_trailing_units_and_a_punctuation_separated_run(text, expected):
+    """#542: only the left boundary matters, so ``180ms`` stays; a comma group and a number after
+    a dot are read as before."""
+    assert _decimals(text) == expected
 
 
 @pytest.mark.parametrize(
@@ -14243,8 +14487,9 @@ def test_a_plain_number_on_an_audit_line_does_not_back_a_figure(tmp_path, where)
 # or fraction, see #536 below). Each shape is
 # (the segment that ends with the number, the segment that opens with the unit, a prose sentence
 # that quotes the fused quantity as a claim about Jev, the unit pattern that binds them, the quote
-# the guard reports for that sentence). The four unit patterns and ``_PERCENT``
-# bind a number to its unit with ``\s?``, so before #380 the one newline the output joins put
+# the guard reports for that sentence). The four unit patterns bind a number to its unit with
+# ``\s?`` (``_PERCENT``, with ``\s*`` since #542, the same way), so before #380 the one newline the
+# output joins put
 # between the two segments fused them and backed the sentence.
 _UNTERMINATED_SHAPES = {
     "latency": (
@@ -14396,6 +14641,40 @@ _PERCENTAGE_BACKING = {
     "tiny-percentage": ("error rate 0.93%", "Jev reaches an accuracy of 93%.", False),
     "tiny-percentage-spaced": ("error rate 0.93 %", "Jev reaches an accuracy of 93%.", False),
     "per-second-fraction": ("accuracy 0.93/s", "Jev reaches an accuracy of 93%.", False),
+    # The leftover percentage-pattern gaps of the #689 reviews (#542). A number that is a
+    # percentage or carries a rate unit is not a fraction, however the sign or unit is written.
+    "percent-word": ("error rate 0.93 percent", "Jev reaches an accuracy of 93%.", False),
+    "pct-word": ("error rate 0.93 pct", "Jev reaches an accuracy of 93%.", False),
+    "two-spaces-before-percent": ("error rate 0.93  %", "Jev reaches an accuracy of 93%.", False),
+    "full-width-percent": ("error rate 0.93\uff05", "Jev reaches an accuracy of 93%.", False),
+    "per-mille": ("error rate 0.93\u2030", "Jev reaches an accuracy of 93%.", False),
+    "per-sample": ("rate: 0.926/sample", "Jev reaches an accuracy of 93%.", False),
+    "per-day": ("rate: 0.926/day", "Jev reaches an accuracy of 93%.", False),
+    "per-query": ("rate: 0.926/query", "Jev reaches an accuracy of 93%.", False),
+    "per-item": ("rate: 0.926/item", "Jev reaches an accuracy of 93%.", False),
+    "per-tok": ("rate: 0.926/tok", "Jev reaches an accuracy of 93%.", False),
+    "per-1k": ("rate: 0.926/1k", "Jev reaches an accuracy of 93%.", False),
+    "per-sec-squared": ("accel: 0.926/sec\u00b2", "Jev reaches an accuracy of 93%.", False),
+    # Kills the two surviving ``_RATE_DENOMINATOR`` mutants: without its closing boundary ``/step``
+    # starts the unit ``/s`` and the backed row fails; without ``re.IGNORECASE`` ``/S`` is no unit
+    # and the unbacked row fails.
+    "slash-step-is-no-rate-unit": ("accuracy 0.93/step", "Jev reaches an accuracy of 93%.", True),
+    "per-capital-s": ("accuracy 0.93/S", "Jev reaches an accuracy of 93%.", False),
+    "per-cent-words": ("error rate 0.93 per cent", "Jev reaches an accuracy of 93%.", False),
+    # Only a token glued to a letter is refused, never a figure after a comma (#542 review): a CSV
+    # row without spaces still prints a real percentage.
+    "csv-word-comma-percent": ("accuracy,93%", "Jev reaches an accuracy of 93%.", True),
+    "csv-row-percent": ("jev,93.0%", "Jev reaches an accuracy of 93%.", True),
+    "csv-number-comma-percent": ("0.5,93%", "Jev reaches an accuracy of 93%.", True),
+    # A cell after a glued id is a figure, not the id's thousands tail (#542 review round 3).
+    "id-comma-fraction": ("t01,0.93", "Jev reaches an accuracy of 93%.", True),
+    "id-comma-percent": ("t01,93%", "Jev reaches an accuracy of 93%.", True),
+    "id-comma-long-fraction": ("t01,0.9474", "Jev reaches an accuracy of 95%.", True),
+    "metric-id-comma-fraction": ("F1,0.93", "Jev reaches an accuracy of 93%.", True),
+    "digit-id-comma-percent": ("top5,93%", "Jev reaches an accuracy of 93%.", True),
+    "r2-comma-fraction": ("R2,0.93", "Jev reaches an accuracy of 93%.", True),
+    # Pins ``_PERCENT``'s ``\s*``: a printed percentage after two spaces is still a percentage.
+    "printed-percentage-two-spaces": ("accuracy 93  %", "Jev reaches an accuracy of 93%.", True),
     "slash-pair": ("precision/recall: 0.93/0.91", "Jev reaches a precision of 93%.", True),
     "slash-pair-second": ("precision/recall: 0.91/0.93", "Jev reaches a recall of 93%.", True),
     "spaced-slash-pair": (
@@ -14489,8 +14768,8 @@ def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabricat
     out``) is a different shape this test does not exercise and this match does not reach (#378
     measures both)."""
     audit_line = _real_audit_line()
-    assert Decimal(93) in _decimals(audit_line), (
-        "the synthetic audit line no longer contains the literal '93' this test pins -- "
+    assert Decimal(94) in _decimals(audit_line), (
+        "the synthetic audit line no longer reads a literal '94' this test pins -- "
         "its states must be changed so the defect it guards against is still exercised"
     )
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
@@ -14498,13 +14777,13 @@ def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabricat
     (folder / "tests" / "test_ledger.py").write_text(
         'EXPECTED = """\n' + audit_line + '\n"""\n', "utf-8"
     )
-    _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
-    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 93 cannot back it
-    # anyway); the ordinary decimal 93.0 can, so it pins the exclusion on its own.
-    _append_cell(folder, "markdown", "The accuracy is 93.0.", cell_id="fabricated-decimal")
+    _append_cell(folder, "markdown", "The accuracy is 94%.", cell_id="fabricated")
+    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 94 cannot back it
+    # anyway); the ordinary decimal 94.0 can, so it pins the exclusion on its own.
+    _append_cell(folder, "markdown", "The accuracy is 94.0.", cell_id="fabricated-decimal")
     unbacked = _unprinted_quantities(folder)
-    assert any("fabricated-decimal" in m and "93.0" in m for m in unbacked), unbacked
-    assert any("93" in message for message in unbacked), unbacked
+    assert any("fabricated-decimal" in m and "94.0" in m for m in unbacked), unbacked
+    assert any("94" in message for message in unbacked), unbacked
 
 
 _TWO_DATES = ("2026-03-02", "2026-03-09")
