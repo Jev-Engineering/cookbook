@@ -12309,76 +12309,108 @@ def _prose_blocks(recipe_dir_: Path) -> list[tuple[str, str]]:
     return [(where, _clean_markdown(text)) for where, text in blocks]
 
 
-def _prose_of(recipe_dir_: Path) -> list[tuple[str, str]]:
-    """``(where, unit)`` for every unit of the README and of every notebook markdown cell."""
-    return [
-        (where, unit)
-        for where, text in _prose_blocks(recipe_dir_)
-        for unit in _markdown_units(text)
-    ]
-
-
 def _sentences(text: str) -> list[str]:
     return re.split(r"(?<=[.!?])\s+", text)
 
 
-_MD_TABLE_SEPARATOR = re.compile(r"\s*\|?(?:\s*:?-+:?\s*\|)+(?:\s*:?-+:?\s*)?\s*")
+_UNESCAPED_PIPE = re.compile(r"(?<!\\)\|")
+_BLOCKQUOTE_MARKER = re.compile(r"^ {0,3}>[ \t]?")
+_DELIMITER_CELL = re.compile(r":?-+:?")
 
 
 def _table_cells(row: str) -> list[str]:
-    """The cells of one markdown table row: the text between unescaped pipes, outer pipes
-    dropped, each stripped."""
-    cells = [c.strip() for c in re.split(r"(?<!\\)\|", row.strip())]
-    if cells and not cells[0]:
+    """The cells of one markdown table row: the text between unescaped pipes, each stripped. An
+    outer pipe at either end of the row is not a cell boundary, so ``| a | b |`` and ``a | b``
+    both give ``[a, b]``."""
+    row = row.strip()
+    cells = [c.strip() for c in _UNESCAPED_PIPE.split(row)]
+    if row.startswith("|"):
         cells = cells[1:]
-    if cells and not cells[-1]:
+    if len(cells) > 1 and row.endswith("|") and not row.endswith("\\|"):
         cells = cells[:-1]
     return cells
 
 
-def _is_table_separator(unit: str) -> bool:
-    return bool(_MD_TABLE_ROW.match(unit)) and bool(_MD_TABLE_SEPARATOR.fullmatch(unit))
+def _table_line(line: str) -> str | None:
+    """``line`` as a table line reads it: blockquote markers removed. ``None`` for a line indented
+    four or more spaces (or a tab) after that: it is an indented code block, not a table."""
+    while _BLOCKQUOTE_MARKER.match(line):
+        line = _BLOCKQUOTE_MARKER.sub("", line, count=1)
+    if line.startswith("\t") or line.startswith("    "):
+        return None
+    return line
 
 
-def _table_header_units(units: list[str]) -> set[int]:
-    """Indexes of the units that are a table's header row: a table row directly followed by its
-    separator row. A header names columns; it is not a row of data with a label (#691)."""
-    return {
-        i
-        for i in range(len(units) - 1)
-        if _MD_TABLE_ROW.match(units[i]) and _is_table_separator(units[i + 1])
-    }
+def _is_delimiter_row(line: str) -> bool:
+    """A table's delimiter (separator) row: a pipe and cells that are all dashes, with optional
+    alignment colons."""
+    return bool(_UNESCAPED_PIPE.search(line)) and all(
+        _DELIMITER_CELL.fullmatch(cell) for cell in _table_cells(line)
+    )
 
 
-def _table_row_quantities(row: str) -> list[tuple[str, str]]:
+def _table_scan(text: str) -> tuple[list[list[str]], str]:
+    """``(data rows, remaining text)`` of a markdown block (#691). A table starts at a line with
+    an unescaped pipe whose next line is a delimiter row of the same number of cells (GFM: only
+    that second line is the delimiter). That header line and the delimiter stay in the remaining
+    text, read as prose; the data rows that follow, up to the first blank line or line without a
+    pipe, are returned as cell lists and blanked out of it. A later row of dashes is one of those
+    data rows, never a second delimiter, so it hides nothing above it. Rows may omit the outer
+    pipes and may sit in a blockquote; a table indented four spaces is a code block and is not
+    one."""
+    lines = text.splitlines()
+    plain = [_table_line(line) for line in lines]
+    rows: list[list[str]] = []
+    kept = list(lines)
+    i = 0
+    while i < len(lines):
+        header, delimiter = plain[i], plain[i + 1] if i + 1 < len(lines) else None
+        if (
+            header is not None
+            and delimiter is not None
+            and _UNESCAPED_PIPE.search(header)
+            and _is_delimiter_row(delimiter)
+            and len(_table_cells(header)) == len(_table_cells(delimiter))
+        ):
+            i += 2
+            while (
+                i < len(lines)
+                and plain[i] is not None
+                and plain[i].strip()
+                and _UNESCAPED_PIPE.search(plain[i])
+            ):
+                rows.append(_table_cells(plain[i]))
+                kept[i] = ""
+                i += 1
+        else:
+            i += 1
+    return rows, "\n".join(kept)
+
+
+def _table_row_quantities(cells: list[str]) -> list[tuple[str, str]]:
     """The quotes a table data row makes (#691): the row's first cell is its label, and every
     other cell is read as ``<label>: <cell>``, so ``| accuracy | 93% |`` quotes ``93%`` next to
     ``accuracy`` and ``| median latency | 180 ms |`` quotes a latency under the row's own words.
-    The label cell is also read alone, for a label that carries its own figure. Limits: the
-    context is the row label only, never the column header, so a quote whose metric word is in
-    the header (``| run | accuracy |`` over ``| a | 93% |``) is not read; and a cell carrying
-    several figures is read by the prose patterns (``0.93 / 0.91`` under ``precision / recall``
-    quotes only the figure next to the last metric word)."""
-    if _is_table_separator(row):
-        return []
-    cells = _table_cells(row)
+    The label cell is also read alone, for a label that carries its own figure in a sentence.
+    Limits: the context is the row label only, never the column header or the header row, so a
+    metric word that only a header carries is not read; a figure in the label cell
+    (``| 93% | accuracy |``) is not read against a later cell; and a cell with several figures
+    quotes only the one the prose patterns reach (``0.93 / 0.91`` under ``precision / recall``
+    quotes ``0.93``)."""
     if not cells:
         return []
     label, rest = cells[0], cells[1:]
-    found = _quoted_quantities(label, table=False)
+    found = _quoted_quantities(label)
     for cell in rest:
-        found += _quoted_quantities(f"{label}: {cell}", table=False)
+        found += _quoted_quantities(f"{label}: {cell}")
     return list(dict.fromkeys(found))
 
 
-def _quoted_quantities(text: str, *, table: bool = True) -> list[tuple[str, str]]:
+def _quoted_quantities(text: str) -> list[tuple[str, str]]:
     """``(kind, quote)`` for every quantity ``text`` quotes next to a metric word (``metric``, or
     ``rate`` for risk, accuracy and error rate, which are each other's complement), as a price
-    (``price``), or as a latency or a throughput (``speed``). A table data row is read cell by
-    cell with its row label as context (``_table_row_quantities``); ``table=False`` reads the
-    text as plain prose, which is how a header row is read (#691)."""
-    if table and _MD_TABLE_ROW.match(text):
-        return _table_row_quantities(text)
+    (``price``), or as a latency or a throughput (``speed``). Plain prose: a table row is read
+    through ``_table_row_quantities``."""
     found = []
     for sentence in _sentences(_mask_glued(text, keep_f1=True)):
         for pattern in (_METRIC_THEN_AMOUNT, _AMOUNT_THEN_METRIC):
@@ -12598,17 +12630,16 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
 
 
 def _prose_quotes(recipe_dir_: Path) -> list[tuple[str, str, str]]:
-    """``(where, kind, quote)`` for every quantity the README and the notebook markdown quote,
-    prose and table rows alike. A table's header row is read as prose, never as a labelled row."""
+    """``(where, kind, quote)`` for every quantity the README and the notebook markdown quote.
+    Table data rows are read cell by cell under their row label (``_table_scan``); everything
+    else, a table's header row included, is read as prose."""
     found = []
     for where, text in _prose_blocks(recipe_dir_):
-        units = _markdown_units(text)
-        headers = _table_header_units(units)
-        for i, unit in enumerate(units):
-            found += [
-                (where, kind, quote)
-                for kind, quote in _quoted_quantities(unit, table=i not in headers)
-            ]
+        rows, prose = _table_scan(text)
+        for row in rows:
+            found += [(where, kind, quote) for kind, quote in _table_row_quantities(row)]
+        for unit in _markdown_units(prose):
+            found += [(where, kind, quote) for kind, quote in _quoted_quantities(unit)]
     return found
 
 
@@ -14497,42 +14528,116 @@ def test_a_table_row_quoting_a_printed_figure_is_not_flagged(tmp_path, label, va
     assert _unprinted_quantities(folder) == []
 
 
+def _row_quotes(row: str) -> list[tuple[str, str]]:
+    """What ``_table_scan`` makes of ``row`` as the one data row of a table, as quotes."""
+    rows, _ = _table_scan(f"| Metric | Value |\n| --- | --- |\n{row}\n")
+    assert len(rows) == 1, rows
+    return _table_row_quantities(rows[0])
+
+
 def test_a_table_row_is_read_cell_by_cell_under_its_row_label():
-    assert _quoted_quantities("| accuracy | 93% |") == [("rate", "93%")]
-    assert _quoted_quantities("| Coverage | 0.92 | 0.88 |") == [
-        ("metric", "0.92"),
-        ("metric", "0.88"),
-    ]
-    assert _quoted_quantities("| median latency | 180 ms |") == [("speed", "180 ms")]
+    assert _row_quotes("| accuracy | 93% |") == [("rate", "93%")]
+    assert _row_quotes("| Coverage | 0.92 | 0.88 |") == [("metric", "0.92"), ("metric", "0.88")]
+    assert _row_quotes("| median latency | 180 ms |") == [("speed", "180 ms")]
     # a label that is no metric word makes no quote of a figure, as in prose
-    assert _quoted_quantities("| rows | 93% |") == []
-    assert _quoted_quantities("| rows | 1,250 |") == []
+    assert _row_quotes("| rows | 93% |") == []
+    assert _row_quotes("| rows | 1,250 |") == []
     # a figure glued to an identifier stays an identifier
-    assert _quoted_quantities("| accuracy | sku93% |") == []
+    assert _row_quotes("| accuracy | sku93% |") == []
 
 
-def test_a_table_header_and_separator_row_are_not_read_as_labelled_rows():
-    header = "| accuracy | 93% |"
-    for separator in ("|---|:---:|---:|", "| --- | --- |", "|---|"):
-        assert _is_table_separator(separator)
-        assert _quoted_quantities(separator) == []
-    assert not _is_table_separator("| a | b |")
-    # the unit right before a separator is the header: it is read as prose, not as label + cells
-    units = ["| Metric | Value |", "| --- | --- |", header]
-    assert _table_header_units(units) == {0}
-    assert _table_header_units(["| a | b |", "| 1 | 2 |"]) == set()
-    assert _quoted_quantities(header, table=False) == []
-    assert _quoted_quantities("| Metric 93% accuracy | Value |", table=False) == [("rate", "93%")]
+def test_a_figure_in_the_label_cell_and_a_second_figure_in_a_cell_are_the_documented_limits():
+    # the label cell is read alone, never against a later cell
+    assert _row_quotes("| 93% | accuracy |") == []
+    assert _row_quotes("| 0.93 | accuracy |") == []
+    # a cell with several figures quotes the one next to the metric word
+    assert _row_quotes("| precision / recall | 0.93 / 0.91 |") == [("metric", "0.93")]
 
 
-def test_a_table_header_is_not_a_labelled_row_in_a_recipe(tmp_path):
-    """The header row of a table is column names: a header that names a metric next to a figure
-    is read as prose, not as ``<header label>: <cell>``; the same row below a separator is data."""
+def test_an_escaped_pipe_does_not_split_a_cell():
+    assert _table_cells(r"| accuracy \| risk | 93% |") == [r"accuracy \| risk", "93%"]
+    assert _row_quotes(r"| accuracy \| risk | 93% |") == [("rate", "93%")]
+    assert _table_cells(r"| accuracy | 93% \| x |") == ["accuracy", r"93% \| x"]
+
+
+_TABLE_SHAPES = {
+    "outer-pipes": "| Metric | Value |\n| --- | --- |\n| accuracy | 93% |\n",
+    "no-outer-pipes": "Metric | Value\n--- | ---\naccuracy | 93%\n",
+    "blockquote": "> | Metric | Value |\n> | --- | --- |\n> | accuracy | 93% |\n",
+    "blockquote-no-space": ">| Metric | Value |\n>| --- | --- |\n>| accuracy | 93% |\n",
+    "nested-blockquote": "> > Metric | Value\n> > --- | ---\n> > accuracy | 93%\n",
+    "alignment-colons": "| Metric | Value |\n|:---|---:|\n| accuracy | 93% |\n",
+    "after-a-paragraph": "Results follow.\n\n| Metric | Value |\n| --- | --- |\n| accuracy | 93% |\n",
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("shape", sorted(_TABLE_SHAPES))
+def test_every_gfm_table_shape_is_read_in_the_readme_and_in_a_markdown_cell(tmp_path, shape, where):
+    """#691: a table without outer pipes or inside a blockquote is a table too."""
     folder = _copy_recipe(tmp_path, "_template")
-    _append_cell(folder, "markdown", "| accuracy | 93% |\n| --- | --- |\n| run | a |\n")
     assert _unprinted_quantities(folder) == []
-    _append_cell(folder, "markdown", "| --- | --- |\n| accuracy | 93% |\n", "table-2")
+    table = _TABLE_SHAPES[shape]
+    if where == "readme":
+        readme = folder / "README.md"
+        readme.write_text(readme.read_text("utf-8") + "\n" + table, "utf-8")
+    else:
+        _append_cell(folder, "markdown", table)
+    violations = _unprinted_quantities(folder)
+    assert len(violations) == 1 and "'93%'" in violations[0], violations
+
+
+_LATER_DASH_ROWS = {
+    "three-dashes": "| --- | --- |",
+    "one-dash": "| - | - |",
+    "aligned": "|:---:|---:|",
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("dashes", sorted(_LATER_DASH_ROWS))
+def test_a_later_row_of_dashes_does_not_hide_the_data_row_above_it(tmp_path, dashes, where):
+    """Only the delimiter directly under the header counts. A later dash row is a data row, so
+    the row above it is still a row of data and still checked."""
+    folder = _copy_recipe(tmp_path, "_template")
+    table = "| Metric | Value |\n| --- | --- |\n| accuracy | 93% |\n" + _LATER_DASH_ROWS[dashes]
+    if where == "readme":
+        readme = folder / "README.md"
+        readme.write_text(readme.read_text("utf-8") + "\n" + table + "\n", "utf-8")
+    else:
+        _append_cell(folder, "markdown", table)
     assert len(_unprinted_quantities(folder)) == 1
+
+
+def test_a_table_scan_reads_the_header_as_prose_and_the_rows_as_rows():
+    text = "| accuracy | 93% |\n| --- | --- |\n| run | a |\n| - | - |\n| risk | 5% |\n"
+    rows, prose = _table_scan(text)
+    assert rows == [["run", "a"], ["-", "-"], ["risk", "5%"]]
+    assert prose.splitlines()[:2] == ["| accuracy | 93% |", "| --- | --- |"]
+    assert not any(line for line in prose.splitlines()[2:])
+    # the header is read as prose: its figure has no label above it, so nothing is quoted
+    assert _quoted_quantities(prose) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "| accuracy | 93% |\n",  # no delimiter row: not a table
+        "| accuracy | 93% |\n| --- |\n",  # delimiter of another width: not a table
+        "    | Metric | Value |\n    | --- | --- |\n    | accuracy | 93% |\n",  # code block
+        "> |  Metric | Value |\n>     | --- | --- |\n",
+        "| Metric | Value |\n| --- | --- |\n\n| accuracy | 93% |\n",  # a blank line ends it
+    ],
+)
+def test_text_that_is_not_a_table_yields_no_data_rows(text):
+    rows, prose = _table_scan(text)
+    assert rows == []
+    assert prose == text.rstrip("\n")
+
+
+def test_a_table_ends_at_a_blank_line_or_a_line_without_a_pipe():
+    rows, _ = _table_scan("a | b\n- | -\nx | 1\nplain words\ny | 2\n")
+    assert rows == [["x", "1"]]
 
 
 def test_a_percentage_glued_to_an_identifier_is_not_a_quoted_quantity():
