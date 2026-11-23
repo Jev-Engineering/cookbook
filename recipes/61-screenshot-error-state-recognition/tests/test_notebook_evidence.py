@@ -85,3 +85,17 @@ def test_notebook_only_reports_recorded_test_evidence(monkeypatch, capsys, mode)
         assert label in streams["evaluation-matrix"]
         assert label in streams["queue"]
         assert plots == [f"Test split, 16 examples {label}"]
+        # The breakdown of the reviews the gate adds, and the rows marked as delivered wrong, are
+        # the lines that teach the look-alike lesson, so a flipped comparison must change them.
+        assert (
+            "reviews the gate adds: 5 of 16; {'right choice reviewed anyway': 2, "
+            "'wrong choice caught': 2, 'gold unknown': 1}"
+        ) in streams["gate"]
+        marked = [
+            line.split()[0]
+            for line in streams["evaluation-rows"].splitlines()
+            if line.endswith("<- delivered wrong")
+        ]
+        assert marked == ["t08", "t14"]
+        rows = streams["evaluation-rows"].splitlines()
+        assert sum("  delivered " in line for line in rows) == 9

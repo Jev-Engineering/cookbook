@@ -69,7 +69,7 @@
     },
     {
       "path": "assets/screen-t03.png",
-      "sha256": "61182cabf7b7c6eb0c28a2f9c33c6981c390f24da571f6c3b55b013df66f54ee",
+      "sha256": "edee85bfb43d21ca7ffeb0e306d33c774efc39b7fd9f08bd3d8a315da6a34c5e",
       "format": "PNG",
       "width": 640,
       "height": 400,
@@ -77,10 +77,10 @@
       "generator": "jev_cookbook.synthetic_images:login_screen",
       "parameters": {
         "state": "loading",
-        "seed": 23
+        "seed": 48
       },
       "licence": "CC0-1.0",
-      "description": "An invented application window drawn as 'sign_in_waiting' (seed 23).",
+      "description": "An invented application window drawn as 'sign_in_waiting' (seed 48).",
       "attestations": {
         "synthetic": true,
         "real_photo": false,
@@ -91,7 +91,7 @@
     },
     {
       "path": "assets/screen-t04.png",
-      "sha256": "8d778dd1baa7e3499b1f9d9e94add075d64833a2499c04690665191da69e5b8f",
+      "sha256": "daa2bf352f47689778c68fab42fd3cb16bc5596a81db00b696fe7f01ff846e9f",
       "format": "PNG",
       "width": 640,
       "height": 400,
@@ -99,10 +99,10 @@
       "generator": "jev_cookbook.synthetic_images:login_screen",
       "parameters": {
         "state": "crash",
-        "seed": 24
+        "seed": 47
       },
       "licence": "CC0-1.0",
-      "description": "An invented application window drawn as 'sign_in_crashed' (seed 24).",
+      "description": "An invented application window drawn as 'sign_in_crashed' (seed 47).",
       "attestations": {
         "synthetic": true,
         "real_photo": false,
@@ -223,7 +223,7 @@
     },
     {
       "path": "assets/screen-t10.png",
-      "sha256": "41c841b909efd5b3d5b61e62616e677f07cf40eb5958b55ac3d3b1f16cbce936",
+      "sha256": "3853dd5557e08c9ce35a3af918bfb94e55e4dc93008482c9640863d35bedcb51",
       "format": "PNG",
       "width": 640,
       "height": 400,
@@ -231,10 +231,10 @@
       "generator": "build_fixtures.py:app_screen",
       "parameters": {
         "kind": "rejected_inline",
-        "seed": 30
+        "seed": 44
       },
       "licence": "CC0-1.0",
-      "description": "An invented application window drawn as 'rejected_inline' (seed 30).",
+      "description": "An invented application window drawn as 'rejected_inline' (seed 44).",
       "attestations": {
         "synthetic": true,
         "real_photo": false,
@@ -575,7 +575,7 @@
     },
     {
       "path": "assets/screen-v10.png",
-      "sha256": "98d3a39552049bac85945693e884e078732c617b5a14135e8c25154cf767d7cc",
+      "sha256": "9c17d235390bc60fcfba9e12121a9afa3b0a5b0060120c4442a4c86716367916",
       "format": "PNG",
       "width": 640,
       "height": 400,
@@ -583,10 +583,10 @@
       "generator": "build_fixtures.py:app_screen",
       "parameters": {
         "kind": "dashboard_crashed",
-        "seed": 10
+        "seed": 46
       },
       "licence": "CC0-1.0",
-      "description": "An invented application window drawn as 'dashboard_crashed' (seed 10).",
+      "description": "An invented application window drawn as 'dashboard_crashed' (seed 46).",
       "attestations": {
         "synthetic": true,
         "real_photo": false,
