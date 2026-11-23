@@ -58,7 +58,7 @@ The committed run replays 40 invented feedback messages with hand-written (synth
 several wrong on purpose: five benign look-alikes (a feedback message that uses a word
 associated with a label — `price` or `feature` — without actually raising that topic:
 `v09-lookalike`, `v16-lookalike-wrong`, `t09-lookalike`, `t14-lookalike`,
-`t16-lookalike-wrong`). The `feature_request` threshold, 0.82, is set high enough to correctly
+`t16-lookalike-wrong`). The `"feature_request"` threshold, 0.82, is set high enough to correctly
 leave `v16-lookalike-wrong`'s 0.80 untagged, but `t16-lookalike-wrong`'s 0.82 clears it anyway —
 wrong *and* confident on `test` — and the same threshold costs a real feature request, `t18`, a
 confident false negative two hundredths below it; plus six low-confidence crossover pairs on
