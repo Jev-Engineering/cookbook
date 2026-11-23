@@ -30,19 +30,11 @@ PUBLISHED = [
     for recipe in CATALOG["recipes"]
     if (RECIPES_DIR / recipe["slug"] / "notebook.ipynb").is_file()
 ]
-# Measured on main 438ff98: 56 published notebooks plus the unpublished _template. 55
-# published recipes have a committed image/png (recipes 28, 41 and 43 have exactly 1);
-# recipe 56 has 0 image/png outputs and 0 ``plot_`` call sites. Its entry is a
-# time-bounded known gap, not a table-only design decision (orchestrator ruling on #256,
-# comment 7073850527). It fails as stale as soon as a figure is committed, so adding
-# the figure removes it. No other recipe may use this route without its own ruling.
-NAMED_FIGURELESS_EXEMPTIONS: dict[str, str] = {
-    "56-adversarial-harness-evaluation": (
-        "recipe 56 is chart-shaped (threshold and gate choices) but was published with no "
-        "figure: a known gap, not a table-only design choice; adding the figure is tracked "
-        "by #622, which removes this entry"
-    ),
-}
+# Empty since #622 gave recipe 56 its figure: every published recipe now commits an
+# image/png. An entry is a named, time-bounded known gap, not a table-only design decision,
+# and it fails as stale as soon as a figure is committed. No recipe may use this route
+# without its own orchestrator ruling.
+NAMED_FIGURELESS_EXEMPTIONS: dict[str, str] = {}
 
 
 def _has_committed_png(recipe_dir: Path) -> bool:
@@ -231,23 +223,6 @@ def test_a_figure_makes_its_exemption_stale(tmp_path, monkeypatch):
     slug = "41-approval-scope-review"
     recipe_dir = _copy_notebook(tmp_path, slug)
     monkeypatch.setitem(NAMED_FIGURELESS_EXEMPTIONS, slug, "A table-only design")
-    _must_fail_not_skip(recipe_dir, "remove the stale figureless exemption")
-
-
-def test_the_real_recipe_56_exemption_goes_stale_when_a_figure_is_added(tmp_path):
-    slug = "56-adversarial-harness-evaluation"
-    assert slug in NAMED_FIGURELESS_EXEMPTIONS
-    recipe_dir = _copy_notebook(tmp_path, slug)
-    # As committed, the exemption applies: a skip, not a failure.
-    with pytest.raises(pytest.skip.Exception):
-        _require_committed_png(recipe_dir)
-    notebook_path = recipe_dir / "notebook.ipynb"
-    notebook = json.loads(notebook_path.read_text("utf-8"))
-    cell = next(cell for cell in notebook["cells"] if cell["cell_type"] == "code")
-    cell.setdefault("outputs", []).append(
-        {"output_type": "display_data", "data": {"image/png": "stored-png"}, "metadata": {}}
-    )
-    notebook_path.write_text(json.dumps(notebook), "utf-8")
     _must_fail_not_skip(recipe_dir, "remove the stale figureless exemption")
 
 
