@@ -12129,10 +12129,12 @@ _AMOUNT_THEN_METRIC = re.compile(
 # 0.0526 beside a printed accuracy of 0.9474).
 _COMPLEMENTARY_RATES = frozenset({"risk", "accuracy", "error rate"})
 _RATE_LINE = re.compile(r"\b(?:accuracy|risk|error rate)\b", re.IGNORECASE)
-# A digit run glued on its left to a letter, an underscore or an earlier digit of a refused run is
-# part of an identifier, not a quantity (#542): ``_NOT_GLUED`` opens every pattern below that starts
-# a number. ``180ms`` keeps its trailing unit; ``a1b2c3d`` and ``id42`` offer nothing.
-_NOT_GLUED = r"(?<![A-Za-z_\d])"
+# A digit run glued on its left to an ASCII letter or an underscore, or to the decimal or comma tail
+# of such a run (``sku1.93``), is part of an identifier, not a quantity (#542): ``_NOT_GLUED`` opens
+# every pattern below that starts a number. ``180ms`` keeps its trailing unit; ``a1b2c3d`` and
+# ``id42`` offer nothing. The second lookbehind keeps a pattern from restarting after the ``.`` or
+# ``,`` of a refused token.
+_NOT_GLUED = r"(?<![A-Za-z_\d])(?<![A-Za-z_\d][.,])"
 _PERCENT = re.compile(rf"{_NOT_GLUED}(\d+(?:\.\d+)?)\s*%")
 # A price, as a price per unit of work ("$0.0004 a call"), or as a price in a sentence that talks
 # about cost and about Jev, the model or the API. A bare "$500" in a sentence about a fixture's
@@ -12171,14 +12173,16 @@ _SECONDS = re.compile(
 _SERVICE_SPEED_WORD = re.compile(r"\b(?:latency|response time)\b", re.IGNORECASE)
 _SPEED_WORD = re.compile(r"\b(?:slow|fast|speed|takes?)\b", re.IGNORECASE)
 _LIVE_RUN = re.compile(r"\blive\b", re.IGNORECASE)
-# The pool's tokenizer (#542). A digit run glued on its left to a letter or an underscore is part of
-# an identifier (a 7-character git short SHA, a base64 or base32 id, a mixed-case id, ``run_42``),
-# not a quantity. The ``glued`` alternative matches such a run and ``_number_matches`` drops it, so
-# the scan resumes after the run and cannot restart at one of its later digits. ``180ms`` keeps its
-# trailing unit: only the left boundary matters. A digit run separated from its letters by
-# punctuation (``id-42``, ``v1.2``'s ``2``) is still read.
+# The pool's tokenizer (#542). A digit run glued on its left to an ASCII letter or an underscore is
+# part of an identifier (a 7-character git short SHA, a base64 or base32 id, a mixed-case id,
+# ``run_42``), not a quantity, and so is the decimal or comma tail of that run (``v1.5``,
+# ``x1,250``). The ``glued`` alternative matches the whole token and ``_number_matches`` drops it,
+# so the scan resumes after it and cannot restart at one of its later digits. ``180ms`` keeps its
+# trailing unit: only the left boundary matters. A digit run separated from its letters by other
+# punctuation (``id-42``) is still read, and so is one glued to a non-ASCII letter (``\u00e993``).
 _NUMBER = re.compile(
-    r"(?P<glued>(?<=[A-Za-z_])\d+)|(?P<n>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"(?P<glued>(?<=[A-Za-z_])\d+(?:[.,]\d+)*)"
+    r"|(?P<n>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
 )
 
 
@@ -12392,11 +12396,12 @@ _RATE_DENOMINATOR = (
     r"|tok(?:en)?s?|samples?|quer(?:y|ies)|items?|1k)(?![A-Za-z\d_])"
 )
 # What follows a number that makes it something other than a fraction: a percent sign (ASCII or
-# full-width U+FF05, after any run of spaces), a per-mille sign (U+2030), the word percent or pct,
+# full-width U+FF05, after any run of spaces), a per-mille sign (U+2030), the word percent, per cent
+# or pct,
 # or a rate unit.
 _PERCENT_FRACTION = re.compile(
     r"(?<![\w.])(?:0\.\d+|1\.0+)"
-    rf"(?!\w|\.\w|\s*(?:[%％‰]|(?:percent|pct)\b)|\s*{_RATE_DENOMINATOR})",
+    rf"(?!\w|\.\w|\s*(?:[%％‰]|(?:per\s?cent|percent|pct)\b)|\s*{_RATE_DENOMINATOR})",
     re.IGNORECASE,
 )
 
@@ -12409,7 +12414,7 @@ def _percentage_fractions(line: str, *, percent: bool = True) -> list[Decimal]:
     a rate unit, carries another unit: a printed ``92.6 seconds`` or ``0.926 ms`` does not back
     93%. Other unit words are not recognised, so ``0.926 widgets`` still counts as a fraction.
     A number followed by ``%`` (ASCII or full-width, after any spaces), a per-mille sign or the
-    word ``percent`` or ``pct`` is a percentage, never a fraction (``0.93%`` is 0.0093). A slash
+    word ``percent``, ``per cent`` or ``pct`` is a percentage, never a fraction (``0.93%`` is 0.0093). A slash
     excludes only when it starts a rate unit (``0.93/s``, ``/min``, ``/day``, ``/sample``,
     ``/query``, ``/item``, ``/tok``, ``/1k``, ``/sec`` with a superscript 2); ``0.93/0.91`` and
     ``0.93/step`` are fractions.
@@ -14000,7 +14005,7 @@ def _real_audit_line(n: int = 22) -> str:
 def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell(tmp_path):
     """#376: the committed ``AUDIT_PREFIX`` line's 64-character hex ``replay_key`` runs must not
     back a fabricated prose quantity (the defect: a hex run containing ``093``, so
-    "The accuracy is 94%." used to pass). Excluding it must not cost a cell's other, genuine
+    "The accuracy is 93%." used to pass; the figure pinned below is 94, see the precondition). Excluding it must not cost a cell's other, genuine
     output line its own numbers -- one code cell carries both lines here. This is defensive scope
     for any cell of any recipe that prints the prefix, not a claim about a real audited recipe's
     final cell: ``tests/request_audit.py``'s ``audited_evidence`` requires that final cell to hold
@@ -14032,8 +14037,8 @@ def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell
     _append_cell(folder, "markdown", "The accuracy is 95%.", cell_id="genuine")
     assert _unprinted_quantities(folder) == []
     _append_cell(folder, "markdown", "The accuracy is 94%.", cell_id="fabricated")
-    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 93 cannot back it
-    # anyway); the ordinary decimal 93.0 can, so it pins the exclusion on its own.
+    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 94 cannot back it
+    # anyway); the ordinary decimal 94.0 can, so it pins the exclusion on its own.
     _append_cell(folder, "markdown", "The accuracy is 94.0.", cell_id="fabricated-decimal")
     unbacked = _unprinted_quantities(folder)
     assert any("fabricated-decimal" in m and "94.0" in m for m in unbacked), unbacked
@@ -14048,8 +14053,8 @@ def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches
     ``_append_cell`` never otherwise exercises, since every other test here puts the ledger last
     in its cell rather than between two lines. Dropping the whole line (rather than blanking its
     content) used to splice "180" and "ms" together across the one optional whitespace
-    character ``_LATENCY_MS`` (and ``_PERCENT``, ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``)
-    allow, backing a latency the recipe never printed. Since #380 the units are also read per
+    character ``_LATENCY_MS`` (and ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``; ``_PERCENT``
+    has allowed any run of spaces since #542, always within one line) allow, backing a latency the recipe never printed. Since #380 the units are also read per
     line, so this test alone no longer fails for a mutant that deletes the audit line; the
     scanned text is therefore pinned directly too: the blanked line must remain a line between
     its neighbours (``_scanned_output``), and the end-to-end result must still catch the claim."""
@@ -14079,7 +14084,7 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     *lines* rather than as a sequence of *cell texts* collapses the two-newline gap
     ``origin/main`` leaves between a cell's own trailing newline and the outer join's separator
     down to one, which is exactly the one optional whitespace character ``_LATENCY_MS`` (and
-    ``_PERCENT``, ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``) allow between a number and its
+    ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``; ``_PERCENT`` allows any run of spaces) allow between a number and its
     unit -- no audit line is even needed to exercise this shape. One cell's output ends ``median
     latency 180``, terminated by its own trailing newline (as every cell built by ``_append_cell``
     is); the next cell's output begins ``ms over the sample``. Round 2 repaired the join itself
@@ -14284,6 +14289,26 @@ def test_the_scan_does_not_restart_at_a_later_digit_of_a_refused_run(text):
     assert _decimals(text) == []
 
 
+@pytest.mark.parametrize(
+    ("printed", "sentence"),
+    [
+        ("sku1.93%", "Jev reaches an accuracy of 93%."),
+        ("build v1.180ms", "Jev answers with a median latency of 180 ms."),
+        ("ver v1.93", "The accuracy is 93.0."),
+        ("commit e4b7a1.93", "The accuracy is 93.0."),
+    ],
+)
+def test_the_decimal_tail_of_a_glued_token_does_not_back_its_quote(tmp_path, printed, sentence):
+    """#542 review: the scan must not restart after the ``.`` of a refused token. Each row is
+    unbacked on main (which reads the whole ``1.93`` or ``1.180ms``) and was backed by the first
+    head of this change, which refused the ``1`` and then read the tail."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "code", printed, cell_id="printed")
+    _append_cell(folder, "markdown", sentence, cell_id="quote")
+    unbacked = _unprinted_quantities(folder)
+    assert any("quote" in m for m in unbacked), unbacked
+
+
 def test_a_percentage_glued_to_an_identifier_is_not_a_quoted_quantity():
     """#542: the prose side reads the same left boundary, so ``sku93%`` is not a quote of 93%
     while a spaced ``93%`` is."""
@@ -14298,6 +14323,8 @@ def test_a_percentage_glued_to_an_identifier_is_not_a_quoted_quantity():
         ("p50 latency 180ms", [Decimal(180)]),
         ("rows=1,250 x1", [Decimal(1250)]),
         ("sha e4b7a93 then 12,3456 .5", [Decimal(12345), Decimal(6), Decimal(5)]),
+        ("run_1.5 x1,250 QWx1.93Q F1 0.93", [Decimal("0.93")]),
+        ("a\u00e993 id-42", [Decimal(93), Decimal(42)]),
     ],
 )
 def test_the_tokenizer_keeps_trailing_units_and_a_punctuation_separated_run(text, expected):
@@ -14375,8 +14402,8 @@ def test_a_plain_number_on_an_audit_line_does_not_back_a_figure(tmp_path, where)
 # or fraction, see #536 below). Each shape is
 # (the segment that ends with the number, the segment that opens with the unit, a prose sentence
 # that quotes the fused quantity as a claim about Jev, the unit pattern that binds them, the quote
-# the guard reports for that sentence). The four unit patterns and ``_PERCENT``
-# bind a number to its unit with ``\s?``, so before #380 the one newline the output joins put
+# the guard reports for that sentence). The four unit patterns bind a number to its unit with
+# ``\s?`` (``_PERCENT``, with ``\s*`` since #542, the same way), so before #380 the one newline the output joins put
 # between the two segments fused them and backed the sentence.
 _UNTERMINATED_SHAPES = {
     "latency": (
@@ -14547,6 +14574,9 @@ _PERCENTAGE_BACKING = {
     # and the unbacked row fails.
     "slash-step-is-no-rate-unit": ("accuracy 0.93/step", "Jev reaches an accuracy of 93%.", True),
     "per-capital-s": ("accuracy 0.93/S", "Jev reaches an accuracy of 93%.", False),
+    "per-cent-words": ("error rate 0.93 per cent", "Jev reaches an accuracy of 93%.", False),
+    # Pins ``_PERCENT``'s ``\s*``: a printed percentage after two spaces is still a percentage.
+    "printed-percentage-two-spaces": ("accuracy 93  %", "Jev reaches an accuracy of 93%.", True),
     "slash-pair": ("precision/recall: 0.93/0.91", "Jev reaches a precision of 93%.", True),
     "slash-pair-second": ("precision/recall: 0.91/0.93", "Jev reaches a recall of 93%.", True),
     "spaced-slash-pair": (
@@ -14650,8 +14680,8 @@ def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabricat
         'EXPECTED = """\n' + audit_line + '\n"""\n', "utf-8"
     )
     _append_cell(folder, "markdown", "The accuracy is 94%.", cell_id="fabricated")
-    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 93 cannot back it
-    # anyway); the ordinary decimal 93.0 can, so it pins the exclusion on its own.
+    # Since #536 the percent quote alone no longer shows audit exclusion (a bare 94 cannot back it
+    # anyway); the ordinary decimal 94.0 can, so it pins the exclusion on its own.
     _append_cell(folder, "markdown", "The accuracy is 94.0.", cell_id="fabricated-decimal")
     unbacked = _unprinted_quantities(folder)
     assert any("fabricated-decimal" in m and "94.0" in m for m in unbacked), unbacked
