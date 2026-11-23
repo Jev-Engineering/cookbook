@@ -298,9 +298,12 @@ check id                              rule -> detection
                                        Not seen: markdown; other names, wording or constructs; a
                                        statistic computed inside a helper; a string dict key; an
                                        unparseable cell (``%magic``); text/html-only output.
-                                       "gold-match position" and "position of the gold" are
-                                       read like "gold position", and the names
-                                       ``gold_match_pos...`` like ``gold_pos...``.
+                                       Read as "gold position": printed text with ``-``,
+                                       ``_`` or repeated spaces between the words, with or
+                                       without "match" ("gold-match position"), and the phrase
+                                       "position of the gold" (not "gold standard", "goldfish"
+                                       or "golden"); the names ``gold_pos...`` and
+                                       ``gold_match_pos...``.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -15114,7 +15117,7 @@ _POSITION_IDENTIFIER = re.compile(
     re.IGNORECASE,
 )
 _POSITION_PRINT_TEXT = re.compile(
-    r"gold[-_ ]+(match[-_ ]+)?positions?\b|position of the gold|first[- ](listed[- ])?(option|choice)[- ](share|lean|rate|fraction)"
+    r"gold[-_ ]+(match[-_ ]+)?positions?\b|position[-_ ]+of[-_ ]+the[-_ ]+gold\b(?![-_ ]+standard)|first[- ](listed[- ])?(option|choice)[- ](share|lean|rate|fraction)"
     r"|first[- ]listed[- ](share|rate|fraction|lean)|position(al)?[- ]bias|lean toward the first",
     re.IGNORECASE,
 )
@@ -15208,8 +15211,10 @@ def test_fixed_order_choice_prints_no_position_statistic(recipe):
     ``stable_permutation``/``stable_shuffle`` (a real call or import, see
     ``_uses_shuffle_helper``). Not seen: a statistic computed under other names, other wording or
     in a helper the notebook only calls; a string dict key; an unparseable cell; output that is
-    only ``text/html``; and one printed by a shuffled recipe (#684 closed the "gold-match
-    position" wording gap that let recipe 22's table through)."""
+    only ``text/html``; and one printed by a shuffled recipe. Read as "gold position" (#684):
+    printed text with ``-``, ``_`` or repeated spaces between "gold", an optional "match" and
+    "position(s)", the phrase "position of the gold" (not "gold standard", "goldfish" or
+    "golden"), and the names ``gold_pos...`` and ``gold_match_pos...``."""
     directory = TEMPLATE if recipe["slug"] == "_template" else recipe_dir(recipe)
     sources = [p.read_text("utf-8") for p in sorted(directory.glob("*.py"))]
     hits = _fixed_order_position_statistic_hits(notebook_cells(directory), sources)
@@ -15353,3 +15358,32 @@ def test_the_old_recipe_22_cell_is_exempt_when_the_recipe_shuffles_per_item():
 def test_gold_match_position_wording_variants_are_hits(source):
     cells = [{"cell_type": "code", "id": "c", "source": source, "outputs": []}]
     assert _fixed_order_position_statistic_hits(cells, [])
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "gold_position",
+        "gold  match__position",
+        "position of the gold match",
+        "Position of the gold record",
+    ],
+)
+def test_the_widened_position_wording_is_a_hit(text):
+    """#684: ``_`` and repeated separators, and the phrase "position of the gold", are read."""
+    cells = [{"cell_type": "code", "id": "c", "source": f"print({text!r})", "outputs": []}]
+    assert _fixed_order_position_statistic_hits(cells, [])
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "position of the goldfish",
+        "position of the golden retriever",
+        "gold-standard positions",
+        "position of the gold standard in the table",
+    ],
+)
+def test_ordinary_gold_wording_is_not_a_position_statistic(text):
+    cells = [{"cell_type": "code", "id": "c", "source": f"print({text!r})", "outputs": []}]
+    assert not _fixed_order_position_statistic_hits(cells, [])
