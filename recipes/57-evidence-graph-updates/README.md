@@ -11,11 +11,11 @@ excerpts as evidence. Jev answers narrow questions in two requests: request 1 as
 (which person in the graph the mention is, or `no_match`) and a `Noul` (do the excerpts
 conflict?) together; request 2, which depends on the person request 1 named, asks two `Noul`
 propositions (do the excerpts state the new employment, and that the old one ended?). Python owns
-everything else: the candidate shortlist, the confidence gate and thresholds frozen on
+everything else: the candidate shortlist, the [confidence gate](../../docs/glossary.md#confidence-gate) and thresholds frozen on
 `validation`, a request `Budget`, the composition into one proposed update, and the transactional
 apply in a simulated `Store` through a `Transactor` that validates the update, checks the graph
 invariant (at most one employer per person) on the staged writes, rolls back on failure and logs
-every attempt with its provenance. The notebook evaluates update accuracy against gold, runs a
+every attempt with its provenance. The notebook evaluates update [accuracy](../../docs/glossary.md#accuracy) against gold, runs a
 rollback test and a replay test (`replay_transactions` rebuilds the graph from the log with
 identical history), and compares a keyword baseline run under the same conditions.
 
@@ -61,7 +61,7 @@ The count above is declared once, in [`request_budget.json`](request_budget.json
 here by `jev_cookbook.accounting.render_recipe_note`, never typed by hand. The second request is sent only
 when the rule lets the first one through, so a live answer that differs from the stored one can change
 how many second requests are made; the notebook's own `Budget` also refuses any request past its
-limit and sends that proposal to review. The setup, the cap and the recorder are in
+limit and sends that proposal to [review](../../docs/glossary.md#review). The setup, the cap and the recorder are in
 [docs/live.md](../../docs/live.md). Never put a key in a notebook, fixture or committed file.
 
 ## What was and was not measured
@@ -77,7 +77,7 @@ it reports, here and in the notebook.
 The offline run replays synthetic answers written for this recipe, some wrong on purpose (a
 confidently wrong person match, a missed conflict, a missed relationship, an over-read "ended"),
 so its numbers check that the pipeline works and say nothing about how Jev performs, how fast it
-is, or what it costs. The evaluation covers update accuracy, coverage and wrong writes on
+is, or what it costs. The evaluation covers update accuracy, [coverage](../../docs/glossary.md#coverage) and wrong writes on
 `validation` (a selection step) and `test` (read once), each proposition at its frozen threshold,
 the keyword baseline, the rollback test and the replay test. The graph, the people and the
 organisations are invented.

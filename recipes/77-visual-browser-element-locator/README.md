@@ -61,7 +61,7 @@ In live mode this notebook makes exactly **24** requests, each decided once. Set
 ## Next steps
 
 Continue with [tool outcome verification](../29-tool-outcome-verification/) or
-[abstention and review queues](../38-abstention-and-review-queues/).
+[`38-abstention-and-review-queues`](../38-abstention-and-review-queues/).
 
 ## Pull request rules
 
