@@ -16,9 +16,22 @@ judgment is not confident enough to trust, and none is yet a confirmed violation
 constraint is enough to make a plan ineligible even when every other constraint is
 confidently clear -- the named hard case this recipe ships is exactly a plan that satisfies
 every constraint but one, and it is still ineligible.
+
+Two of the four constraints are decided by arithmetic, not by Jev. Whether a plan's cost is
+over the budget limit and whether its completion date falls after the deadline are
+comparisons of quantities, and TypeSafe says Jev reads dates as text and cannot reliably
+judge whether two numbers are near each other, so ``budget_check`` and ``timeline_check``
+compare them in Python from the structured ``cost``, ``budget_limit``, ``completion`` and
+``deadline`` fields and the state carries only the named bucket they return. The ``budget`` and
+``timeline`` propositions are therefore pure readbacks of a fact Python already holds: they
+stay in the request so every plan still carries four independent propositions through one
+shared multi-label evaluation, but they add no judgment of their own. Jev's real judgment is the
+other two constraints, ``vendor`` and ``data_handling``, which are about prose.
 """
 
 from dataclasses import dataclass, field
+from datetime import date
+from math import isfinite
 from typing import Any
 
 from jev_cookbook import Noul
@@ -47,6 +60,13 @@ ELIGIBLE = "eligible"
 REVIEW = "review"
 INELIGIBLE = "ineligible"
 
+# The named buckets Python computes for the two comparisons it owns. These strings are the only
+# form in which the budget and timeline comparisons reach Jev.
+BUDGET_OVER = "over the limit"
+BUDGET_WITHIN = "within the limit"
+TIMELINE_LATE = "after the deadline"
+TIMELINE_ON_TIME = "on or before the deadline"
+
 REASON_REVIEW_CONFIDENCE = "confidence below the threshold"
 REASON_ELIGIBLE = "confident match on every constraint"
 
@@ -55,19 +75,62 @@ def _reason_ineligible(violated: tuple[str, ...]) -> str:
     return "confidently violates: " + ", ".join(violated)
 
 
-def build_state(fields: dict[str, Any]) -> dict[str, Any]:
-    """The state Jev sees for one candidate plan: the user's own four constraint statements
-    and the plan's own description, nothing else.
+def _number(value: Any, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float) or not isfinite(value):
+        raise ValueError(f"{name} must be a finite number, got {value!r}")
+    if value < 0:
+        raise ValueError(f"{name} must not be negative, got {value!r}")
+    return float(value)
 
-    ``fields`` also carries ``cost``, the plan's own numeric estimate Python reads for the
-    stateful walkthrough's bookkeeping (``remaining_budget_after``, below) -- it never reaches
-    the model separately from however the plan's own prose already describes it: the model
-    reads only the two fields below and judges whether the plan's own description, in words,
-    reads as a violation of each constraint.
-    """
+
+def _iso_date(value: Any, name: str) -> date:
+    if not isinstance(value, str) or len(value) != 10:
+        raise ValueError(f"{name} must be an ISO date string YYYY-MM-DD, got {value!r}")
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ValueError(f"{name} must be an ISO date string YYYY-MM-DD, got {value!r}") from None
+
+
+def budget_check(cost: Any, limit: Any) -> str:
+    """Python's budget comparison: ``BUDGET_OVER`` when ``cost`` is strictly above ``limit``,
+    else ``BUDGET_WITHIN`` (spending exactly the limit stays within it, as the constraint's
+    "must not exceed" says). Both arguments are numbers, never text."""
+    return BUDGET_OVER if _number(cost, "cost") > _number(limit, "budget_limit") else BUDGET_WITHIN
+
+
+def timeline_check(completion: Any, deadline: Any) -> str:
+    """Python's timeline comparison: ``TIMELINE_LATE`` when ``completion`` is strictly after
+    ``deadline``, else ``TIMELINE_ON_TIME`` (finishing on the deadline day is on time, as "must
+    be completed by" says). Both arguments are ISO ``YYYY-MM-DD`` strings parsed to dates."""
+    late = _iso_date(completion, "completion") > _iso_date(deadline, "deadline")
+    return TIMELINE_LATE if late else TIMELINE_ON_TIME
+
+
+def computed_checks(fields: dict[str, Any]) -> dict[str, str]:
+    """The two comparisons Python owns, computed from the plan's structured fields."""
     return {
-        "user_constraints": dict(fields["user_constraints"]),
+        BUDGET: budget_check(fields["cost"], fields["budget_limit"]),
+        TIMELINE: timeline_check(fields["completion"], fields["deadline"]),
+    }
+
+
+def build_state(fields: dict[str, Any]) -> dict[str, Any]:
+    """The state Jev sees for one candidate plan: the vendor and data handling constraint
+    statements, the plan's own description, and the two checks Python computed.
+
+    ``fields`` also carries the structured ``cost``, ``budget_limit``, ``completion`` and
+    ``deadline``. They never reach Jev: ``computed_checks`` compares them in Python and the
+    state holds only the resulting bucket, so Jev is never asked to compare a date or an
+    amount written as text. The budget and timeline statements stay in
+    ``fields["user_constraints"]`` for the human reviewer but are not sent, because the
+    comparison they describe is already done.
+    """
+    constraints = fields["user_constraints"]
+    return {
+        "user_constraints": {c: constraints[c] for c in (VENDOR, DATA_HANDLING)},
         "plan": fields["plan"],
+        "computed_checks": computed_checks(fields),
     }
 
 
@@ -79,44 +142,30 @@ def build_questions() -> dict[str, Noul]:
     because they are not mutually exclusive readings of a single judgment: a plan can violate
     any subset of the four constraints, including several at once or none at all, and
     CONTRIBUTING.md section 3 asks for one independent question per concern. Each question's
-    own wording is generic and fixed -- the specific limit, deadline, vendor list or data scope
-    a plan is checked against comes from ``user_constraints`` in the state, never from the
-    question, so the same four questions serve every plan.
+    own wording is generic and fixed, so the same four questions serve every plan: ``vendor``
+    and ``data_handling`` are judged against the constraint statements in ``user_constraints``
+    in the state; ``budget`` and ``timeline`` are readbacks of the checks Python computed
+    (``computed_checks`` in the state), with no limit, deadline, cost or date in the question.
     """
     return {
         BUDGET: Noul(
             instructions=(
-                "The plan violates the user's stated budget constraint: its own described "
-                "costs exceed the limit the constraint states, or the plan's own text leaves "
-                "it unclear that it stays within that limit."
+                "The computed budget check reports that the plan is over the user's budget limit."
             ),
             criteria={
-                "true": (
-                    "The plan's own description names or implies a total cost that exceeds "
-                    "the budget constraint's limit, or the description does not make clear "
-                    "that the cost stays within it."
-                ),
-                "false": (
-                    "The plan's own description makes clear that its total cost stays within "
-                    "the budget constraint's limit."
-                ),
+                "true": "The computed budget check says the plan's total cost is over the limit.",
+                "false": "The computed budget check says the plan's total cost is within the limit.",
             },
         ),
         TIMELINE: Noul(
             instructions=(
-                "The plan violates the user's stated timeline constraint: its own described "
-                "completion falls after the deadline the constraint states, or the plan's own "
-                "text leaves it unclear that everything finishes in time."
+                "The computed timeline check reports that the plan completes after the user's "
+                "deadline."
             ),
             criteria={
-                "true": (
-                    "The plan's own description names or implies a completion date, or a step, "
-                    "that falls after the timeline constraint's deadline, or the description "
-                    "does not make clear that every step finishes by it."
-                ),
+                "true": "The computed timeline check says the plan completes after the deadline.",
                 "false": (
-                    "The plan's own description makes clear that every step finishes by the "
-                    "timeline constraint's deadline."
+                    "The computed timeline check says the plan completes on or before the deadline."
                 ),
             },
         ),
@@ -369,7 +418,9 @@ def review_sort_key(result: Resolution) -> float:
 
 def queue_item(plan_id: str, fields: dict[str, Any], result: Resolution) -> dict[str, Any]:
     """What a human reviewer sees for one queued plan: its id, the plan's own text, the
-    user's own four constraint statements, and every constraint's label decision -- not only
+    user's own four constraint statements, the plan's cost and completion date beside the limit
+    and deadline with the two checks Python computed from them, and every constraint's label
+    decision -- not only
     an identifier (CONTRIBUTING.md section 4: the queue is the side effect a ``review``
     outcome triggers, and an item with nothing to read is not something a person can actually
     review)."""
@@ -377,6 +428,11 @@ def queue_item(plan_id: str, fields: dict[str, Any], result: Resolution) -> dict
         "id": plan_id,
         "plan": fields["plan"],
         "user_constraints": dict(fields["user_constraints"]),
+        "cost": fields["cost"],
+        "budget_limit": fields["budget_limit"],
+        "completion": fields["completion"],
+        "deadline": fields["deadline"],
+        "computed_checks": computed_checks(fields),
         **{c: {"noul": d.noul, "confidence": d.confidence} for c, d in result.decisions.items()},
     }
 

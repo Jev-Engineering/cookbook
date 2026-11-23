@@ -19,7 +19,6 @@ from __future__ import annotations
 import base64
 import functools
 import hashlib
-import importlib
 import inspect
 import io
 import json
@@ -40,6 +39,7 @@ from typing import Any
 import PIL
 from PIL import Image, ImageChops, ImageDraw, features
 
+from ._generator_refs import GENERATOR, package_generator_problem, source_mentions
 from .vision import IMAGE_LIMITS, resolve_asset_path, validate_image_asset
 
 __all__ = [
@@ -2253,20 +2253,17 @@ def _write_prepared(target: Path, data: bytes, status: str) -> str:
 
 
 def _check_generator(recipe_dir: Path, generator: str) -> None:
+    if not isinstance(generator, str) or not GENERATOR.fullmatch(generator):
+        raise ValueError("generator must be 'script.py:function' or 'jev_cookbook.module:function'")
     module, _, function = generator.partition(":")
     if module.endswith(".py"):
         script = resolve_asset_path(module, root=recipe_dir)
-        if not script.is_file() or function not in script.read_text("utf-8"):
+        if source_mentions(script, function) is not True:
             raise ValueError(f"{module} is not a script in the recipe that mentions {function!r}")
-    elif module.startswith("jev_cookbook."):
-        try:
-            target = getattr(importlib.import_module(module), function, None)
-        except ImportError as exc:
-            raise ValueError(f"{module} cannot be imported") from exc
-        if not callable(target):
-            raise ValueError(f"{generator} does not name a function")
     else:
-        raise ValueError("generator must be 'script.py:function' or 'jev_cookbook.module:function'")
+        problem = package_generator_problem(module, function)
+        if problem:
+            raise ValueError(problem)
 
 
 def manifest_entry(
@@ -2280,9 +2277,10 @@ def manifest_entry(
     """One ``assets-manifest.json`` entry for the saved file (docs/fixtures.md).
 
     The hash, format and size are read from the file; the five attestations are the true ones
-    for a generated image (``synthetic`` only). ``generator`` must exist: a ``script.py:function``
-    in the recipe that mentions the function, or a function of a ``jev_cookbook`` module. The
-    current directory does not matter.
+    for a generated image (``synthetic`` only). ``generator`` names a readable UTF-8 recipe
+    script or installed regular ``jev_cookbook`` source module mentioning the name as a word.
+    This source check never imports the generator and does not establish that it is callable.
+    Namespace packages and zip installs are unsupported. The current directory does not matter.
     """
     return _manifest_entry(recipe_dir, path, generator, parameters, description, licence)
 
