@@ -1,0 +1,643 @@
+{
+  "schema": 1,
+  "assets": [
+    {
+      "path": "assets/screen-d01.png",
+      "sha256": "25b21780c07e9d9eca2bee24b94d2f402ad626882f9f9dae86695a1fca7e3189",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "waiting_with_warning",
+        "seed": 40
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'waiting_with_warning' (seed 40).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t01.png",
+      "sha256": "81795cda13b4c69e4b9a70c8b9384f54c695a35ad7cd3f6d40a8df8a34b5b2d3",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "jev_cookbook.synthetic_images:login_screen",
+      "parameters": {
+        "state": "normal",
+        "seed": 21
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in' (seed 21).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t02.png",
+      "sha256": "13c05a75071430dec111613de8abca915c0221b6e832e81146bf324dca61b2cf",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "jev_cookbook.synthetic_images:login_screen",
+      "parameters": {
+        "state": "error",
+        "seed": 22
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in_rejected' (seed 22).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t03.png",
+      "sha256": "5f0d2ee0fc840b9052f3527b203778c439c7513f679aa2d5fbf5a5687a6d1993",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "jev_cookbook.synthetic_images:login_screen",
+      "parameters": {
+        "state": "loading",
+        "seed": 23
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in_waiting' (seed 23).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t04.png",
+      "sha256": "d7d24bdfab40486b91d36007e911207e294a45ff5cf802654a2e3f7a8668a24a",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "jev_cookbook.synthetic_images:login_screen",
+      "parameters": {
+        "state": "crash",
+        "seed": 24
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in_crashed' (seed 24).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t05.png",
+      "sha256": "3b58e6c6e78565149d6f5d9febdda3ce4e54ea27857f159dd4356c8c806f682b",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "dashboard",
+        "seed": 25
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'dashboard' (seed 25).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t06.png",
+      "sha256": "a7cadc5ce2077752dcf660c6e44ad9886cbb4aaf76f2ba68d9a8c69d5f954183",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "dashboard_crashed",
+        "seed": 26
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'dashboard_crashed' (seed 26).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t07.png",
+      "sha256": "399276f8e8c62db0d7e708d1bb402d78c0b00e695ed1b1c01dc55f109a153dc6",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "waiting_with_warning",
+        "seed": 27
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'waiting_with_warning' (seed 27).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t08.png",
+      "sha256": "45cd0e33e958e85c34ec0bcd1054cb2500dc8573259cb5e845086356b9016c3e",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "waiting_with_warning",
+        "seed": 28
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'waiting_with_warning' (seed 28).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t09.png",
+      "sha256": "b07f02a58d8eec991f2aae2afcd1f526ff96837a09e69fcf399bc04b5b59dacb",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "rejected_inline",
+        "seed": 29
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'rejected_inline' (seed 29).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t10.png",
+      "sha256": "647a073de7097727f23d7cfdd85b67ca564069e04b137f3618c64fcfdd5d8ffa",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "rejected_inline",
+        "seed": 30
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'rejected_inline' (seed 30).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t11.png",
+      "sha256": "57d9ed74f6c038493048f14d754b844ff517c409a5669235a4e797f5b15a5305",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "sign_in_with_hint",
+        "seed": 31
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in_with_hint' (seed 31).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t12.png",
+      "sha256": "d3117cceadb8fcdd48fd2758ff23647937e5886dfd19a2c69417e98d8ad5905c",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "sign_in_with_hint",
+        "seed": 32
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in_with_hint' (seed 32).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t13.png",
+      "sha256": "2666815424d8cafc6af115a65b3c6429a13bbd6a85d2178848b54cd08df9baac",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "page_not_found",
+        "seed": 33
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'page_not_found' (seed 33).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t14.png",
+      "sha256": "f8c64abfa1b98f03557a896dab4d15c181e98474317919aacab72e3c9f6ff88c",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "payment_declined",
+        "seed": 34
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'payment_declined' (seed 34).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t15.png",
+      "sha256": "e923d820aa0f1f2f639d61d540a08d8935485ada7cb48084391ef309bb5acfe4",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "partial_render",
+        "seed": 35
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'partial_render' (seed 35).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-t16.png",
+      "sha256": "2c8322d344b247ee345b7477393b7f5214f2eec512d73e49df6a8796f67eb051",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "maintenance",
+        "seed": 36
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'maintenance' (seed 36).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v01.png",
+      "sha256": "435eb722d06874b7f57f18011c047f238a4b3e4fedf785816b857e01b30d4e4d",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "jev_cookbook.synthetic_images:login_screen",
+      "parameters": {
+        "state": "normal",
+        "seed": 1
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in' (seed 1).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v02.png",
+      "sha256": "8306f2b4ac0b64ba5e6491cebb1eeab9348f8fe14d8b2575d08cebdfcea2c3d3",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "jev_cookbook.synthetic_images:login_screen",
+      "parameters": {
+        "state": "error",
+        "seed": 2
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in_rejected' (seed 2).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v03.png",
+      "sha256": "5dcb60ef538cd15129dcc616d1da6266fa05420759f2baa9ef56bf4a7740c214",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "jev_cookbook.synthetic_images:login_screen",
+      "parameters": {
+        "state": "loading",
+        "seed": 3
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in_waiting' (seed 3).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v04.png",
+      "sha256": "f1b3216c1f2339e6df2e0d90a6fe7564b75077fdf9c01159f96bd1130e56ca94",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "jev_cookbook.synthetic_images:login_screen",
+      "parameters": {
+        "state": "crash",
+        "seed": 4
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in_crashed' (seed 4).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v05.png",
+      "sha256": "3752e7cecfcdeed93ebfc5bd2383e707d455d5ea34c2c0a9161ec50089bcb24c",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "dashboard",
+        "seed": 5
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'dashboard' (seed 5).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v06.png",
+      "sha256": "4bf126cae8d2db6e761a53d29a9ec8d4b7ff8acba0f6e12fbe50fa6673bda96a",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "waiting_with_warning",
+        "seed": 6
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'waiting_with_warning' (seed 6).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v07.png",
+      "sha256": "f3690f4e65c9813ad905e1af54429766a2ada2fe2d0972eecc4269dc8ba95d4a",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "rejected_inline",
+        "seed": 7
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'rejected_inline' (seed 7).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v08.png",
+      "sha256": "f5a7551425ca6ca670f21f663223742f7984888c4a7ac53e4451df918856efae",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "page_not_found",
+        "seed": 41
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'page_not_found' (seed 41).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v09.png",
+      "sha256": "ad7306e12c0a4d0f6be8c505e97989d7c230ab8866fb91f8470ce82659c99369",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "payment_declined",
+        "seed": 42
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'payment_declined' (seed 42).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v10.png",
+      "sha256": "ab95131c91c57337ab662f1d82911d656a66ed4b0425acd82f9eccaf2553cc20",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "dashboard_crashed",
+        "seed": 10
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'dashboard_crashed' (seed 10).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v11.png",
+      "sha256": "d74d1bccb900359507f12e00648fd1752a6ea5195535dddd3f18d8b5ed1147c7",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "sign_in_with_hint",
+        "seed": 11
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'sign_in_with_hint' (seed 11).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/screen-v12.png",
+      "sha256": "405fa1c77d35d260b6241eb4eb99c01ba4d3e9af947b932da2ca37afa8adad3f",
+      "format": "PNG",
+      "width": 640,
+      "height": 400,
+      "origin": "generated",
+      "generator": "build_fixtures.py:app_screen",
+      "parameters": {
+        "kind": "partial_render",
+        "seed": 12
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented application window drawn as 'partial_render' (seed 12).",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    }
+  ]
+}
