@@ -287,13 +287,20 @@ check id                              rule -> detection
                                        detects a side effect with no declaration. See the
                                        section header of that check for the rule and limits.
 ``fixed_order_choice_position_statistic``
-                                       #208: a recipe that never derives a per-item option
-                                       order (``stable_permutation`` / ``stable_shuffle``)
-                                       prints no first-option-lean or gold-position
-                                       statistic: no code-cell name or literal, and no
-                                       stored output, for one. Not seen: markdown, other
-                                       names, and a statistic computed inside a helper.
-===================================  =====================================================
+                                       #208: a recipe whose code never calls or imports
+                                       ``stable_permutation`` / ``stable_shuffle`` (parsed with
+                                       ``ast`` in its notebook code and ``*.py`` files; a
+                                       comment, docstring or string does not count) prints no
+                                       first-option-lean or gold-position statistic: no
+                                       code-cell name, keyword or literal, and no stored text
+                                       output, for one. One real use exempts the WHOLE recipe,
+                                       even if it also lists another Choice in a fixed order.
+                                       Not seen: markdown; other names, wording or constructs; a
+                                       statistic computed inside a helper; a string dict key; an
+                                       unparseable cell (``%magic``); text/html-only output;
+                                       recipe 22's "gold-match position" table over its
+                                       unshuffled option list (Refs #684).
+====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
 
@@ -14979,13 +14986,13 @@ def test_a_batch_number_is_ordinary_only_after_the_word_process(sentence):
 
 _SHUFFLE_HELPERS = ("stable_permutation", "stable_shuffle")
 _POSITION_IDENTIFIER = re.compile(
-    r"first_?(listed_?|shown_?)?(option|choice)|gold_?pos|position_?(count|share|bias|stat)"
+    r"first_?(listed_?|shown_?)?(option|choice)|first_?listed_?(share|rate|fraction|lean)|gold_?pos|position_?(count|share|bias|stat)"
     r"|option_?position|^lean$|_lean$|^lean_",
     re.IGNORECASE,
 )
 _POSITION_PRINT_TEXT = re.compile(
     r"gold[- ]positions?\b|first[- ](listed[- ])?(option|choice)[- ](share|lean|rate|fraction)"
-    r"|position(al)?[- ]bias|lean toward the first",
+    r"|first[- ]listed[- ](share|rate|fraction|lean)|position(al)?[- ]bias|lean toward the first",
     re.IGNORECASE,
 )
 
@@ -14993,7 +15000,9 @@ _POSITION_PRINT_TEXT = re.compile(
 def _cell_position_statistic_hits(source: str) -> list[str]:
     """What in one code cell computes or labels a position statistic: an identifier named for a
     first-option share or gold position, or a literal that prints one. A retriever's rank of the
-    gold item (``candidates.index(gold)``) is a retrieval measure, not a position statistic. Prose that explains why a recipe prints none is markdown, so it is not read here."""
+    gold item (``candidates.index(gold)``) is a retrieval measure, not a position statistic.
+    Prose that explains why a recipe prints none is markdown, so it is not read here. A cell that
+    does not parse (a ``%magic``) is skipped, and a string used as a dict key is not read."""
     try:
         tree = ast.parse(source)
     except SyntaxError:
@@ -15026,13 +15035,34 @@ def _cell_output_text(cell: dict) -> str:
     return "\n".join(parts)
 
 
-def _fixed_order_position_statistic_hits(cells: list[dict], helper_sources: str) -> list[str]:
-    """Hits for a recipe whose ``Choice`` options keep one fixed order. A recipe that derives a
-    per-item order with ``stable_permutation``/``stable_shuffle`` (in its notebook, helpers or
-    fixture builder) is exempt: ``docs/fixtures.md`` lets it print where the gold option landed
-    after shuffling, as a statement about the fixtures."""
-    notebook_code = "\n".join(cell_source(c) for c in cells if c["cell_type"] == "code")
-    if any(name in notebook_code + helper_sources for name in _SHUFFLE_HELPERS):
+def _uses_shuffle_helper(source: str) -> bool:
+    """True when ``source`` imports or calls ``stable_permutation`` or ``stable_shuffle``. Parsed
+    with ``ast``, so a comment, a docstring or a string that only names one does not count."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+            if name in _SHUFFLE_HELPERS:
+                return True
+        if isinstance(node, ast.Import | ast.ImportFrom) and any(
+            alias.name.rsplit(".", 1)[-1] in _SHUFFLE_HELPERS for alias in node.names
+        ):
+            return True
+    return False
+
+
+def _fixed_order_position_statistic_hits(cells: list[dict], py_sources: list[str]) -> list[str]:
+    """Hits for a recipe whose ``Choice`` options keep one fixed order. A recipe whose notebook
+    code or ``*.py`` files really call or import ``stable_permutation``/``stable_shuffle`` is
+    exempt as a whole, even if it also lists another ``Choice`` in a fixed order:
+    ``docs/fixtures.md`` lets it print where the gold option landed after shuffling, as a
+    statement about the fixtures."""
+    code = [cell_source(c) for c in cells if c["cell_type"] == "code"]
+    if any(_uses_shuffle_helper(source) for source in [*code, *py_sources]):
         return []
     hits = []
     for cell in cells:
@@ -15052,10 +15082,13 @@ def test_fixed_order_choice_prints_no_position_statistic(recipe):
     meaningful order prints no first-option-lean or gold-position statistic, because offline it
     measures only the fixture author, never a model. Detected in code cells and their stored
     output (not markdown, which may say why none is printed), for recipes that never use
-    ``stable_permutation``/``stable_shuffle``. Not seen: a statistic computed under other names
-    or in a helper the notebook only calls, and one printed by a shuffled recipe."""
+    ``stable_permutation``/``stable_shuffle`` (a real call or import, see
+    ``_uses_shuffle_helper``). Not seen: a statistic computed under other names, other wording or
+    in a helper the notebook only calls; a string dict key; an unparseable cell; output that is
+    only ``text/html``; one printed by a shuffled recipe; and recipe 22's "gold-match position"
+    table over its unshuffled option list, which passes on wording alone (Refs #684)."""
     directory = TEMPLATE if recipe["slug"] == "_template" else recipe_dir(recipe)
-    sources = "\n".join(p.read_text("utf-8") for p in sorted(directory.glob("*.py")))
+    sources = [p.read_text("utf-8") for p in sorted(directory.glob("*.py"))]
     hits = _fixed_order_position_statistic_hits(notebook_cells(directory), sources)
     assert not hits, (
         "a fixed-order Choice prints no position statistic (docs/fixtures.md, 'Per-item option "
@@ -15071,11 +15104,14 @@ def test_fixed_order_choice_prints_no_position_statistic(recipe):
         'print("gold positions   rows")',
         "lean = share_first(rows)",
         "print('first-option lean:', 0.4)",
+        "print('first-listed share:', 0.4)",
+        "x = stats.first_option_share",
+        "report(gold_pos=1)",
     ],
 )
 def test_position_statistic_in_code_is_a_hit(source):
     cells = [{"cell_type": "code", "id": "c", "source": source, "outputs": []}]
-    assert _fixed_order_position_statistic_hits(cells, "")
+    assert _fixed_order_position_statistic_hits(cells, [])
 
 
 @pytest.mark.parametrize(
@@ -15089,7 +15125,7 @@ def test_position_statistic_in_code_is_a_hit(source):
 )
 def test_ordinary_option_code_is_not_a_position_statistic(source):
     cells = [{"cell_type": "code", "id": "c", "source": source, "outputs": []}]
-    assert not _fixed_order_position_statistic_hits(cells, "")
+    assert not _fixed_order_position_statistic_hits(cells, [])
 
 
 def test_position_statistic_is_read_from_stored_output_and_not_from_markdown():
@@ -15104,11 +15140,36 @@ def test_position_statistic_is_read_from_stored_output_and_not_from_markdown():
         "id": "m",
         "source": "No first-option lean is printed; offline it would measure only the fixtures.",
     }
-    assert _fixed_order_position_statistic_hits([printed], "")
-    assert not _fixed_order_position_statistic_hits([prose], "")
+    assert _fixed_order_position_statistic_hits([printed], [])
+    assert not _fixed_order_position_statistic_hits([prose], [])
 
 
 def test_a_recipe_that_shuffles_per_item_may_print_where_gold_landed():
     cells = [{"cell_type": "code", "id": "g", "source": 'print("gold positions")', "outputs": []}]
-    assert _fixed_order_position_statistic_hits(cells, "")
-    assert not _fixed_order_position_statistic_hits(cells, "stable_shuffle(key, items)")
+    assert _fixed_order_position_statistic_hits(cells, [])
+    assert not _fixed_order_position_statistic_hits(cells, ["order = stable_shuffle(key, items)"])
+
+
+@pytest.mark.parametrize(
+    "py_source",
+    [
+        "# we do not use stable_shuffle here",
+        '"""Seeds the way stable_permutation does."""',
+        'NOTE = "stable_shuffle"',
+    ],
+)
+def test_a_mention_of_a_shuffle_helper_does_not_exempt_a_recipe(py_source):
+    cells = [{"cell_type": "code", "id": "g", "source": 'print("gold positions")', "outputs": []}]
+    assert _fixed_order_position_statistic_hits(cells, [py_source])
+
+
+@pytest.mark.parametrize(
+    "py_source",
+    [
+        "from jev_cookbook.fixtures import stable_permutation",
+        "import jev_cookbook.fixtures as f\norder = f.stable_shuffle(key, items)",
+    ],
+)
+def test_a_real_import_or_call_of_a_shuffle_helper_exempts_a_recipe(py_source):
+    cells = [{"cell_type": "code", "id": "g", "source": 'print("gold positions")', "outputs": []}]
+    assert not _fixed_order_position_statistic_hits(cells, [py_source])

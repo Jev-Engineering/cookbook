@@ -398,8 +398,13 @@ recorded run, on the held-out `test` split, could measure that
 per item: a table of where the gold option landed afterwards describes the fixtures (whether the
 shuffle broke the link between position and label), and is printed, if at all, as that and with
 the pipeline-check label, never as evidence about the model. The recipe guard
-(`fixed_order_choice_position_statistic`) fails a recipe that never derives a per-item order but
-still prints a first-option or gold-position statistic from a code cell.
+(`fixed_order_choice_position_statistic`) fails a recipe that prints a first-option or
+gold-position statistic from a code cell (a name, keyword or string literal, or a stored text
+output) unless the recipe really calls or imports `stable_permutation` or `stable_shuffle`,
+found by parsing its notebook code and `*.py` files, so a comment, docstring or string that only
+names one exempts nothing. One real use exempts the whole recipe, even when it also lists another
+`Choice` in a fixed order, so the reviewer still checks that case. Known miss: recipe 22's
+"gold-match position" table over an unshuffled option list passes on its wording (Refs #684).
 
 When a per-item order is wanted, two different things go wrong if it does not come from the
 seed key:
