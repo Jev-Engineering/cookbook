@@ -71,7 +71,7 @@ ROWS = [
     ("t07", "test", "S-2007", "waiting_with_warning", 27, ("loading", 28, "auth_failure", 22)),
     ("t08", "test", "S-2008", "waiting_with_warning", 28, ("auth_failure", 52, "loading", 14)),
     ("t09", "test", "S-2009", "rejected_inline", 29, ("auth_failure", 48, "normal", 12)),
-    ("t10", "test", "S-2010", "rejected_inline", 44, ("normal", 30, "auth_failure", 25)),
+    ("t10", "test", "S-2010", "rejected_inline", 60, ("normal", 30, "auth_failure", 25)),
     ("t11", "test", "S-2011", "sign_in_with_hint", 31, ("normal", 50, "auth_failure", 12)),
     ("t12", "test", "S-2012", "sign_in_with_hint", 32, ("auth_failure", 26, "normal", 22)),
     ("t13", "test", "S-2013", "page_not_found", 33, ("unknown", 45, "crash", 12)),

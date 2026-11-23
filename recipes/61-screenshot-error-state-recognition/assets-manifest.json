@@ -223,7 +223,7 @@
     },
     {
       "path": "assets/screen-t10.png",
-      "sha256": "3853dd5557e08c9ce35a3af918bfb94e55e4dc93008482c9640863d35bedcb51",
+      "sha256": "f662988f5891eac374b2774ef550bdec608ea1829a089c8f58fd4bbf2fa59825",
       "format": "PNG",
       "width": 640,
       "height": 400,
@@ -231,10 +231,10 @@
       "generator": "build_fixtures.py:app_screen",
       "parameters": {
         "kind": "rejected_inline",
-        "seed": 44
+        "seed": 60
       },
       "licence": "CC0-1.0",
-      "description": "An invented application window drawn as 'rejected_inline' (seed 44).",
+      "description": "An invented application window drawn as 'rejected_inline' (seed 60).",
       "attestations": {
         "synthetic": true,
         "real_photo": false,
