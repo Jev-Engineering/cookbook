@@ -789,7 +789,8 @@ recipes whose first uses were already unlinked when it landed are its allowlist 
 sweep removes recipe by recipe. What stays with a reviewer, and is not checked: that the sentence
 actually defines the term, everyday senses of a lexicon word that the check's short named list
 (a customer review, some risk of, test coverage, support outside a sentence naming precision, recall
-or F1) does not cover, an inflection other than the plural of gold label, business threshold and
+or F1) does not cover (the check fails closed there: a reviewer judges a spurious flag and rewords the
+sentence, not a miss), an inflection other than the plural of gold label, business threshold and
 confidence gate, and a term used only in a heading, a quotation or a code cell.
 
 ## Local commands

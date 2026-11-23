@@ -1255,9 +1255,10 @@ _EVERYDAY_SENSES = {
 # ``support`` is also an everyday noun and verb ("support tickets", "does the passage support
 # the claim"). It is the cookbook's metric only beside the metrics it is reported with, so it
 # counts only in a paragraph, list item or table cell that also names precision, recall or F1.
-_SUPPORT_COMPANIONS = re.compile(r"\b(?:precision|recall|F1)\b")
+_SUPPORT_COMPANIONS = re.compile(r"\b(?:precision|recall|F1)\b", re.IGNORECASE)
 _QUOTED_TEXT = re.compile(r'"[^"\n]*"|“[^”\n]*”')
 _GLOSSARY_MARKDOWN = MarkdownIt("commonmark").enable("table")
+_EMPHASIS_TOKENS = frozenset({"em_open", "em_close", "strong_open", "strong_close"})
 
 
 class GlossaryUse(NamedTuple):
@@ -1278,8 +1279,13 @@ def _glossary_anchors() -> frozenset[str]:
 
 def _term_pattern(term: str) -> re.Pattern[str]:
     plural = "(?:s|es)?" if term in _PLURAL_TERMS else ""
-    body = re.escape(term).replace(r"\ ", r"\s+")
-    return re.compile(rf"(?<![\w-]){body}{plural}(?![\w-])", 0 if term == "F1" else re.IGNORECASE)
+    body = re.escape(term).replace(r"\ ", r"[\s-]+")
+    # A hyphen beside F1 keeps it the metric ("F1-score", "macro-F1"); beside the other terms it
+    # makes another word ("review-needed", "non-zero risk"), so there it is not a boundary.
+    before = r"(?<!\w)" if term == "F1" else r"(?<![\w-])"
+    after = r"(?!\w)" if term == "F1" else r"(?![\w-])"
+    flags = 0 if term == "F1" else re.IGNORECASE
+    return re.compile(rf"{before}{body}{plural}{after}", flags)
 
 
 _TERM_PATTERNS = {term: _term_pattern(term) for term in GLOSSARY_LEXICON}
@@ -1301,12 +1307,56 @@ def _uses_term(term: str, text: str, unit_text: str) -> bool:
     return False
 
 
+def _scan_inline(children, first: dict[str, GlossaryUse]) -> None:
+    """Record the first use of each term in the children of one inline token."""
+    unit_text = " ".join(c.content for c in children if c.type in {"text", "code_inline"})
+    state: dict = {"href": None, "depth": 0, "run": []}
+
+    def record(term: str) -> None:
+        first[term] = GlossaryUse(term, state["href"], len(first) + 1)
+
+    def flush() -> None:
+        text = _QUOTED_TEXT.sub(" ", "".join(state["run"]))
+        state["run"] = []
+        for term in GLOSSARY_LEXICON:
+            if term not in first and _uses_term(term, text, unit_text):
+                record(term)
+
+    for child in children:
+        if child.type == "text":
+            state["run"].append(child.content)
+        elif child.type in {"softbreak", "hardbreak"}:
+            state["run"].append(" ")
+        elif child.type in _EMPHASIS_TOKENS:
+            continue
+        else:
+            flush()
+            if child.type == "link_open":
+                state["depth"] += 1
+                if state["depth"] == 1:
+                    state["href"] = child.attrGet("href")
+            elif child.type == "link_close":
+                state["depth"] -= 1
+                if not state["depth"]:
+                    state["href"] = None
+            elif child.type == "code_inline":
+                code = child.content.strip()
+                for term in GLOSSARY_LEXICON:
+                    exact = code == term if term == "F1" else code.lower() == term.lower()
+                    if exact and term not in first:
+                        record(term)
+    flush()
+
+
 def _glossary_first_uses(markdown: str) -> dict[str, GlossaryUse]:
     """The first use of each lexicon term in the prose of one Markdown source, in document
     order, with the link it sits in. Prose is paragraphs, list items, table cells and quotes.
     Headings are structure, fenced and indented code and HTML are not prose, double-quoted text
     is a fixture's own words, and an inline code span counts only when it is exactly a term,
-    which is how the bare form `` `gold label` `` names a term without linking it."""
+    which is how the bare form `` `gold label` `` names a term without linking it. Text is
+    matched in runs: a soft line break reads as a space and emphasis markers are transparent, so
+    ``gold`` + newline + ``label`` and ``**gold** label`` are the term. A link, a code span, an
+    image or inline HTML ends a run."""
     first: dict[str, GlossaryUse] = {}
     in_heading = False
     for token in _GLOSSARY_MARKDOWN.parse(markdown):
@@ -1314,27 +1364,7 @@ def _glossary_first_uses(markdown: str) -> dict[str, GlossaryUse]:
             in_heading = token.type == "heading_open"
         if token.type != "inline" or in_heading:
             continue
-        children = token.children or ()
-        unit_text = " ".join(c.content for c in children if c.type in {"text", "code_inline"})
-        href, depth = None, 0
-        for child in children:
-            if child.type == "link_open":
-                depth += 1
-                href = child.attrGet("href") if depth == 1 else href
-            elif child.type == "link_close":
-                depth -= 1
-                href = href if depth else None
-            elif child.type in {"text", "code_inline"}:
-                for term in GLOSSARY_LEXICON:
-                    if term in first:
-                        continue
-                    if child.type == "code_inline":
-                        code = child.content.strip()
-                        counted = code == term if term == "F1" else code.lower() == term.lower()
-                    else:
-                        counted = _uses_term(term, _QUOTED_TEXT.sub(" ", child.content), unit_text)
-                    if counted:
-                        first[term] = GlossaryUse(term, href, len(first) + 1)
+        _scan_inline(token.children or (), first)
     return first
 
 
@@ -1504,7 +1534,8 @@ def test_structure_and_non_prose_are_not_first_uses(text):
 )
 def test_an_everyday_sense_is_not_a_use_but_the_term_beside_it_is(everyday, term):
     assert _glossary_link_hits(everyday, "x") == []
-    assert _glossary_link_hits(f"{everyday} The {term} outcome follows, with precision.", "x")
+    hits = _glossary_link_hits(f"{everyday} The {term} outcome follows, with precision.", "x")
+    assert any(f"first use of {term!r}" in hit for hit in hits)
 
 
 def test_support_counts_beside_the_metrics_it_is_reported_with():
@@ -1515,6 +1546,53 @@ def test_support_counts_beside_the_metrics_it_is_reported_with():
 def test_f1_is_case_exact_so_a_formula_name_is_not_it():
     assert _glossary_link_hits("The f1 name in prose is not the F1 metric.", "x") != []
     assert _glossary_link_hits("The f1 name only.", "x") == []
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        "gold\nlabel",
+        "business\nthreshold",
+        "confidence\ngate",
+        "selective\nprediction",
+        "**gold** label",
+        "gold **label**",
+        "*business threshold*",
+        "gold-label",
+        "F1-score",
+        "macro-F1",
+    ],
+)
+def test_a_term_wrapped_hyphenated_or_split_by_emphasis_is_still_the_term(spelling):
+    """A soft line break is a space, emphasis markers are transparent and a hyphen joins the
+    words of a compound term, so none of these hides a bare first use."""
+    assert _glossary_link_hits(f"Compare each answer with its {spelling} here.", "x")
+    anchor = next(
+        a
+        for t, a in GLOSSARY_LEXICON.items()
+        if _TERM_PATTERNS[t].search(spelling.replace("*", ""))
+    )
+    linked = f"With its [{spelling}]({GLOSSARY_LINK}{anchor}) here."
+    assert _glossary_link_hits(linked, "x") == []
+
+
+def test_a_wrapped_bare_first_use_is_not_excused_by_a_later_link():
+    text = f"Its gold\nlabel is first.\n\nLater, the {_link('gold label', 'gold-label')}."
+    assert _glossary_link_hits(text, "x")
+
+
+def test_an_everyday_phrase_split_by_emphasis_is_still_everyday():
+    assert _glossary_link_hits("Read the customer **review** first.", "x") == []
+    assert _glossary_link_hits('The input is "a **gold label** of five stars".', "x") == []
+
+
+def test_a_link_ends_a_run_so_text_either_side_is_not_one_term():
+    assert _glossary_link_hits("The gold [x](y.md) label here.", "x") == []
+
+
+def test_support_companions_are_matched_without_regard_to_case():
+    hits = _glossary_link_hits("PRECISION and support per class.", "x")
+    assert any("'support'" in hit for hit in hits)
 
 
 def test_an_undefined_anchor_is_reported(monkeypatch):
