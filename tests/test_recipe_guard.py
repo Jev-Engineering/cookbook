@@ -7224,11 +7224,12 @@ def _rewrites_text(node: ast.AST, tainted: frozenset[str] = frozenset()) -> bool
         if isinstance(n, ast.Call):
             func = n.func
             if isinstance(func, ast.Attribute) and func.attr in _TEXT_REWRITING_METHODS:
-                receiver = func.value
-                if _reads_real_committed_source(receiver) or (
-                    _ast_names(receiver) & (set(tainted) | targets)
-                ):
-                    return True
+                # the receiver (``source.lower()``) or an argument (``str.lower(source)``)
+                for operand in (func.value, *n.args):
+                    if _reads_real_committed_source(operand) or (
+                        _ast_names(operand) & (set(tainted) | targets)
+                    ):
+                        return True
             called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
             if called in {"getattr", "methodcaller"} and any(
                 isinstance(a, ast.Constant) and a.value in _TEXT_REWRITING_METHODS for a in n.args
@@ -8447,7 +8448,8 @@ def _spellings_pinned_by_production_discrimination(
 
 def _ignored_by_conftest(directory: Path, path: Path) -> bool:
     """True if ``directory/conftest.py`` sets ``collect_ignore`` / ``collect_ignore_glob`` so that
-    pytest skips ``path``. A value that is not a literal list of strings ignores everything (the
+    pytest skips ``path``. Anything but one plain literal list of strings per name (a ``.append``,
+    ``+=``, annotation, tuple target, nested or repeated assignment) ignores everything (the
     fail-closed side). A ``pytest_ignore_collect`` hook is not read (accepted)."""
     conftest = directory / "conftest.py"
     if not conftest.is_file():
@@ -8456,21 +8458,27 @@ def _ignored_by_conftest(directory: Path, path: Path) -> bool:
         tree = ast.parse(conftest.read_text("utf-8"))
     except SyntaxError:
         return False
-    for stmt in tree.body:
-        if not (
-            isinstance(stmt, ast.Assign)
-            and any(
-                isinstance(t, ast.Name) and t.id in ("collect_ignore", "collect_ignore_glob")
-                for t in stmt.targets
-            )
-        ):
-            continue
+    names = ("collect_ignore", "collect_ignore_glob")
+    mentions = [n for n in ast.walk(tree) if isinstance(n, ast.Name) and n.id in names]
+    if not mentions:
+        return False
+    # Any binding other than ONE plain top-level ``collect_ignore = [<str literals>]`` per name
+    # (``.append``, ``+=``, an annotation, a tuple target, a nested or repeated assignment, ``del``)
+    # leaves a value this cannot read: ignore everything (the fail-closed side).
+    plain: list[ast.Assign] = [
+        stmt
+        for stmt in tree.body
+        if isinstance(stmt, ast.Assign)
+        and len(stmt.targets) == 1
+        and isinstance(stmt.targets[0], ast.Name)
+        and stmt.targets[0].id in names
+        and isinstance(stmt.value, ast.List | ast.Tuple)
+        and all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in stmt.value.elts)
+    ]
+    if len(plain) != len(mentions) or len({s.targets[0].id for s in plain}) != len(plain):
+        return True
+    for stmt in plain:
         value = stmt.value
-        if not (
-            isinstance(value, ast.List | ast.Tuple)
-            and all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in value.elts)
-        ):
-            return True
         relative = path.relative_to(directory).as_posix() if path.is_relative_to(directory) else ""
         for element in value.elts:
             pattern = element.value
@@ -9514,6 +9522,9 @@ def test_a_value_whose_characters_were_rewritten_is_not_the_committed_source(tmp
 def test_an_assert_that_rewrites_the_source_inline_is_not_credited(tmp_path):
     violations = _polarity_violations(tmp_path, 'assert "min_coverage" in source.lower()\n')
     assert violations
+    assert _polarity_violations(
+        tmp_path / "unbound", 'assert "min_coverage" in str.lower(source)\n'
+    )
     assert (
         _polarity_violations(tmp_path / "plain", 'assert "min_coverage" in source.strip()\n') == []
     ), "a lossless transform of the committed source must stay credited"
@@ -9622,6 +9633,8 @@ def test_aliased_tempfile_and_a_bare_copy_statement_are_scratch(tmp_path, read):
         f'raw = {_COMMITTED}.read_text("utf-8")\n'
         'source = operator.methodcaller("lower")(raw)\n',
         f'raw = {_COMMITTED}.read_text("utf-8")\nsource = getattr(raw, "lower")()\n',
+        f'raw = {_COMMITTED}.read_text("utf-8")\nsource = str.lower(raw)\n',
+        f'source = str.casefold({_COMMITTED}.read_text("utf-8"))\n',
     ],
 )
 def test_a_case_rewrite_that_is_not_a_method_call_is_not_the_committed_source(tmp_path, read):
@@ -9679,6 +9692,16 @@ _NOT_COLLECTED = {
     },
     "a later def of the same name": {"module_suffix": "\n\ndef test_pin():\n    pass\n"},
     "collect_ignore in conftest.py": {"conftest": 'collect_ignore = ["test_threshold_pin.py"]\n'},
+    "collect_ignore appended to": {
+        "conftest": 'collect_ignore = []\ncollect_ignore.append("test_threshold_pin.py")\n'
+    },
+    "collect_ignore extended with +=": {
+        "conftest": 'collect_ignore = []\ncollect_ignore += ["test_threshold_pin.py"]\n'
+    },
+    "collect_ignore annotated": {"conftest": 'collect_ignore: list = ["test_threshold_pin.py"]\n'},
+    "collect_ignore bound twice": {
+        "conftest": 'collect_ignore = ["a.py"]\ncollect_ignore = ["b.py"]\n'
+    },
     "collect_ignore_glob in conftest.py": {"conftest": 'collect_ignore_glob = ["test_thr*.py"]\n'},
     "a collect_ignore pytest cannot be shown to read": {
         "conftest": "collect_ignore = [name for name in ()]\n"

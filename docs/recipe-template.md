@@ -239,6 +239,10 @@ sentence defines the term stays with the reviewer.
   | A copy placed under a root the guard does not recognise (not `tmp_path`, `tempfile`, `shutil.copy*`/`move`): `os.system("cp ...")`, `subprocess`, `Path.copy`, a literal destination path; symlinks, monkeypatches, opaque helper returns, injected or computed needles | Keep the committed-file read direct, and copy under `tmp_path` |
   | Another recipe's folder named through a variable, a split string or an f-string (`other = "42-..."`, `"4" + "2-..."`) | Read your own folder from `__file__` |
   | The committed file written through a path held in a variable, or in another function, before it is read | Write only to a `tmp_path` copy |
+  | `__test__` set without a plain `__test__ = ...` statement (`setattr(...)`, `TestPin.__test__ = False`, `globals()["__test__"] = ...`, tuple assignment) | Set `__test__` by a plain statement, or do not set it |
+  | A pin shadowed by a plain assignment (`test_pin = None`) rather than a later `def` | Do not rebind a test's name |
+  | A `re.sub` whose replacement is a lambda that lowercases | Compare against the untransformed source |
+  | Another recipe's notebook selected through the slug-as-data exemption (`p.name == "42-..."` inside `iterdir()`, or a dict-comprehension subscript) | Read your own folder from `__file__` |
   | `__test__ = False` set in a plugin or `conftest.py` fixture hook, `pytest_ignore_collect`, `-k`/`--deselect`/`addopts`, or a `Test*` class that inherits an `__init__` from an imported base | Run the recipe's tests and confirm the pin test is collected |
 
   *Wrong-rejects* (loud and safe: the guard refuses a pin that is real; rewrite the test into the
@@ -257,6 +261,8 @@ sentence defines the term stays with the reviewer.
   | An assert under `if`, `try`, a loop over a non-literal, or a context manager other than `open` (whether it runs, and which way it reads, depends on a context the guard cannot see) | A top-level statement of the test function |
   | A `.lower()`-family call inside the read statement, even on a cell field (`c["cell_type"].lower() == "code"`), or on a comprehension variable | Compare the exact field value, or do the rewrite in a separate statement that does not build the source |
   | A string shaped like a recipe folder (`"10-threshold"`) used as a path part or call argument in the read statement; a hard-coded own slug | Use the cell id as a subscript key or in a comparison, and locate your folder from `__file__` |
+  | A slug-shaped dict-literal key (`{"10-threshold": ...}`) in the read statement | Use the cell id as a subscript key or in a comparison |
+  | Any binding of `collect_ignore`/`collect_ignore_glob` in `conftest.py` other than one plain literal assignment (`.append`, `+=`, an annotation, a repeat): nothing in that folder is credited | One plain `collect_ignore = ["file.py"]`, or no `collect_ignore` |
   | A `shutil.copy*`/`move` or `tempfile.*` call in the read statement or its binding | Do the copy in its own statement, and read the committed file in a different one |
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
