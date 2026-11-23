@@ -474,13 +474,13 @@ catalog is insufficient; the scope guard reads assignments from the base.
 
 ## From scaffold to a running notebook
 
-1. Create `recipe/NN-slug` from `main`; `python -m venv .venv`, activate, `pip install -e ".[dev]"`.
+1. Create `recipe/NN-slug` from `main`; `python -m venv .venv`, activate, `pip install -e ".[dev,ml]"`.
 2. `python tools/new_recipe.py NN`.
 3. Write `helpers.py`: the state, the questions (options built by Python), and the rules Python
    enforces. Write a test for each rule in `tests/test_helpers.py`; run `pytest recipes/NN-slug`.
-   If `helpers.py` trains a baseline with scikit-learn (the `ml` extra), install the extra too
-   (`pip install -e ".[dev,ml]"`): the `Tests` jobs install it, so it is available in `helpers.py`,
-   `build_fixtures.py` and `tests/`, as well as in notebook cells. Those jobs do not use the
+   The `ml` extra in step 1's install (scikit-learn) is what the `Tests` jobs install, so it is
+   available in `helpers.py`, `build_fixtures.py` and `tests/`, as well as in notebook cells,
+   whether or not your `helpers.py` trains a baseline. Those jobs do not use the
    notebook constraints (Python 3.10 cannot install them), so a test asserts properties of the
    trained model, never numbers that depend on the scikit-learn version
    ([development.md](development.md#continuous-integration)).
@@ -581,7 +581,7 @@ The command writes the files of the replay scaffold, then runs the new folder's 
 [synthetic-images.md](synthetic-images.md#byte-stability-and-regeneration), and writes
 `assets-manifest.json` and `fixtures/`. The scaffold core needs only the standard library;
 image generation and its encoder check need the installed package and Pillow
-(`pip install -e ".[dev]"`). After a successful image build, the command warns if the encoder
+(`pip install -e ".[dev,ml]"`). After a successful image build, the command warns if the encoder
 is not canonical; regenerate new PNGs under the notebook constraints pin before committing.
 If the build fails, the folder is removed and the command exits with status 1. Its diagnostic
 retains complete stdout and stderr, including output captured before a timeout.
@@ -670,7 +670,7 @@ the recipe folder as working directory, and writes the outputs back in place.
 - The kernel is the interpreter running the tool (`sys.executable`). The name `python3` is
   resolved to that interpreter, not to whichever `python3` kernelspec Jupyter finds first, so a
   user-level kernelspec cannot change what the committed outputs were made with. The tool needs
-  `ipykernel` installed in that interpreter, which `pip install -e ".[dev]"` provides.
+  `ipykernel` installed in that interpreter, which `pip install -e ".[dev,ml]"` provides.
 - Stream output is coalesced, so a printed line is never split into two outputs by a flush that
   lands between its text and its newline; without that, re-execution was not byte-identical under
   load. A kernel that dies (a crash, `os._exit`) fails the run with exit status 1 and leaves the
