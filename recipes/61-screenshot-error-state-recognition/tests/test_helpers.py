@@ -1,6 +1,7 @@
 """Tests for recipe 61's helpers. They load the helpers by file path."""
 
 import ast
+import inspect
 import json
 import math
 from pathlib import Path
@@ -10,6 +11,7 @@ import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
 from jev_cookbook import synthetic_images as si
+from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
 from jev_cookbook.simulation import ReviewQueue
 
@@ -264,35 +266,43 @@ def test_the_stored_answers_the_notebook_discusses_are_the_ones_in_the_replay():
     assert chose("t16").choice == "crash"  # a maintenance notice, answered as a category
 
 
-def test_stored_answers_are_not_all_right_and_a_wrong_one_clears_the_frozen_gate():
-    # Mirror the notebook's threshold selection on validation, then require a wrong `test`
-    # answer at or above it: a mistake the gate still lets through, which is what evaluating
+def test_stored_answers_are_not_all_right():
+    # A wrong answer anywhere is a weak guard: it would still pass even if a confidence gate caught
+    # every mistake. Mirror the notebook's own threshold selection (the lowest confidence at which
+    # every validation answer that is not `unknown` and clears it is right) and require a wrong
+    # `test` answer at or above it: a mistake the frozen rule delivers, which is what evaluating
     # on `test` exists to catch.
     backend = get_backend(fixtures=responses_path(RECIPE), images=True)
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
     examples = load_inputs(RECIPE)
 
-    def answers_of(split):
-        chosen = select_split(examples, split)
-        found = []
-        for e in chosen:
-            state, assets = helpers.build_request(e.fields)
-            found.append(backend.decide(state, questions, assets=assets)["app_state"])
-        return chosen, found
+    def answer_of(example):
+        state, assets = helpers.build_request(example.fields)
+        return backend.decide(state, questions, assets=assets)["app_state"]
 
-    validation, val_answers = answers_of("validation")
-    threshold, _n = helpers.choose_threshold(
-        val_answers, [labels[e.id] for e in validation], target_accuracy=1.0
-    )
-    assert threshold is not None
-    test, test_answers = answers_of("test")
-    delivered_wrong = [
-        e.id
-        for e, a in zip(test, test_answers, strict=True)
-        if a.choice != labels[e.id] and a.choice != "unknown" and a.confidence >= threshold
+    validation = [e for e in examples if e.split == "validation"]
+    val_answers = [answer_of(e) for e in validation]
+    pool = [
+        (a.choice == labels[e.id], a.confidence)
+        for e, a in zip(validation, val_answers, strict=True)
+        if a.choice != "unknown"
     ]
-    assert delivered_wrong == ["t08", "t14"]
+    threshold = select_confidence_threshold(
+        [ok for ok, _ in pool], [c for _, c in pool], target_accuracy=1.0
+    )
+    test = [e for e in examples if e.split == "test"]
+    test_answers = {e.id: answer_of(e) for e in test}
+    wrong_and_confident = [
+        e.id
+        for e in test
+        if test_answers[e.id].choice not in (labels[e.id], "unknown")
+        and test_answers[e.id].confidence >= threshold
+    ]
+    assert wrong_and_confident == ["t08", "t14"]
+    # and a wrong answer that the gate does catch, on a gold `unknown` example
+    assert helpers.decide_state("S-2016", test_answers["t16"], threshold).kind == "review"
+    assert test_answers["t16"].choice == "crash" and labels["t16"] == "unknown"
 
 
 def test_the_notebook_selects_the_threshold_by_target_accuracy_not_min_coverage():
@@ -303,4 +313,7 @@ def test_the_notebook_selects_the_threshold_by_target_accuracy_not_min_coverage(
     source = "".join(cell["source"])
     assert source.count("helpers.choose_threshold(") == 1
     assert source.count("target_accuracy=1.0") == 1
-    assert "min_coverage" not in source
+    calibration = inspect.getsource(helpers.choose_threshold)
+    assert calibration.count("select_confidence_threshold(") == 1
+    assert "target_accuracy=target_accuracy" in calibration
+    assert "min_coverage" not in source + calibration
