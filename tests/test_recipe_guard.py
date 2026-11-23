@@ -521,6 +521,7 @@ import tokenize
 from collections.abc import Callable
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from functools import cache
+from html.parser import HTMLParser
 from pathlib import Path
 from types import ModuleType
 from typing import NamedTuple
@@ -13530,8 +13531,75 @@ def _is_delimiter_row(line: str) -> bool:
     )
 
 
-def _table_scan(text: str) -> tuple[list[list[str]], str]:
-    """``(data rows, remaining text)`` of a markdown block (#691). A table starts at a line with
+class _HtmlTableReader(HTMLParser):
+    """The rows of one HTML ``<table>``: each row is a list of ``(is_header_cell, text)``."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[list[tuple[bool, str]]] = []
+        self._cell: list[str] | None = None
+        self._is_th = False
+
+    def _close_cell(self) -> None:
+        if self._cell is not None and self.rows:
+            self.rows[-1].append((self._is_th, " ".join("".join(self._cell).split())))
+        self._cell = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr":
+            self._close_cell()
+            self.rows.append([])
+        elif tag in ("td", "th"):
+            self._close_cell()
+            if not self.rows:
+                self.rows.append([])
+            self._cell, self._is_th = [], tag == "th"
+
+    def handle_endtag(self, tag):
+        if tag in ("td", "th"):
+            self._close_cell()
+
+    def handle_data(self, data):
+        if self._cell is not None:
+            self._cell.append(data)
+
+    def close(self):
+        super().close()
+        self._close_cell()
+
+
+_HTML_TABLE = re.compile(r"<table\b.*?(?:</table\s*>|\Z)", re.IGNORECASE | re.DOTALL)
+
+
+def _html_tables(text: str) -> tuple[list[tuple[list[str], list[str]]], str]:
+    """``(rows, remaining text)`` for the HTML ``<table>`` elements of a markdown block (#698):
+    each ``<table>`` is replaced by one blank line and its rows are returned as
+    ``(column headers, cells)``. The headers are the cells of the first row made only of ``<th>``
+    cells; every other row is a data row, whether its cells are ``<th>`` or ``<td>``, so a row
+    header is a label like a markdown table's first cell. A table with no all-``<th>`` row has no
+    column headers. Nested tables are not told apart (the outer table's text and the inner one's
+    read as one table up to the first ``</table>``)."""
+    rows: list[tuple[list[str], list[str]]] = []
+
+    def read(match: re.Match) -> str:
+        reader = _HtmlTableReader()
+        reader.feed(match.group(0))
+        reader.close()
+        columns: list[str] = []
+        for number, row in enumerate(reader.rows):
+            if row and all(is_th for is_th, _ in row) and number == 0:
+                columns = [cell for _, cell in row]
+            elif row:
+                rows.append((columns, [cell for _, cell in row]))
+        return "\n"
+
+    return rows, _HTML_TABLE.sub(read, text)
+
+
+def _scan_tables(text: str) -> tuple[list[tuple[list[str], list[str]]], str]:
+    """``((column headers, data row) for each data row, remaining text)`` of a markdown block
+    (#691, #698). An HTML ``<table>`` is read first (``_html_tables``) and blanked out. A markdown
+    table is read as follows. A table starts at a line with
     an unescaped pipe whose next line is a delimiter row (GFM: only that second line is the
     delimiter; the cell counts of the two lines are not compared, so a delimiter of another width
     still starts a table: reading more only adds a flag). That header line and the delimiter stay
@@ -13543,9 +13611,9 @@ def _table_scan(text: str) -> tuple[list[list[str]], str]:
     it does not end the table, so it hides nothing below it and is never split from its
     paragraph. A later row of dashes is a data row too, never a second delimiter. Rows may omit the outer pipes, may
     sit in a blockquote and may be indented, a list item's table included."""
+    rows, text = _html_tables(text)
     lines = text.splitlines()
     plain = [_table_line(line) for line in lines]
-    rows: list[list[str]] = []
     kept = list(lines)
     i = 0
     while i < len(lines):
@@ -13556,6 +13624,7 @@ def _table_scan(text: str) -> tuple[list[list[str]], str]:
             and _is_delimiter_row(plain[i + 1][0])
         ):
             depth = plain[i][1]
+            columns = _table_cells(header)
             i += 2
             while i < len(lines):
                 line, line_depth = plain[i]
@@ -13566,7 +13635,7 @@ def _table_scan(text: str) -> tuple[list[list[str]], str]:
                 ):
                     break
                 if _UNESCAPED_PIPE.search(line):
-                    rows.append(_table_cells(line))
+                    rows.append((columns, _table_cells(line)))
                     kept[i] = ""
                 i += 1
         else:
@@ -13574,23 +13643,106 @@ def _table_scan(text: str) -> tuple[list[list[str]], str]:
     return rows, "\n".join(kept)
 
 
-def _table_row_quantities(cells: list[str]) -> list[tuple[str, str]]:
-    """The quotes a table data row makes (#691): the row's first cell is its label, and every
-    other cell is read as ``<label>: <cell>``, so ``| accuracy | 93% |`` quotes ``93%`` next to
-    ``accuracy`` and ``| median latency | 180 ms |`` quotes a latency under the row's own words.
-    The label cell is also read alone, for a label that carries its own figure in a sentence.
-    Limits: the context is the row label only, never the column header or the header row, so a
-    metric word that only a header carries is not read; a figure in the label cell
-    (``| 93% | accuracy |``) is not read against a later cell; and a cell with several figures
-    quotes only the one the prose patterns reach (``0.93 / 0.91`` under ``precision / recall``
-    quotes ``0.93``)."""
-    if not cells:
-        return []
-    label, rest = cells[0], cells[1:]
-    found = _quoted_quantities(label)
-    for cell in rest:
-        found += _quoted_quantities(f"{label}: {cell}")
+_BARE_NUMBER = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
+# A cell that is only a unit, the tail of a figure split across two cells (``| 93 | % |``).
+_UNIT_ONLY_CELL = re.compile(r"%|percent|pct|ms|milliseconds?|s|secs?|seconds?", re.IGNORECASE)
+# Words of a column header that name the unit of the cells below it, and how a bare number of
+# that column is written out with it.
+_HEADER_UNITS = {
+    "%": "{n}%",
+    "percent": "{n}%",
+    "pct": "{n}%",
+    "ms": "{n} ms",
+    "millisecond": "{n} ms",
+    "milliseconds": "{n} ms",
+    "s": "{n} seconds",
+    "sec": "{n} seconds",
+    "secs": "{n} seconds",
+    "second": "{n} seconds",
+    "seconds": "{n} seconds",
+    "$": "${n}",
+    "usd": "{n} USD",
+    "eur": "{n} EUR",
+    "gbp": "{n} GBP",
+    "€": "€{n}",
+    "£": "£{n}",
+}
+_HEADER_RATE_UNIT = re.compile(
+    r"\b(calls?|requests?|tokens?)\s?(?:/|per )\s?(s|sec|second|minute)\b", re.IGNORECASE
+)
+_HEADER_TOKEN = re.compile(r"[%$€£]|[^\s()\[\]{}<>,;:|/]+")
+
+
+def _header_unit(header: str) -> str | None:
+    """The format (``"{n}%"``) that writes a bare number of the column ``header`` heads with the
+    unit the header names (``value (%)``, ``latency ms``, ``cost ($)``, ``rate (calls/s)``), or
+    ``None``. A header naming no unit is not a unit header."""
+    rate = _HEADER_RATE_UNIT.search(header)
+    if rate:
+        return "{n} " + rate.group(1) + "/" + rate.group(2)
+    for token in _HEADER_TOKEN.findall(header):
+        if token.lower() in _HEADER_UNITS:
+            return _HEADER_UNITS[token.lower()]
+    return None
+
+
+def _header_words(header: str) -> str:
+    """A column header as a context for its cells: its words, without a bracketed unit
+    (``accuracy (%)`` is ``accuracy``) or a lone ``%`` that would stand between the metric word
+    and the figure."""
+    return " ".join(re.sub(r"[(\[][^)\]]*[)\]]|(?<!\w)%", " ", header).split())
+
+
+def _merge_split_figures(cells: list[str]) -> list[tuple[int, str]]:
+    """``(column index, text)`` for each cell of a row, a unit-only cell (``%``, ``ms``) joined to
+    the bare number before it: ``| 93 | % |`` is the one figure ``93%`` and keeps the column of
+    its number."""
+    merged: list[tuple[int, str]] = []
+    for index, cell in enumerate(cells):
+        if merged and _UNIT_ONLY_CELL.fullmatch(cell) and _BARE_NUMBER.fullmatch(merged[-1][1]):
+            column, number = merged[-1]
+            merged[-1] = (
+                column,
+                number + ("%" if cell.lower() in ("%", "percent", "pct") else " " + cell),
+            )
+        else:
+            merged.append((index, cell))
+    return merged
+
+
+def _table_row_quantities(
+    cells: list[str], header: list[str] | None = None
+) -> list[tuple[str, str]]:
+    """The quotes a table data row makes (#691, #698). Every cell is read as ``<context>: <cell>``
+    for each context it has, so ``| accuracy | 93% |`` quotes ``93%`` next to ``accuracy`` and
+    ``| median latency | 180 ms |`` quotes a latency under the row's own words. A cell's contexts
+    are the header of its column (``header``, the table's header row: ``| model | accuracy |``
+    over ``| jev | 93% |``) and every other cell of the row (``| jev | accuracy | 93% |``, or
+    ``| 93% | accuracy |``), so a metric word in any column counts. A bare number under a header
+    that names a unit (``value (%)``, ``latency (ms)``) is read with that unit, and a unit in its
+    own cell (``| accuracy | 93 | % |``) is joined to the number before it. Every cell is also read
+    alone, for a cell that carries its own figure in a sentence.
+    Limits: a cell with several figures quotes only the ones the prose patterns reach
+    (``0.93 / 0.91`` under ``precision / recall`` quotes ``0.93``); a header that is not the
+    table's header row (a second header block) is not a context; and a figure in one cell next to
+    a metric word in the same cell of a neighbouring row is not related to it."""
+    figures = _merge_split_figures(cells)
+    found: list[tuple[str, str]] = []
+    for position, (column, cell) in enumerate(figures):
+        head = header[column] if header and column < len(header) else ""
+        unit = _header_unit(head)
+        text = unit.format(n=cell) if unit and _BARE_NUMBER.fullmatch(cell) else cell
+        contexts = [_header_words(head)] + [c for k, (_, c) in enumerate(figures) if k != position]
+        found += _quoted_quantities(text)
+        for context in dict.fromkeys(c for c in contexts if c):
+            found += _quoted_quantities(f"{context}: {text}")
     return list(dict.fromkeys(found))
+
+
+def _table_scan(text: str) -> tuple[list[list[str]], str]:
+    """``_scan_tables`` without the column headers: ``(data rows, remaining text)``."""
+    rows, prose = _scan_tables(text)
+    return [cells for _, cells in rows], prose
 
 
 def _quoted_quantities(text: str) -> list[tuple[str, str]]:
@@ -13822,9 +13974,9 @@ def _prose_quotes(recipe_dir_: Path) -> list[tuple[str, str, str]]:
     else, a table's header row included, is read as prose."""
     found = []
     for where, text in _prose_blocks(recipe_dir_):
-        rows, prose = _table_scan(text)
-        for row in rows:
-            found += [(where, kind, quote) for kind, quote in _table_row_quantities(row)]
+        rows, prose = _scan_tables(text)
+        for columns, row in rows:
+            found += [(where, kind, quote) for kind, quote in _table_row_quantities(row, columns)]
         for unit in _markdown_units(prose):
             found += [(where, kind, quote) for kind, quote in _quoted_quantities(unit)]
     return found
@@ -15733,10 +15885,7 @@ def test_a_table_row_is_read_cell_by_cell_under_its_row_label():
     assert _row_quotes("| accuracy | sku93% |") == []
 
 
-def test_a_figure_in_the_label_cell_and_a_second_figure_in_a_cell_are_the_documented_limits():
-    # the label cell is read alone, never against a later cell
-    assert _row_quotes("| 93% | accuracy |") == []
-    assert _row_quotes("| 0.93 | accuracy |") == []
+def test_a_second_figure_in_a_cell_is_the_documented_limit():
     # a cell with several figures quotes the one next to the metric word
     assert _row_quotes("| precision / recall | 0.93 / 0.91 |") == [("metric", "0.93")]
 
@@ -15772,6 +15921,170 @@ def test_every_gfm_table_shape_is_read_in_the_readme_and_in_a_markdown_cell(tmp_
         _append_cell(folder, "markdown", table)
     violations = _unprinted_quantities(folder)
     assert len(violations) == 1 and "'93%'" in violations[0], violations
+
+
+# --- #698: a cell's context is its column header and every other cell of its row -------------------
+
+_LAYOUTS = {
+    # the metric word is in another column than the first
+    "metric-in-another-column": (
+        "| model | metric | value |\n| --- | --- | --- |\n| jev | accuracy | 93% |\n"
+    ),
+    "label-cell-holds-the-figure": "| value | metric |\n| --- | --- |\n| 93% | accuracy |\n",
+    # transposed: the metric names sit in the column header
+    "transposed": "| model | accuracy | rows |\n| --- | --- | --- |\n| jev | 93% | 4 |\n",
+    "milliseconds-in-the-header": "| model | latency (ms) |\n| --- | --- |\n| jev | 93 |\n",
+    "transposed-no-outer-pipes": "model | accuracy\n--- | ---\njev | 93%\n",
+    "transposed-blockquote": "> | model | accuracy |\n> | --- | --- |\n> | jev | 93% |\n",
+    # the unit is only in the column header
+    "percent-in-the-header": "| metric | value (%) |\n| --- | --- |\n| accuracy | 93 |\n",
+    "percent-sign-in-the-header": "| metric | % |\n| --- | --- |\n| accuracy | 93 |\n",
+    "unit-and-metric-in-the-header": "| model | accuracy (%) |\n| --- | --- |\n| jev | 93 |\n",
+    # a figure split across cells
+    "split-percent": "| metric | value |\n| --- | --- | --- |\n| accuracy | 93 | % |\n",
+    # an HTML table
+    "html": (
+        "<table><tr><th>metric</th><th>value</th></tr>"
+        "<tr><td>accuracy</td><td>93%</td></tr></table>\n"
+    ),
+    "html-multiline": (
+        "<table>\n<thead>\n<tr><th>model</th><th>accuracy</th></tr>\n</thead>\n"
+        "<tbody>\n<tr>\n<td>jev</td>\n<td>93%</td>\n</tr>\n</tbody>\n</table>\n"
+    ),
+    "html-unit-in-the-header": (
+        "<table><tr><th>metric</th><th>value (%)</th></tr>"
+        "<tr><td>accuracy</td><td>93</td></tr></table>\n"
+    ),
+    "html-row-header": (
+        "<table><tr><th>model</th><th>accuracy</th></tr><tr><th>jev</th><td>93%</td></tr></table>\n"
+    ),
+}
+
+
+def _with_markdown(folder: Path, where: str, markdown: str) -> None:
+    if where == "readme":
+        readme = folder / "README.md"
+        readme.write_text(readme.read_text("utf-8") + "\n" + markdown, "utf-8")
+    else:
+        _append_cell(folder, "markdown", markdown)
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("layout", sorted(_LAYOUTS))
+def test_a_figure_the_header_or_the_row_gives_a_metric_word_is_checked(tmp_path, layout, where):
+    """#698: ``93%`` is not printed by the template, so every layout of a table that quotes it
+    under a metric word, whichever cell or header carries the word, is flagged once."""
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _unprinted_quantities(folder) == []
+    _with_markdown(folder, where, _LAYOUTS[layout])
+    violations = _unprinted_quantities(folder)
+    assert len(violations) == 1 and "93" in violations[0], violations
+
+
+_PRINTED_LAYOUTS = {
+    # the template prints ``accuracy of the choice: 0.80``
+    "metric-in-another-column": (
+        "| model | metric | value |\n| --- | --- | --- |\n| jev | accuracy | 80% |\n"
+    ),
+    "transposed": "| model | accuracy |\n| --- | --- |\n| jev | 0.80 |\n",
+    "percent-in-the-header": "| metric | value (%) |\n| --- | --- |\n| accuracy | 80 |\n",
+    "split-percent": "| metric | value |\n| --- | --- | --- |\n| accuracy | 80 | % |\n",
+    "html": (
+        "<table><tr><th>model</th><th>accuracy</th></tr><tr><td>jev</td><td>80%</td></tr></table>\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("layout", sorted(_PRINTED_LAYOUTS))
+def test_a_printed_figure_in_any_table_layout_is_not_flagged(tmp_path, layout):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", _PRINTED_LAYOUTS[layout])
+    assert _unprinted_quantities(folder) == []
+
+
+@pytest.mark.parametrize(
+    "table",
+    [
+        # a header or another cell with no metric word gives a figure no context
+        "| run | value (%) |\n| --- | --- |\n| a | 93 |\n",
+        "| model | count |\n| --- | --- |\n| jev | 93 |\n",
+        "| model | rows |\n| --- | --- |\n| jev | 93% |\n",
+        "| parameter | value |\n| --- | --- |\n| threshold | 0.85 |\n| seed | 42 |\n",
+        # a bare number under a header that names no unit has no unit
+        "| metric | value |\n| --- | --- |\n| accuracy | 93 |\n",
+        "<table><tr><th>run</th><th>rows</th></tr><tr><td>a</td><td>93%</td></tr></table>\n",
+    ],
+)
+def test_a_table_with_no_metric_word_in_its_header_or_row_quotes_nothing(tmp_path, table):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", table)
+    assert _unprinted_quantities(folder) == []
+
+
+def test_each_cell_is_read_under_its_own_column_header():
+    columns = ["model", "accuracy", "latency (ms)", "risk (%)"]
+    row = ["jev", "0.93", "180", "5"]
+    assert _table_row_quantities(row, columns) == [
+        ("rate", "0.93"),
+        ("speed", "180 ms"),
+        ("rate", "5%"),
+    ]
+    # a metric word in another cell of the row is context without any header
+    assert _table_row_quantities(["jev", "accuracy", "93%"], ["model", "metric", "value"]) == [
+        ("rate", "93%")
+    ]
+    assert _table_row_quantities(["93%", "accuracy"]) == [("rate", "93%")]
+    # a row longer than its header: the extra cell has no column header
+    assert _table_row_quantities(["accuracy", "93%", "91%"], ["metric", "value"]) == [
+        ("rate", "93%"),
+        ("rate", "91%"),
+    ]
+
+
+def test_a_header_unit_is_read_from_the_header_words():
+    assert _header_unit("value (%)") == "{n}%"
+    assert _header_unit("accuracy %") == "{n}%"
+    assert _header_unit("latency, ms") == "{n} ms"
+    assert _header_unit("latency (s)") == "{n} seconds"
+    assert _header_unit("price ($)") == "${n}"
+    assert _header_unit("throughput (calls/s)") == "{n} calls/s"
+    assert _header_unit("accuracy") is None
+    assert _header_unit("users") is None
+
+
+def test_a_unit_in_its_own_cell_joins_the_number_before_it():
+    assert _merge_split_figures(["accuracy", "93", "%"]) == [(0, "accuracy"), (1, "93%")]
+    assert _merge_split_figures(["latency", "180", "ms"]) == [(0, "latency"), (1, "180 ms")]
+    # a unit word after a word is not a split figure
+    assert _merge_split_figures(["accuracy", "s"]) == [(0, "accuracy"), (1, "s")]
+    assert _table_row_quantities(["accuracy", "93", "%"]) == [("rate", "93%")]
+    assert _table_row_quantities(["latency", "180", "ms"]) == [("speed", "180 ms")]
+
+
+def test_a_markdown_table_scan_keeps_each_rows_column_headers():
+    rows, _ = _scan_tables("| model | accuracy |\n| --- | --- |\n| jev | 93% |\n| x | 1 |\n")
+    assert rows == [(["model", "accuracy"], ["jev", "93%"]), (["model", "accuracy"], ["x", "1"])]
+
+
+def test_an_html_table_is_read_into_rows_and_blanked_out_of_the_prose():
+    text = (
+        "Before.\n<TABLE border=1>\n<tr><th>model</th><th>accuracy</th></tr>\n"
+        "<tr><td>jev</td><td>93%</td></tr>\n<tr><th>row</th><td>1 <b>x</b></td></tr>\n"
+        "</TABLE>\nAfter.\n"
+    )
+    rows, prose = _scan_tables(text)
+    assert rows == [
+        (["model", "accuracy"], ["jev", "93%"]),
+        (["model", "accuracy"], ["row", "1 x"]),
+    ]
+    assert "93%" not in prose and "Before." in prose and "After." in prose
+
+
+def test_an_html_table_without_a_header_row_or_closing_tag_still_gives_its_rows():
+    rows, _ = _scan_tables("<table><tr><td>accuracy</td><td>93%</td></tr>")
+    assert rows == [([], ["accuracy", "93%"])]
+    rows, _ = _scan_tables("<table><td>accuracy</td><td>93%</td></table>")
+    assert rows == [([], ["accuracy", "93%"])]
 
 
 _LATER_DASH_ROWS = {
