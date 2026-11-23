@@ -403,8 +403,11 @@ gold-position statistic from a code cell (a name, keyword or string literal, or 
 output) unless the recipe really calls or imports `stable_permutation` or `stable_shuffle`,
 found by parsing its notebook code and `*.py` files, so a comment, docstring or string that only
 names one exempts nothing. One real use exempts the whole recipe, even when it also lists another
-`Choice` in a fixed order, so the reviewer still checks that case. Known miss: recipe 22's
-"gold-match position" table over an unshuffled option list passes on its wording (Refs #684).
+`Choice` in a fixed order, so the reviewer still checks that case. Printed text counts as a gold
+position when "gold", an optional "match" and "position" are separated by `-`, `_` or repeated
+spaces ("gold-match position", "gold_position"), and so does the phrase "position of the gold"
+(not "gold standard", "goldfish" or "golden"). A name such as `gold_pos` or `gold_match_pos` counts
+too.
 
 When a per-item order is wanted, two different things go wrong if it does not come from the
 seed key:
