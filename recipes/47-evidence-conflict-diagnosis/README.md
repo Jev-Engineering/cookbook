@@ -11,8 +11,8 @@ apparent conflict. Jev reads both excerpts plus a temporal relationship Python a
 between their dates, and makes one `Choice`: a genuine factual disagreement, a difference
 explained by time, by the excerpts sharing a name but describing two different entities, by
 differing scope, or the named fallback, `not_conflicting`, for a pair that was never really in
-conflict. Python owns the state (including the computed temporal relationship), the confidence
-gate that decides which diagnoses are reported, and two zero-request baselines that show exactly
+conflict. Python owns the state (including the computed temporal relationship), the
+[confidence gate](../../docs/glossary.md#confidence-gate) that decides which diagnoses are reported, and two zero-request baselines that show exactly
 where Jev earns its keep against cheaper alternatives — and where, on this recipe's own
 fixtures, a cheap feature beats it instead.
 
@@ -65,7 +65,7 @@ A recorded recipe states the model version the API returned, the capture date an
 it reports, here and in the notebook.
 
 The offline run replays 36 invented excerpt pairs with hand-written (synthetic) answers, some
-wrong on purpose (one per scored split). Its accuracy, confusion matrix, and the baseline
+wrong on purpose (one per scored split). Its [accuracy](../../docs/glossary.md#accuracy), confusion matrix, and the baseline
 comparison check that the pipeline works; they say nothing about how Jev performs, how fast it
 is, or what it costs. This recipe has no recorded fixtures.
 

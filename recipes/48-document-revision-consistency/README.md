@@ -52,18 +52,18 @@ key in a notebook or a fixture.
 
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable while every answer is synthetic.
-- **N:** 20 scored examples (10 `validation`, 10 `test`; the 2 `demo` examples carry no gold
-  label and are not scored).
+- **N:** 20 scored examples (10 `validation`, 10 `test`; the 2 `demo` examples carry no
+  [gold label](../../docs/glossary.md#gold-label) and are not scored).
 
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
 
 The offline run replays synthetic answers written for this recipe, so its numbers check that the
 pipeline works and say nothing about how Jev performs. The evaluation covers: raw and
-gate-selective agreement between the revision `Choice` and gold on `test`; precision and recall
+gate-selective agreement between the revision `Choice` and gold on `test`; [precision](../../docs/glossary.md#precision) and [recall](../../docs/glossary.md#recall)
 of the composed consistency flag (`introduces_new_fact` or `breaks_reference`) against gold,
-among the items stage two was actually asked about; task-level outcome coverage, accuracy and
-risk (`applied` / `kept_original` / `review` against a flawless rule's own composed outcome,
+among the items stage two was actually asked about; task-level outcome [coverage](../../docs/glossary.md#coverage), [accuracy](../../docs/glossary.md#accuracy) and
+[risk](../../docs/glossary.md#risk) (`applied` / `kept_original` / [`review`](../../docs/glossary.md#review) against a flawless rule's own composed outcome,
 including the "full-path trap" of a confidently wrong candidate landing in the right outcome
 *class*); and a version-history test (`Store.history`/`rollback` after the demo walkthrough).
 Every number above and in the notebook is a pipeline check, not a statement about Jev's quality,

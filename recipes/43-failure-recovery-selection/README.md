@@ -57,9 +57,9 @@ it reports, here and in the notebook.
 
 The offline run replays synthetic answers written for this recipe, so its numbers check that the
 pipeline works, not how Jev performs. The evaluation covers: raw per-question agreement with the
-gold recovery label; the confidence-only selective-prediction view; the task-level view of what
+gold recovery label; the confidence-only [selective-prediction](../../docs/glossary.md#selective-prediction) view; the task-level view of what
 the budget-enforced system actually did (`retry`/`alternative_method` counted as answered,
-`escalate` — chosen or forced — and any low-confidence answer counted as review); and two
+`escalate` — chosen or forced — and any low-confidence answer counted as [review](../../docs/glossary.md#review)); and two
 zero-request baselines (always answer `retry`; a budget-only heuristic that reads the retry and
 alternative-method budget already used but nothing else) reported at the same cost-and-accuracy
 footing as Jev's own answers.

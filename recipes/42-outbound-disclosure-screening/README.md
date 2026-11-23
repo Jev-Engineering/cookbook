@@ -2,11 +2,11 @@
 
 **Recipe 42** · Level 4 (Advanced) · Decision type: `Noul`
 
-Screen proposed outbound messages for disclosure concerns against supplied sharing rules while deterministic controls hold flagged or uncertain samples for review.
+Screen proposed outbound messages for disclosure concerns against supplied sharing rules while deterministic controls hold flagged or uncertain samples for [review](../../docs/glossary.md#review).
 
 ## What it teaches
 
-Jev answers two independent `Noul` propositions per proposed outbound message, sent together in one request — the sharing rules supplied for this recipe, each a statement that can be true or false, never a question. Python owns everything else: a business threshold and a confidence gate chosen per rule, then pooled across both rules into one shared gate (`jev_cookbook.evaluation.pool_label_decisions`), a deterministic policy that holds every later message in a thread once an earlier one in it was held, and the final `held`/`allowed` decision. The evaluation reports a missed-disclosure rate, a false-hold rate, and an overall hold rate, for the full pipeline against a baseline that uses the identical business thresholds and the identical number of requests but neither the confidence gate nor thread escalation — so what each deterministic control buys (and what it does not) is visible rather than assumed. Nothing is ever sent: `allowed` means a message cleared every check in a simulation that executes no action.
+Jev answers two independent `Noul` propositions per proposed outbound message, sent together in one request — the sharing rules supplied for this recipe, each a statement that can be true or false, never a question. Python owns everything else: a [business threshold](../../docs/glossary.md#business-threshold) and a [confidence gate](../../docs/glossary.md#confidence-gate) chosen per rule, then pooled across both rules into one shared gate (`jev_cookbook.evaluation.pool_label_decisions`), a deterministic policy that holds every later message in a thread once an earlier one in it was held, and the final `held`/`allowed` decision. The evaluation reports a missed-disclosure rate, a false-hold rate, and an overall hold rate, for the full pipeline against a baseline that uses the identical business thresholds and the identical number of requests but neither the confidence gate nor thread escalation — so what each deterministic control buys (and what it does not) is visible rather than assumed. Nothing is ever sent: `allowed` means a message cleared every check in a simulation that executes no action.
 
 ## Run it offline
 
