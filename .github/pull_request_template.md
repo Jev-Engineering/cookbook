@@ -20,7 +20,7 @@ Skip this section for foundation work. The full contract is in [CONTRIBUTING.md]
 - [ ] Synthetic or scripted metrics are labelled as pipeline checks beside each number. If no live run was made, the recipe README says "not measured live".
 - [ ] Fixtures are synthetic, include the hard cases, and carry gold labels
 - [ ] Python owns every side effect; actions are simulated
-- [ ] Evaluation against gold labels, with the baseline the issue names
+- [ ] Evaluation against gold labels, with the baseline the issue names, if any
 - [ ] Every acceptance criterion on the issue is met
 
 ## How it was verified

@@ -425,6 +425,26 @@ def review_sort_key(result: Resolution) -> float:
     return min(result.intent_mismatch.confidence, result.scope_creep.confidence)
 
 
+def gating_label(result: Resolution) -> str:
+    """The name of the proposition whose answer actually sent this action to review, matching
+    the reason ``decide`` reported. When the shared confidence gate fired, that is the label
+    with the lowest confidence (a gated label is below the gate by definition, so the minimum
+    is always a gated one; ties break in ``LABELS`` order). Otherwise ``decide`` reviewed a
+    confident, flagged proposition: ``intent_mismatch`` first, then ``scope_creep``, the order
+    ``decide`` tests them in. Never called on a ``DENIED`` resolution, whose label decisions are
+    ``None``."""
+    if result.intent_mismatch is None or result.scope_creep is None:
+        raise ValueError("gating_label needs label decisions; this resolution has none")
+    decisions = {INTENT_MISMATCH: result.intent_mismatch, SCOPE_CREEP: result.scope_creep}
+    if result.reason == REASON_REVIEW_CONFIDENCE:
+        return min(LABELS, key=lambda label: decisions[label].confidence)
+    if result.reason == REASON_REVIEW_INTENT:
+        return INTENT_MISMATCH
+    if result.reason == REASON_REVIEW_SCOPE:
+        return SCOPE_CREEP
+    raise ValueError(f"gating_label needs a review resolution, got reason {result.reason!r}")
+
+
 def queue_item(example_id: str, fields: dict[str, Any], result: Resolution) -> dict[str, Any]:
     """What a human reviewer sees for one queued action: its id, the two texts Jev was actually
     asked about, and both label decisions -- not only an identifier (CONTRIBUTING.md section 4:

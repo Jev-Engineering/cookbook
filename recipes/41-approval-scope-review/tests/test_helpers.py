@@ -571,6 +571,55 @@ def test_review_sort_key_rejects_a_denied_resolution():
         helpers.review_sort_key(result)
 
 
+def test_gating_label_names_the_gated_label_when_the_confidence_gate_fired():
+    # scope_creep is the uncertain one (confidence 0.1); intent_mismatch is confidently clear.
+    noul = {helpers.INTENT_MISMATCH: 0.02, helpers.SCOPE_CREEP: 0.55}
+    result = helpers.decide(_action(), _approval(), 0, noul, _thresholds(), 0.3)
+    assert result.reason == helpers.REASON_REVIEW_CONFIDENCE
+    assert helpers.gating_label(result) == helpers.SCOPE_CREEP
+    result = helpers.decide(_action(), _approval(), 0, UNCERTAIN, _thresholds(), 0.3)
+    assert helpers.gating_label(result) == helpers.INTENT_MISMATCH
+
+
+def test_gating_label_names_the_flagged_label_when_a_confident_tag_sent_it_to_review():
+    result = helpers.decide(_action(), _approval(), 0, FLAGGED_SCOPE, _thresholds(), 0.3)
+    assert result.reason == helpers.REASON_REVIEW_SCOPE
+    assert helpers.gating_label(result) == helpers.SCOPE_CREEP
+    result = helpers.decide(_action(), _approval(), 0, FLAGGED_INTENT, _thresholds(), 0.3)
+    assert helpers.gating_label(result) == helpers.INTENT_MISMATCH
+    both = {helpers.INTENT_MISMATCH: 0.95, helpers.SCOPE_CREEP: 0.95}
+    result = helpers.decide(_action(), _approval(), 0, both, _thresholds(), 0.3)
+    assert helpers.gating_label(result) == helpers.INTENT_MISMATCH  # decide() tests intent first
+
+
+def test_gating_label_is_the_flagged_label_even_when_the_other_is_less_confident():
+    # the lowest-confidence rule would pick the other label here; decide() reported the flagged one
+    flagged_intent = {helpers.INTENT_MISMATCH: 0.99, helpers.SCOPE_CREEP: 0.1}
+    result = helpers.decide(_action(), _approval(), 0, flagged_intent, _thresholds(), 0.3)
+    assert result.reason == helpers.REASON_REVIEW_INTENT
+    assert helpers.gating_label(result) == helpers.INTENT_MISMATCH
+    flagged_scope = {helpers.INTENT_MISMATCH: 0.1, helpers.SCOPE_CREEP: 0.99}
+    result = helpers.decide(_action(), _approval(), 0, flagged_scope, _thresholds(), 0.3)
+    assert result.reason == helpers.REASON_REVIEW_SCOPE
+    assert helpers.gating_label(result) == helpers.SCOPE_CREEP
+    # a t03-mixed-style case: both flagged, intent the more confident of the two
+    mixed = {helpers.INTENT_MISMATCH: 0.95, helpers.SCOPE_CREEP: 0.93}
+    result = helpers.decide(_action(), _approval(), 0, mixed, _thresholds(), 0.3)
+    assert result.reason == helpers.REASON_REVIEW_INTENT
+    assert helpers.gating_label(result) == helpers.INTENT_MISMATCH
+
+
+def test_gating_label_rejects_a_denied_or_executed_resolution():
+    denied = helpers.decide(
+        _action(cited_approval_id="APR-999"), _approval(), 0, CLEAR, _thresholds(), 0.0
+    )
+    with pytest.raises(ValueError):
+        helpers.gating_label(denied)
+    executed = helpers.decide(_action(), _approval(), 0, CLEAR, _thresholds(), 0.3)
+    with pytest.raises(ValueError):
+        helpers.gating_label(executed)
+
+
 def test_queue_item_shows_both_task_descriptions_and_both_label_decisions():
     result = helpers.decide(_action(), _approval(), 0, FLAGGED_INTENT, _thresholds(), 0.3)
     fields = {"approval": _approval(), "action": _action()}

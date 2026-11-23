@@ -416,6 +416,18 @@ def review_sort_key(result: Resolution) -> float:
     return min(d.confidence for d in result.decisions.values())
 
 
+def gating_label(result: Resolution) -> str:
+    """The name of the constraint whose answer actually sent this plan to review: the one whose
+    confidence is :func:`review_sort_key`'s minimum (a gated constraint is below the shared
+    gate by definition, so the lowest-confidence constraint is always a gated one). Ties break
+    in ``CONSTRAINTS`` order. A queue entry's recorded answer should be this constraint's, not
+    always ``budget``, so a reviewer reading "the typed answer that sent this item to review" is
+    shown the answer the reason is actually about."""
+    if not result.decisions:
+        raise ValueError("gating_label needs label decisions; this resolution has none")
+    return min(CONSTRAINTS, key=lambda c: result.decisions[c].confidence)
+
+
 def queue_item(plan_id: str, fields: dict[str, Any], result: Resolution) -> dict[str, Any]:
     """What a human reviewer sees for one queued plan: its id, the plan's own text, the
     user's own four constraint statements, the plan's cost and completion date beside the limit

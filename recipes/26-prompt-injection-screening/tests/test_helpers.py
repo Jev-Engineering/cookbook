@@ -244,6 +244,35 @@ def test_review_sort_key_is_the_lower_of_the_two_confidences():
     assert helpers.review_sort_key(result) == pytest.approx(0.2)
 
 
+def test_gating_label_names_the_label_with_the_lowest_confidence_not_always_redirect():
+    # discusses (0.2) is the gated one; redirect is confident (0.9), so recording redirect's
+    # answer would show a reviewer an answer that had nothing to do with the review.
+    decisions = {
+        helpers.REDIRECT: _decision(helpers.REDIRECT, 0.05, False, 0.9, False),
+        helpers.DISCUSSES: _decision(helpers.DISCUSSES, 0.4, False, 0.2, True),
+    }
+    result = helpers.screen(decisions)
+    assert result.outcome == helpers.REVIEW
+    assert helpers.gating_label(result) == helpers.DISCUSSES
+    assert getattr(result, helpers.gating_label(result)).gated
+
+
+def test_gating_label_is_redirect_when_redirect_is_the_gated_one():
+    decisions = {
+        helpers.REDIRECT: _decision(helpers.REDIRECT, 0.5, False, 0.2, True),
+        helpers.DISCUSSES: _decision(helpers.DISCUSSES, 0.05, False, 0.9, False),
+    }
+    assert helpers.gating_label(helpers.screen(decisions)) == helpers.REDIRECT
+
+
+def test_gating_label_breaks_a_tie_in_labels_order():
+    decisions = {
+        helpers.REDIRECT: _decision(helpers.REDIRECT, 0.5, False, 0.3, True),
+        helpers.DISCUSSES: _decision(helpers.DISCUSSES, 0.5, False, 0.3, True),
+    }
+    assert helpers.gating_label(helpers.screen(decisions)) == helpers.REDIRECT
+
+
 def test_queue_item_shows_the_excerpt_and_both_label_decisions():
     decisions = {
         helpers.REDIRECT: _decision(helpers.REDIRECT, 0.5, False, 0.2, True),
