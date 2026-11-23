@@ -335,10 +335,9 @@ own first use the same way.
   them to watch (recipes 38 and 40 each shipped a floor that moved nothing), which quantity to
   watch, and which way it moves; do not quote the resulting figures, which describe a run the
   notebook never performs and so are pinned by nothing. If a figure is worth quoting, print it
-  from a labelled side-computation cell or assert it in a test (no published recipe is the model
-  for this yet; recipe 40's Next steps prints one illustrative figure but its prose still quotes
-  others that no committed cell prints, and is being brought into line under #259), so it is in committed output or under a
-  test. The direction sentence follows the helper, not the parameter's name: raising
+  from a labelled side-computation cell or assert it in a test (recipe 40's Next steps is the
+  worked example: it prints one illustrative figure, the margin a floor of 0.85 selects, and its
+  prose quotes only that one), so it is in committed output or under a test. The direction sentence follows the helper, not the parameter's name: raising
   `select_confidence_threshold`'s `min_coverage` can only lower the threshold or leave it
   unchanged, and the response is piecewise constant, so test the exercise by running it
   ([evaluation.md](evaluation.md#selective-prediction)).
