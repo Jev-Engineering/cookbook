@@ -143,8 +143,13 @@ sentence defines the term stays with the reviewer.
      `read_text()`, `read_bytes()`, `open(...).read()`, `with open(...)`, any other `open` /
      `.open` / `.read` / `.readlines` call that names the file, or a function in the same test
      file that does one of those), or `inspect.getsource(helpers.<fn>)`, or a call to a
-     `helpers.py` function whose own body makes the selection call. A path under `tmp_path` is a
-     copy, not the committed file, so a read of it does not count.
+     `helpers.py` function whose own body makes the selection call. These do not count: an
+     `open` in a write or append mode (`"w"`, `"a"`, `"x"`, or a mode the guard cannot read), a
+     path under `tmp_path`/`tmpdir`, a path made by `tempfile.*` or `shutil.*` (a test-made copy),
+     a read that spells another recipe's folder (`"42-..."`; locate your own from `__file__`), and
+     a value rewritten by `.lower()`, `.upper()`, `.casefold()`, `.title()` or `.translate()`
+     (compare against the untransformed source). A `def test_*` in a file pytest does not collect
+     (anything but `test_*.py` and `*_test.py`, such as `conftest.py`) is not credited.
   2. **An extraction.** `name = _your_helper(source, "<literal>", ...)`, through a function
      defined in the test file, followed by the bare statement `assert name is not None` (or
      `assert None is not name`). That is the only check credited here: a bare `assert name`, a
@@ -206,6 +211,30 @@ sentence defines the term stays with the reviewer.
   context manager such as `pytest.raises` is not credited. For an extraction (`name = _helper(source, ...)` then
   `assert name is not None`), nothing before the assert may end the test, and an assert inside a
   `with` block is not credited.
+
+  **Limits of the check, recorded in #320.** The guard is a bounded syntax analysis. A pass is
+  never a proof that the objective is pinned, and it does not replace the recipe's own test of the
+  real objective plus a real-call mutation that turns that test red.
+
+  *Accepted wrong-accepts* (a green guard that proves nothing; each needs a manual review, and the
+  author must show that changing the actual objective fails the recipe's test):
+
+  | Residual form | What to do instead |
+  | --- | --- |
+  | A needle that reaches the value through a module-level name, a function parameter, a computed string (`"".join(["min", "_coverage"])`), an f-string split around a placeholder, `%`-formatting, or an alias of the container it is appended to; a nested helper's own bindings | Type the needle in the assert, against the committed source |
+  | One expression that both reads some other file and names the notebook (a read elsewhere in a compound expression credits the whole result) | Read the notebook in its own plain assignment |
+  | `push = parts.append; push(source.lower())` (a stored mutator callback loses its container) | Direct source-selection chain |
+  | `ops.get("pick")()` returning a stored source-normalising method | Compare against the untransformed source |
+  | `alias = parts; alias.clear(); all(...)` over `parts` (an alias empties the collection behind the non-empty reasoning) | Assert non-emptiness in the test; use the documented `any(...)` shape |
+  | `next(iter(mapping))` where only the mapping's values came from the source (yields keys) | Use the documented source-cell sequence |
+  | A copy placed under a root the guard does not recognise (not `tmp_path`, `tempfile`, `shutil`), symlinks, monkeypatches, opaque helper returns, injected or computed needles | Keep the committed-file read direct |
+
+  *Wrong-rejects* (loud and safe: the guard refuses a pin that is real; rewrite the test into a
+  credited shape): a `unittest.TestCase` not named `Test*`, a nested `Test*` class, an inherited
+  `__init__`, a hand-typed needle held in a name, `.startswith` / `.endswith`, `assert (hit :=
+  ...)`, self-referencing rebinds (`text = text.strip()`), an assert under `if`, `try`, a loop
+  over a non-literal or a context manager (not credited because whether it runs, and which way it
+  reads, depends on a context the guard cannot see), and a hard-coded own recipe slug.
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
   `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:

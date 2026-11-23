@@ -251,7 +251,11 @@ check id                              rule -> detection
                                        or run) counts for nothing. A value is tainted by any
                                        read of the committed file (``read_text``,
                                        ``read_bytes``, ``open(...).read()``, ``with open``) or
-                                       by ``inspect.getsource(helpers.<fn>)``.
+                                       by ``inspect.getsource(helpers.<fn>)``; a write-mode
+                                       ``open``, a ``tmp_path``/``tempfile``/``shutil`` copy,
+                                       another recipe's folder and a case-rewritten value (#320)
+                                       do not taint, and only ``test_*.py``/``*_test.py`` are
+                                       collected. Accepted limits: docs/recipe-template.md.
 ``noul_proposition_gold_coverage``    #283: for every ``Noul`` proposition this check can
                                        reach in the recipe's own code (two or more -- a
                                        battery; fewer reached and the check does not apply),
@@ -7021,21 +7025,121 @@ def _mentions_artefact_file(node: ast.AST) -> bool:
     )
 
 
+# Calls that MAKE a scratch location or a copy of a file somewhere else (#320): a path built from
+# one of these is a test-made copy exactly as a path under ``tmp_path`` is, so a read of it does not
+# taint either. ``tempfile.*`` and ``shutil.*``; a bare name is accepted for the ``from tempfile
+# import mkdtemp`` spelling. A copy placed under any other root is still not seen (accepted).
+_SCRATCH_MAKER_MODULES = frozenset({"tempfile", "shutil"})
+_SCRATCH_MAKER_NAMES = frozenset(
+    {
+        "mkdtemp",
+        "mkstemp",
+        "gettempdir",
+        "TemporaryDirectory",
+        "NamedTemporaryFile",
+        "SpooledTemporaryFile",
+        "copy2",
+        "copyfile",
+        "copytree",
+    }
+)
+
+
+def _makes_scratch(node: ast.AST) -> bool:
+    """True if ``node`` contains a call that makes a scratch directory or a copy of a file
+    (``tempfile.*``, ``shutil.*``, or one of the well-known bare names above)."""
+    for n in ast.walk(node):
+        if not isinstance(n, ast.Call):
+            continue
+        func = n.func
+        if isinstance(func, ast.Attribute):
+            if isinstance(func.value, ast.Name) and func.value.id in _SCRATCH_MAKER_MODULES:
+                return True
+        elif isinstance(func, ast.Name) and func.id in _SCRATCH_MAKER_NAMES:
+            return True
+    return False
+
+
 def _mentions_scratch_dir(node: ast.AST) -> bool:
-    return any(
+    return _makes_scratch(node) or any(
         (isinstance(n, ast.Name) and n.id in _SCRATCH_DIR_NAMES)
         or (isinstance(n, ast.arg) and n.arg in _SCRATCH_DIR_NAMES)
         for n in ast.walk(node)
     )
 
 
+# The committed recipe folders are named ``NN-slug``. A read that spells such a name is a read of
+# ONE recipe's artefact chosen by hand (#320): a recipe's own tests locate their folder from
+# ``__file__``, so a hard-coded slug is another recipe's notebook (or the recipe's own, which the
+# guard cannot tell apart and refuses -- the fail-closed direction).
+_RECIPE_SLUG = re.compile(r"\d{2}-[a-z0-9][a-z0-9-]*")
+
+
+def _names_a_recipe_folder(node: ast.AST) -> bool:
+    return any(
+        isinstance(n, ast.Constant)
+        and isinstance(n.value, str)
+        and any(_RECIPE_SLUG.fullmatch(part) for part in n.value.split("/"))
+        for n in ast.walk(node)
+    )
+
+
+# Methods that rewrite the characters of the text they are called on. A value that went through
+# one is no longer "the committed source": a pin compared against it is satisfied by text the
+# source only matches after the rewrite (``"min_coverage" in source.lower()`` holds for a comment
+# that says ``MIN_COVERAGE`` while the call uses ``target_accuracy``). Such a value is never
+# credited (#320); compare against the untransformed source instead. ``replace`` is not listed:
+# what it types is tracked per name (``_Taint.embedded``).
+_TEXT_REWRITING_METHODS = frozenset(
+    {"lower", "upper", "casefold", "swapcase", "title", "capitalize", "translate"}
+)
+
+
+def _rewrites_text(node: ast.AST) -> bool:
+    return any(
+        isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr in _TEXT_REWRITING_METHODS
+        for n in ast.walk(node)
+    )
+
+
+def _opens_for_writing(call: ast.Call) -> bool:
+    """True for an ``open`` call that is not provably a READ: a literal mode containing ``w``,
+    ``a`` or ``x``, or a mode this cannot read (a name, an f-string). A missing mode is the
+    default ``"r"``; ``"r+"`` and ``"rb"`` read. ``open(path, "w")`` makes a file, it does not
+    read it (#320), so a ``with open(<committed file>, "w") as f`` binding must not taint ``f``.
+    The mode is the SECOND argument of the builtin ``open`` (and ``io.open``/``codecs.open``) and
+    the FIRST of ``Path.open``; ``mode=`` is accepted either way."""
+    func = call.func
+    builtin = isinstance(func, ast.Name) or (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id in {"io", "codecs"}
+    )
+    index = 1 if builtin else 0
+    mode: ast.expr | None = call.args[index] if len(call.args) > index else None
+    for keyword in call.keywords:
+        if keyword.arg == "mode":
+            mode = keyword.value
+    if mode is None:
+        return False
+    if isinstance(mode, ast.Constant) and isinstance(mode.value, str):
+        return any(flag in mode.value for flag in "wax")
+    return True
+
+
 def _performs_a_file_read(node: ast.AST) -> bool:
     for n in ast.walk(node):
         if not isinstance(n, ast.Call):
             continue
-        if isinstance(n.func, ast.Name) and n.func.id == "open":
-            return True
-        if isinstance(n.func, ast.Attribute) and n.func.attr in _FILE_READ_ATTRS:
+        is_open = (isinstance(n.func, ast.Name) and n.func.id == "open") or (
+            isinstance(n.func, ast.Attribute) and n.func.attr == "open"
+        )
+        if is_open:
+            if not _opens_for_writing(n):
+                return True
+        elif isinstance(n.func, ast.Attribute) and n.func.attr in _FILE_READ_ATTRS:
             return True
     return False
 
@@ -7078,6 +7182,7 @@ def _reads_real_committed_source(node: ast.AST) -> bool:
         _mentions_artefact_file(node)
         and _performs_a_file_read(node)
         and not _mentions_scratch_dir(node)
+        and not _names_a_recipe_folder(node)
     ) or _reads_helpers_source_via_inspect(node)
 
 
@@ -7102,7 +7207,7 @@ def _production_wrapper_names(helpers_path: Path) -> set[str]:
     }
 
 
-def _locally_source_reading_function_names(tree: ast.Module, text: str) -> set[str]:
+def _locally_source_reading_function_names(tree: ast.Module) -> set[str]:
     """Names of functions DEFINED IN THIS TEST FILE whose own body reads the real committed
     notebook or ``helpers.py`` (``_reads_real_committed_source`` on the function's own source
     segment) -- a module-level helper like recipes 42's ``_notebook_cell_source`` or 44's
@@ -7119,9 +7224,7 @@ def _locally_source_reading_function_names(tree: ast.Module, text: str) -> set[s
     return names
 
 
-def _tainted_names_in_function(
-    func: ast.FunctionDef, text: str, taint_producing_names: set[str]
-) -> set[str]:
+def _tainted_names_in_function(func: ast.FunctionDef, taint_producing_names: set[str]) -> set[str]:
     """Fixed-point taint set, local to one test function: a name is tainted if the statement
     assigning it (a) itself reads the real committed source (``_reads_real_committed_source`` on
     that one assignment's value -- the inline case: recipes 38, 39, 41, 43, 45, the template),
@@ -7150,7 +7253,7 @@ def _tainted_names_in_function(
         grew = False
         for name, values in bindings.items():
             if name not in scratch and any(
-                v is not None and scratch & _ast_names(v) for v in values
+                v is not None and (scratch & _ast_names(v) or _makes_scratch(v)) for v in values
             ):
                 scratch.add(name)
                 grew = True
@@ -7158,7 +7261,7 @@ def _tainted_names_in_function(
     def _taints(value: ast.AST | None) -> bool:
         if value is None:  # bound by a form this cannot trace (``+=``, ``for``, unpacking, ``:=``)
             return False
-        if scratch & _ast_names(value):
+        if scratch & _ast_names(value) or _makes_scratch(value) or _rewrites_text(value):
             return False
         calls_taint_producing = any(
             isinstance(n, ast.Call) and _call_func_name(n) in taint_producing_names
@@ -7527,7 +7630,7 @@ def _wholly_tainted(node: ast.AST, tainted: frozenset[str]) -> bool:
     ``+`` or ``or`` only if each operand is, a hand-typed literal never is. Calls, subscripts and
     attributes are wholly tainted when they reference a tainted name (``notebook["cells"]``,
     ``"".join(cell["source"])``): data flowing out of the read stays tainted."""
-    if isinstance(node, ast.Constant | ast.JoinedStr):
+    if isinstance(node, ast.Constant | ast.JoinedStr) or _rewrites_text(node):
         return False
     if isinstance(node, ast.List | ast.Tuple | ast.Set):
         return bool(node.elts) and all(
@@ -8164,6 +8267,15 @@ def _spellings_pinned_by_production_discrimination(
     return pinned
 
 
+def _pytest_collected_files(tests_dir: Path) -> list[Path]:
+    """The ``*.py`` files in ``tests_dir`` pytest's default ``python_files`` collects
+    (``test_*.py`` and ``*_test.py``): a ``def test_*`` in ``conftest.py`` or a helper module is
+    never run, so its asserts pin nothing (#320). The repo sets no ``python_files``."""
+    return [
+        p for p in tests_dir.glob("*.py") if p.name.startswith("test_") or p.stem.endswith("_test")
+    ]
+
+
 def _pinned_objective_spellings(recipe_dir_: Path) -> set[str]:
     """Every objective spelling this recipe's ``tests/*.py`` pin, by any of the shapes this
     check recognises, pooled across every test function in every test file. Pooling recipe-wide
@@ -8177,7 +8289,7 @@ def _pinned_objective_spellings(recipe_dir_: Path) -> set[str]:
     if not tests_dir.is_dir():
         return pinned
     production_wrapper_names = _production_wrapper_names(recipe_dir_ / "helpers.py")
-    for path in sorted(tests_dir.glob("*.py")):
+    for path in sorted(_pytest_collected_files(tests_dir)):
         text = path.read_text("utf-8")
         try:
             tree = ast.parse(text)
@@ -8185,11 +8297,11 @@ def _pinned_objective_spellings(recipe_dir_: Path) -> set[str]:
             continue
         aliases = _import_aliases(tree)
         taint_producing_names = (
-            _locally_source_reading_function_names(tree, text) | production_wrapper_names
+            _locally_source_reading_function_names(tree) | production_wrapper_names
         )
         locally_defined = _extraction_helper_names(tree)
         for func in _test_function_defs(tree):
-            tainted = _tainted_names_in_function(func, text, taint_producing_names)
+            tainted = _tainted_names_in_function(func, taint_producing_names)
             pinned |= _spellings_pinned_by_assertions(func, tainted, locally_defined)
             pinned |= _spellings_pinned_by_production_discrimination(
                 func, production_wrapper_names, aliases
@@ -8606,6 +8718,7 @@ def _polarity_violations(
     nested: bool = False,
     class_header: str | None = None,
     module_prefix: str = "",
+    test_file: str = "test_threshold_pin.py",
 ) -> list[str] | None:
     """Copy recipe 49 into ``tmp_path``, replace its ``tests/`` with a single test whose body is
     ``read`` followed by ``assertions`` (optionally decorated, nested inside a helper function
@@ -8623,7 +8736,7 @@ def _polarity_violations(
         test_text = f"{class_header}\n" + textwrap.indent(test_text, "    ")
     if nested:
         test_text = "def _helper():\n" + textwrap.indent(test_text, "    ")
-    (target / "tests" / "test_threshold_pin.py").write_text(
+    (target / "tests" / test_file).write_text(
         f"{_POLARITY_PREAMBLE}\n\n{module_prefix}{test_text}", encoding="utf-8"
     )
     if flip_objective:
@@ -8954,13 +9067,15 @@ _PRESENT_SHAPES = {
         'assert all("min_coverage" in s for s in sources)\n'
     ),
     # re-review of the second head: carrying taint through names must not refuse a pin that is
-    # still wholly derived from the read and types no needle of its own
-    "a neutral transform of the source": 'lowered = source.lower()\nassert "min_coverage" in lowered\n',
+    # still wholly derived from the read and types no needle of its own. (#320: ``.lower()`` was
+    # listed here as neutral; it rewrites the characters, so it is refused -- see
+    # ``test_a_value_whose_characters_were_rewritten_is_not_the_committed_source``.)
+    "a neutral transform of the source": 'stripped = source.strip()\nassert "min_coverage" in stripped\n',
     "a name rebound to another value derived from the read": (
         'text = source\ntext = source.strip()\nassert "min_coverage" in text\n'
     ),
     "a chain of neutral transforms": (
-        'a = source.strip()\nb = a.lower()\nc = b.replace(" ", "")\nassert "min_coverage" in c\n'
+        'a = source.strip()\nb = a.rstrip()\nc = b.replace(" ", "")\nassert "min_coverage" in c\n'
     ),
     "a container filled in place with values derived from the read": (
         'parts = [source]\nparts.append(source.strip())\njoined = "".join(parts)\n'
@@ -9099,6 +9214,145 @@ def test_asserts_of_a_test_pytest_does_not_run_are_not_credited(tmp_path, wrappe
     assert violations, f"{wrapper}: credited an assert that does not run"
 
 
+# --- #320: credit that was wider than the claim -------------------------------------------------
+# Each test below fails on the guard as it stood before #320 (the refused shape was credited) and
+# passes now; each is paired with a control that must still be credited.
+
+_PIN = 'assert "min_coverage" in source\n'
+_COMMITTED = '(RECIPE / "notebook.ipynb")'
+
+
+@pytest.mark.parametrize(
+    "opener",
+    [
+        'open(RECIPE / "notebook.ipynb", "w", encoding="utf-8")',
+        'open(RECIPE / "notebook.ipynb", "a")',
+        'open(RECIPE / "notebook.ipynb", "x")',
+        'open(RECIPE / "notebook.ipynb", "wb")',
+        'open(RECIPE / "notebook.ipynb", mode="w")',
+        'open(RECIPE / "notebook.ipynb", MODE)',
+        f'{_COMMITTED}.open("w", encoding="utf-8")',
+        f"{_COMMITTED}.open(mode='w')",
+    ],
+)
+def test_opening_the_committed_file_for_writing_is_not_a_read_of_it(tmp_path, opener):
+    """``open(path, "w")`` makes the file; it does not read it. Before #320 any ``open`` call that
+    named the committed file seeded taint, whatever its mode, so a value derived from a write
+    handle was credited as "the committed source". A mode that cannot be read (a name) is refused
+    the same way."""
+    read = f"with {opener} as handle:\n    handle.write('')\nsource = handle\n"
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a pin against a file opened for writing: {opener}"
+
+
+@pytest.mark.parametrize(
+    "opener",
+    [
+        'open(RECIPE / "notebook.ipynb", encoding="utf-8")',
+        'open(RECIPE / "notebook.ipynb", "r", encoding="utf-8")',
+        'open(RECIPE / "notebook.ipynb", "rb")',
+        'open(RECIPE / "notebook.ipynb", "r+")',
+        'open(RECIPE / "notebook.ipynb", mode="rt")',
+        f'{_COMMITTED}.open("r")',
+        f"{_COMMITTED}.open(encoding='utf-8')",
+    ],
+)
+def test_opening_the_committed_file_for_reading_is_still_a_read_of_it(tmp_path, opener):
+    needle = 'b"min_coverage"' if '"rb"' in opener else '"min_coverage"'
+    assertion = f"assert {needle} in source\n"
+    assert _polarity_violations(tmp_path, assertion, read=f"source = {opener}.read()\n") == [], (
+        opener
+    )
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        f'source = {_COMMITTED}.read_text("utf-8").lower()\n',
+        f'source = {_COMMITTED}.read_text("utf-8").casefold()\n',
+        f'source = {_COMMITTED}.read_text("utf-8").upper()\n',
+        f'raw = {_COMMITTED}.read_text("utf-8")\nsource = raw.lower()\n',
+        f'raw = {_COMMITTED}.read_text("utf-8")\nfolded = raw.lower()\nsource = folded.strip()\n',
+        f'source = {_COMMITTED}.read_text("utf-8").title()\n',
+        f'source = {_COMMITTED}.read_text("utf-8").translate({{}})\n',
+    ],
+)
+def test_a_value_whose_characters_were_rewritten_is_not_the_committed_source(tmp_path, read):
+    """``"min_coverage" in source.lower()`` holds for a comment that says ``MIN_COVERAGE`` while the
+    call uses another objective, so a case-rewritten value is not credited (before #320 it was,
+    because any value that references a tainted name stayed tainted)."""
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a pin against a rewritten value: {read!r}"
+
+
+def test_an_assert_that_rewrites_the_source_inline_is_not_credited(tmp_path):
+    violations = _polarity_violations(tmp_path, 'assert "min_coverage" in source.lower()\n')
+    assert violations
+    assert (
+        _polarity_violations(tmp_path / "plain", 'assert "min_coverage" in source.strip()\n') == []
+    ), "a lossless transform of the committed source must stay credited"
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        "import shutil, tempfile\n"
+        "work = Path(tempfile.mkdtemp())\n"
+        'shutil.copy(RECIPE / "notebook.ipynb", work / "notebook.ipynb")\n'
+        'source = (work / "notebook.ipynb").read_text("utf-8")\n',
+        "import shutil, tempfile\n"
+        "with tempfile.TemporaryDirectory() as scratch:\n"
+        '    shutil.copytree(RECIPE, Path(scratch) / "r")\n'
+        '    source = (Path(scratch) / "r" / "notebook.ipynb").read_text("utf-8")\n',
+        "import tempfile\n"
+        'source = (Path(tempfile.gettempdir()) / "notebook.ipynb").read_text("utf-8")\n',
+        "from tempfile import mkdtemp\n"
+        "work = mkdtemp()\n"
+        'source = open(Path(work) / "notebook.ipynb", encoding="utf-8").read()\n',
+        "import shutil\n"
+        'work = Path(shutil.copy2(RECIPE / "notebook.ipynb", RECIPE.parent)).parent\n'
+        'source = (work / "notebook.ipynb").read_text("utf-8")\n',
+    ],
+)
+def test_a_read_of_a_tempfile_or_shutil_copy_does_not_taint(tmp_path, read):
+    """Before #320 only a path rooted in ``tmp_path`` (or ``tmpdir``) was recognised as a
+    test-made copy; a copy a test mutates under ``tempfile`` or ``shutil`` tainted like the
+    committed file, so the test could pin text it had typed into its own copy."""
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a read of a test-made copy: {read!r}"
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        'source = (RECIPE.parent / "42-outbound-disclosure-screening" / "notebook.ipynb")'
+        '.read_text("utf-8")\n',
+        'source = open(RECIPE.parent / "42-outbound-disclosure-screening/notebook.ipynb").read()\n',
+        'source = open("../28-some-recipe/helpers.py").read()\n',
+    ],
+)
+def test_another_recipes_notebook_is_not_this_recipes_committed_source(tmp_path, read):
+    """A pin tied to a hand-named recipe folder cannot notice this recipe's objective changing, so
+    it is not credited (before #320 any read that named ``notebook.ipynb`` was). A recipe locates
+    its own folder from ``__file__`` (``RECIPE``), which is still credited."""
+    violations = _polarity_violations(tmp_path, _PIN, read=read)
+    assert violations, f"credited a read of another recipe's artefact: {read!r}"
+
+
+@pytest.mark.parametrize("name", ["conftest.py", "check_objective.py", "helpers_test_data.py"])
+def test_a_test_in_a_file_pytest_does_not_collect_is_not_a_pin(tmp_path, name):
+    """``def test_*`` in ``conftest.py`` or any module that is not ``test_*.py`` / ``*_test.py`` is
+    never run by pytest, so its asserts pin nothing; before #320 the ``tests/*.py`` glob credited
+    them."""
+    assert _polarity_violations(tmp_path / "ok", _PIN) == []
+    violations = _polarity_violations(tmp_path / "bad", _PIN, test_file=name)
+    assert violations, f"{name}: credited a pin in a file pytest does not collect"
+
+
+def test_a_pin_in_a_star_underscore_test_file_is_credited(tmp_path):
+    assert _polarity_violations(tmp_path, _PIN, test_file="objective_test.py") == []
+
+
 def test_a_read_of_a_scratch_copy_or_a_longer_file_name_does_not_taint(tmp_path):
     """``open(tmp_path / "notebook.ipynb").read()`` reads a copy the test made, and
     ``expected_helpers.py`` is not ``helpers.py``: neither is the committed artefact."""
@@ -9175,7 +9429,28 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
     of it, which is exactly the defence CONTRIBUTING.md section 6 shows failing five times over
     for the same reason. A call this check cannot identify an objective for (not observed in the
     published set), or a cell/``helpers.py`` that does not parse as plain Python at all, fails
-    here too, rather than being silently skipped."""
+    here too, rather than being silently skipped.
+
+    Limits (#320). CORRECTED, each with a mutation test: ``open(path, "w")`` counted as a read
+    (``test_opening_the_committed_file_for_writing_is_not_a_read_of_it``); a value whose characters
+    were rewritten (``.lower()`` and kin) stayed tainted
+    (``test_a_value_whose_characters_were_rewritten_is_not_the_committed_source``); only
+    ``tmp_path``/``tmpdir`` rooted a copy (``test_a_read_of_a_tempfile_or_shutil_copy_does_not_taint``);
+    another recipe's ``notebook.ipynb`` tainted
+    (``test_another_recipes_notebook_is_not_this_recipes_committed_source``); the ``tests/*.py``
+    glob credited a ``def test_*`` in a file pytest does not collect
+    (``test_a_test_in_a_file_pytest_does_not_collect_is_not_a_pin``). The extraction route's pooled
+    literals are #338. RECORDED AS ACCEPTED (wrong-accepts, with the reason that this is a bounded
+    syntax analysis and general callback, alias and returned-value tracking would enlarge the
+    trusted code; the recipe's own real-call mutation test remains the evidence): needle
+    provenance (a module-level name, a parameter, a computed or split string, ``%``-formatting, an
+    aliased container), a value that merely contains a read, a stored mutator callback, a callable
+    returned through ``get``, an alias that empties a collection, ``next(iter(mapping))`` over
+    values, and copies under other roots. DOCUMENTED wrong-rejects: a ``unittest.TestCase`` not
+    named ``Test*``, a nested ``Test*`` class, an inherited ``__init__``, a hand-typed needle held
+    in a name, ``startswith``/``endswith``, ``assert (hit := ...)``, self-referencing rebinds, and
+    asserts under ``if``/``try`` (a loud refusal, never a silent pass). The full table is in
+    docs/recipe-template.md."""
     violations = _objective_pin_violations(recipe_dir(recipe))
     if violations is None:
         pytest.skip(
