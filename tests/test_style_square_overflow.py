@@ -135,3 +135,20 @@ def test_short_square_keeps_its_size_and_png_when_growth_is_unneeded(monkeypatch
     assert actual.get_size_inches() == pytest.approx(unchanged.get_size_inches())
     assert actual_png == unchanged_png
     _assert_readable(actual, SHORT_LABELS, SHORT_LABELS)
+
+
+def test_limit_pin_a_square_with_an_over_wide_title_keeps_its_size():
+    """Documented limit (#495 ruling): a square's title is not measured, so it never grows it.
+
+    If this fails because squares now measure their title, update the docs
+    (docs/notebook-style.md and the plot_confusion_matrix docstring) and re-execute the
+    committed square figures whose titles would then resize them.
+    """
+    title = "T" * 150
+    fig = style.plot_confusion_matrix(COUNTS, SHORT_LABELS, title=title)
+    assert fig.get_size_inches() == pytest.approx([INITIAL_SIDE, INITIAL_SIDE])
+    # The rectangular table, which measures its title, grows for the same title.
+    rect = style.plot_confusion_matrix(
+        np.ones((2, 3)), row_labels=SHORT_LABELS, col_labels=list("abc"), title=title
+    )
+    assert rect.get_size_inches()[0] > INITIAL_SIDE

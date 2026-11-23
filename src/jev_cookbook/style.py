@@ -784,8 +784,11 @@ def plot_confusion_matrix(
     Passing explicit ``labels`` together with both axis overrides raises ``ValueError``;
     implicit labels from a matrix object may be overridden on both axes.
     A table's own figure (when ``ax`` is not given) is sized from its cell counts and then
-    grown if a label, tick or title runs past the figure edge, for square and rectangular
-    tables alike. A figure whose text already fits keeps its size.
+    grown, and a figure whose text already fits keeps its size. A rectangular figure grows
+    for its tick labels, axis labels and title. A square figure grows only for its whole row
+    and column labels (and the axis labels); its title is not measured, so a title wider
+    than a square figure still runs past its edge. That is a documented limit, ruled on in
+    #495 (https://github.com/Jev-Engineering/cookbook/issues/495#issuecomment-7088293175).
 
     A label longer than 14 characters is abbreviated to its first 11 plus ``...``. If that
     would make two different labels on an axis render as the same tick, no label on that axis
@@ -850,7 +853,11 @@ def plot_confusion_matrix(
     elif own_figure:
         # Measuring runs the layout engine, which changes how the figure's first draw
         # comes out. Probe a copy, and keep the original (so a square that already fits is
-        # rendered exactly as before) unless the copy had to grow.
+        # rendered exactly as before) unless the copy had to grow. The title is deliberately
+        # not measured for a square: the centre title below is empty (the cookbook style
+        # places the real one at the left), so the probe sees none. Measuring it would
+        # resize committed square figures; see the limit pinned in
+        # tests/test_style_square_overflow.py and the ruling in #495 (https://github.com/Jev-Engineering/cookbook/issues/495#issuecomment-7088293175).
         probe = deepcopy(fig)
         probe_ax = probe.axes[0]
         _grow_to_fit_text(probe, probe_ax, probe_ax.title if heading is not None else None)
@@ -863,6 +870,9 @@ def _grow_to_fit_text(
     fig: Figure, ax: Axes, heading: Text | None, rounds: int = 4, pad_px: float = 2.0
 ) -> None:
     """Enlarge a confusion matrix until its tick labels, axis labels and title fit.
+
+    ``heading`` is the title to measure. A rectangular table passes its title; a square
+    table passes none, so a square's title is not measured (a documented limit, #495).
 
     Cell annotations sit inside the axes. Exclude them while computing constrained layout,
     and measure only the decorations that can overflow the figure. Executing the layout
