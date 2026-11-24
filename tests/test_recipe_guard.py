@@ -90,6 +90,16 @@ check id                              rule -> detection
                                        gold label, business threshold and confidence gate, and a
                                        use in a code cell's prose. Drift is recorded in
                                        ``tests/recipe_guard_known_failures.py``.
+``glossary_link_anchors``             #211 acceptance item 4: every Markdown link in a
+                                       recipe's README or notebook markdown cells that resolves
+                                       to ``docs/glossary.md#anchor`` names an anchor the
+                                       glossary defines (GitHub's slug of a heading at any level,
+                                       ``-1`` after a repeat), whatever the link text, not only a
+                                       lexicon first use. A root-relative ``/docs/glossary.md``
+                                       link resolves from the repository root and a query is
+                                       dropped, as in ``tests/test_docs_links.py``. Not seen: a
+                                       link with no fragment, an external URL to the glossary,
+                                       a bare path in prose, and an HTML ``<a href>``.
 ``stored_answers_strong_form``        G1(c): ``test_stored_answers_are_not_all_right``
                                        re-derives the frozen threshold (preferring the
                                        confidence gate over a plain business threshold when
@@ -518,6 +528,7 @@ import subprocess
 import sys
 import textwrap
 import tokenize
+import urllib.parse
 from collections.abc import Callable
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from functools import cache
@@ -1273,14 +1284,37 @@ class GlossaryUse(NamedTuple):
     ordinal: int  # position among the first uses, in document order
 
 
+def _github_slug(heading: str) -> str:
+    """GitHub's anchor for a heading's text: lowercased, punctuation other than ``-`` and ``_``
+    dropped, each space a hyphen."""
+    return re.sub(r"[^\w\- ]", "", heading.strip().lower()).replace(" ", "-")
+
+
+def _markdown_anchors(markdown: str) -> frozenset[str]:
+    """The anchors GitHub gives the headings of one Markdown source: the slug of each heading's
+    text, at any level, with ``-1``, ``-2`` and so on after a repeat. Headings come from the
+    parser, so a ``#`` line inside a code fence is not one."""
+    anchors: set[str] = set()
+    tokens = _GLOSSARY_MARKDOWN.parse(markdown)
+    for opening, inline in zip(tokens, tokens[1:], strict=False):
+        if opening.type != "heading_open" or inline.type != "inline":
+            continue
+        text = "".join(
+            c.content for c in inline.children or () if c.type in {"text", "code_inline"}
+        )
+        base = anchor = _github_slug(text)
+        repeat = 0
+        while anchor in anchors:
+            repeat += 1
+            anchor = f"{base}-{repeat}"
+        anchors.add(anchor)
+    return frozenset(anchors)
+
+
 @cache
 def _glossary_anchors() -> frozenset[str]:
-    """The anchors ``docs/glossary.md`` defines: GitHub's slug of each ``##`` heading."""
-    anchors = set()
-    for line in GLOSSARY_FILE.read_text("utf-8").splitlines():
-        if line.startswith("## "):
-            anchors.add(re.sub(r"[^\w\- ]", "", line[3:].strip().lower()).replace(" ", "-"))
-    return frozenset(anchors)
+    """The anchors ``docs/glossary.md`` defines: GitHub's slug of each heading."""
+    return _markdown_anchors(GLOSSARY_FILE.read_text("utf-8"))
 
 
 def _term_pattern(term: str) -> re.Pattern[str]:
@@ -1642,6 +1676,164 @@ def test_the_readme_is_checked_separately_from_the_notebook(tmp_path):
     (directory / "README.md").write_text("The gold label is the answer.\n", encoding="utf-8")
     (hit,) = _recipe_glossary_link_hits(directory)
     assert hit.startswith("README.md: first use of 'gold label'")
+
+
+# check 2d: every link into docs/glossary.md names an anchor it defines (#211)
+# --------------------------------------------------------------------------------------------
+
+
+def _glossary_link_anchor_hits(markdown: str, location: str, source_dir: str) -> list[str]:
+    """Each Markdown link in ``markdown`` that resolves to ``docs/glossary.md`` with a
+    ``#fragment`` the glossary does not define. The href is split as ``tests/test_docs_links.py``
+    splits it: a query is dropped, a path with a leading ``/`` resolves from the repository root
+    (as GitHub resolves it) and any other path from the repository-relative folder
+    ``source_dir``; the path and fragment are percent-decoded. Every link counts, whatever its
+    text and wherever it sits (a heading, a table cell, a reference definition), not only a
+    lexicon term's first use. A link with no fragment, an external URL (a scheme or a host) and
+    a bare path in prose are not checked."""
+    hits = []
+    for token in _GLOSSARY_MARKDOWN.parse(markdown):
+        if token.type != "inline":
+            continue
+        for child in token.children or ():
+            if child.type != "link_open":
+                continue
+            href = child.attrGet("href") or ""
+            try:
+                url = urllib.parse.urlsplit(href)
+            except ValueError:
+                continue
+            path = urllib.parse.unquote(url.path)
+            if "#" not in href or not path or url.scheme or url.netloc:
+                continue
+            base = "" if path.startswith("/") else source_dir
+            target = posixpath.normpath(posixpath.join(base, path.lstrip("/")))
+            if target != "docs/glossary.md":
+                continue
+            anchor = urllib.parse.unquote(url.fragment)
+            if anchor not in _glossary_anchors():
+                hits.append(
+                    f"{location}: links {href!r}, but docs/glossary.md defines no #{anchor}"
+                )
+    return hits
+
+
+def _recipe_glossary_anchor_hits(recipe_dir_: Path) -> list[str]:
+    """The README and every markdown cell of the notebook, each link resolved from the recipe
+    folder ``recipes/<slug>``, where both files sit."""
+    source_dir = f"recipes/{recipe_dir_.name}"
+    hits = []
+    readme = recipe_dir_ / "README.md"
+    if readme.is_file():
+        hits += _glossary_link_anchor_hits(readme.read_text("utf-8"), "README.md", source_dir)
+    for cell in notebook_cells(recipe_dir_):
+        if cell["cell_type"] == "markdown":
+            location = f"notebook.ipynb cell {cell.get('id', '?')}"
+            hits += _glossary_link_anchor_hits(cell_source(cell), location, source_dir)
+    return hits
+
+
+@pytest.mark.parametrize("recipe", guarded("glossary_link_anchors"))
+def test_every_glossary_link_names_an_anchor_the_glossary_defines(recipe):
+    """#211 acceptance item 4: a link from a recipe's README or notebook markdown to
+    ``docs/glossary.md#anchor`` lands on a heading the glossary has. Every link is read, not
+    only the lexicon first uses ``glossary_first_use_links`` reads, so ``#confidence``,
+    ``#provenance`` and the rest of Jev's own words are covered too."""
+    hits = _recipe_glossary_anchor_hits(recipe_dir(recipe))
+    assert not hits, "; ".join(hits)
+
+
+def test_a_glossary_link_to_a_defined_anchor_passes():
+    for anchor in ("confidence", "provenance", "replay-key", "gold-label"):
+        text = f"Each answer has a [{anchor}]({GLOSSARY_LINK}{anchor})."
+        assert _glossary_link_anchor_hits(text, "x", "recipes/01-x") == []
+
+
+def test_a_glossary_link_to_a_missing_anchor_fails():
+    text = f"Each answer has a [confidence]({GLOSSARY_LINK}confidense) score."
+    (hit,) = _glossary_link_anchor_hits(text, "README.md", "recipes/01-x")
+    assert hit == (
+        "README.md: links '../../docs/glossary.md#confidense', "
+        "but docs/glossary.md defines no #confidense"
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "## The [score](../../docs/glossary.md#scores)\n",
+        "| a |\n|---|\n| [x](../../docs/glossary.md#nope) |\n",
+        "See [it][g].\n\n[g]: ../../docs/glossary.md#nope\n",
+        "See [it](../../docs/glossary.md#).\n",
+        "See [it](../../docs/../docs/glossary.md#nope).\n",
+        "See [it](../../docs/glossary.md#Confidence).\n",
+        "See [it](/docs/glossary.md#nope).\n",
+        "See [it](../../docs/glossary.md?plain=1#nope).\n",
+        "See [it](/docs/glossary.md?plain=1#nope).\n",
+    ],
+    ids=[
+        "heading",
+        "table",
+        "reference",
+        "empty-fragment",
+        "dot-dot-path",
+        "wrong-case",
+        "root-relative",
+        "query",
+        "root-relative-query",
+    ],
+)
+def test_a_missing_anchor_fails_wherever_the_link_sits(text):
+    assert _glossary_link_anchor_hits(text, "x", "recipes/01-x")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "See [the glossary](../../docs/glossary.md).",
+        "See [it](https://example.com/docs/glossary.md#nope).",
+        "See [it](../../docs/evaluation.md#nope).",
+        "A bare path ../../docs/glossary.md#nope in prose.",
+        "```\n[x](../../docs/glossary.md#nope)\n```\n",
+    ],
+    ids=["no-fragment", "external", "another-doc", "bare-path", "code-fence"],
+)
+def test_links_that_do_not_name_a_glossary_anchor_are_not_checked(text):
+    assert _glossary_link_anchor_hits(text, "x", "recipes/01-x") == []
+
+
+def test_the_link_resolves_from_the_folder_it_sits_in():
+    link = "[x](../docs/glossary.md#nope)"
+    assert _glossary_link_anchor_hits(link, "x", "recipes/01-x") == []
+    assert _glossary_link_anchor_hits(link, "x", "recipes")
+
+
+def test_a_root_relative_or_queried_link_to_a_defined_anchor_passes():
+    for href in ("/docs/glossary.md#confidence", "../../docs/glossary.md?plain=1#provenance"):
+        assert _glossary_link_anchor_hits(f"[x]({href})", "x", "recipes/01-x") == []
+    # A leading slash is the repository root, not the recipe folder.
+    assert _glossary_link_anchor_hits("[x](/glossary.md#nope)", "x", "docs") == []
+
+
+def test_the_fragment_is_percent_decoded():
+    assert (
+        _glossary_link_anchor_hits(f"[x]({GLOSSARY_LINK}gold%2Dlabel)", "x", "recipes/01-x") == []
+    )
+    (hit,) = _glossary_link_anchor_hits(f"[x]({GLOSSARY_LINK}gold%2Dlabelz)", "x", "recipes/01-x")
+    assert hit.endswith("defines no #gold-labelz")
+
+
+def test_glossary_anchors_cover_every_heading_level_and_repeats():
+    text = "# Top\n\n## gold label\n\n### A `code` term!\n\n## gold label\n\n```\n# fenced\n```\n"
+    assert _markdown_anchors(text) == {"top", "gold-label", "a-code-term", "gold-label-1"}
+
+
+def test_the_recipe_check_reads_the_readme_and_every_markdown_cell(tmp_path):
+    good = f"[c]({GLOSSARY_LINK}confidence)"
+    directory = _write_notebook(tmp_path / "r", [good, f"[p]({GLOSSARY_LINK}provenanse)"])
+    (directory / "README.md").write_text(f"{good} and [s]({GLOSSARY_LINK}scor).\n", "utf-8")
+    hits = _recipe_glossary_anchor_hits(directory)
+    assert [h.split(":")[0] for h in hits] == ["README.md", "notebook.ipynb cell c1"]
 
 
 # --- #225: the citation check reads every spelling of "something a reader cannot see" ----------
