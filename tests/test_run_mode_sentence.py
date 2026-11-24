@@ -2,7 +2,8 @@
 
 The paragraph that used to say "every number below carries that mode with it" was false: demo
 answers and per-example lines are numbers that carry no such label. Its replacement makes only
-claims a script can check against the committed outputs, and this test is that script:
+claims about the committed outputs, and this test checks the ones listed here. "Output" below means
+stream output: a figure's title and a rich display are not read.
 
 * the template, the scaffolder's ``setup-md`` and every published notebook carry the paragraph
   verbatim, except the closed ``LEGACY_WITHOUT_THE_PARAGRAPH`` list below (so a later template edit
@@ -15,27 +16,50 @@ claims a script can check against the committed outputs, and this test is that s
   "Not measured live: a pipeline check, not a Jev result." prose does not count: stripping the
   label off every number must turn this red, and ``test_the_label_checks_fail_on_a_mutated_run``
   proves it does);
-* no notebook, carrying or not, still says that every number it prints says so, or that every
-  line of some kind carries a label (the sentence #233 was filed for, in the variants it took).
+* no notebook's markdown, carrying or not, contains one of the ``FORBIDDEN_WORDINGS``: the sentence
+  #233 was filed for, in the variants found so far. They are literal strings, so the same claim in
+  other words passes (recipe 50's ``calibrate-md`` still makes one).
 
-The selection label's sentence names no split: it is true of every line that carries the label,
-including the queue counts and previews in recipes 02, 10, 15, 25, 26 and 31 that span ``demo``
-and ``validation`` or both scored splits (review 2 of PR #317, M1).
+The selection label's sentence names no split (read, not checked): it is true of every line that
+carries the label, including the queue counts and previews in recipes 02, 10, 15, 25, 26 and 31 that
+span ``demo`` and ``validation`` or both scored splits (review 2 of PR #317, M1).
 
-Labelling of metric lines (#326): in a synthetic or scripted run, every output line that carries
-the selection label also carries the pipeline-check label, and every metric line (an accuracy,
-precision, recall, f1, coverage or risk figure, a baseline comparison, or a count of a scored
-split's examples) carries the pipeline-check label. ``test_every_metric_line_is_labelled_...``
-checks this on every carrying notebook, with no list of exempt recipes, and
-``test_the_metric_label_checks_fail_on_an_unlabelled_line`` proves that an unlabelled metric line
-and a selection-only line each turn it red.
+Labelling (#326), checked in a synthetic or scripted run of every carrying notebook by
+``test_every_metric_line_is_labelled_...``, with no exemption beyond the closed legacy list:
+
+1. An output line with the selection label also has the pipeline-check label. Every such line is
+   checked.
+2. A line ``METRIC_LINE`` matches has the pipeline-check label. It matches a lower-case
+   ``accuracy``, ``precision``, ``recall``, ``f1``, ``coverage``, ``risk`` or ``beats`` with a
+   decimal after it, and ``validation`` or ``test`` followed by ``examples``, ``documents``,
+   ``fields`` or ``pairs`` and later ``: N``. Every other line that rules 1 and 4 do not reach can
+   lose its pipeline-check label unseen. Known misses: a value whose line has no such word, or has
+   it only after the number (recipe 22's baseline accuracies and error counts, 49's leak sweep), a
+   count such as ``15 of 19``, other metric names and capitalised ones.
+3. A line ``VALIDATION_LINE`` matches has the selection label. It matches a line that starts (after
+   spaces) with ``validation, N``, ``validation (N``, ``validation: N/``, or ``validation score``,
+   ``validation action log``, ``validation review queue`` or ``validation headline`` and a digit
+   later, each optionally after ``best``. Every other ``validation`` line can lose its selection
+   label unseen. Known misses: a line that does not start with the word (recipe 22's baseline lines,
+   all of 49's leak sweep and the ``swept``, ``chosen word`` and indented baseline lines above it,
+   the thresholds and the accuracy, coverage and risk lines under a ``validation, N examples``
+   heading) and other spellings after it (``validation threshold 0.50 ...``, ``validation,
+   evaluate_outcomes: ...``).
+4. A matrix ``MATRIX_START`` matches, one printed as a nested list or a numpy array whose first row
+   starts ``[[`` and a digit, has the pipeline-check label on that row, on a heading directly above
+   it, or on its line of class names or a heading above that. A heading is a line that ends in a
+   colon; a line of class names starts with ``[`` and a quote. Today that is recipes 14, 18 and 47
+   only. Known misses: every other printed matrix, an aligned table or ``name  [1, 0]`` rows, which
+   is what the other carrying notebooks that print one use (nothing here checks the headings,
+   column lines or rows of those), and a labelled line that ends in a colon but is not the matrix's
+   heading.
+
+``test_the_metric_label_checks_fail_on_an_unlabelled_line`` mutates lines of each of the four kinds.
 
 What it deliberately does NOT claim, because it is not true of the published set: that every
-printed line carries a label. An individual answer or a per-example line carries none and still
-comes from the mode the header names (the paragraph says "may follow" for that reason). Notebooks
-outside the closed legacy list that print a metric in a spelling the metric pattern below does not
-recognise are not covered; a new spelling is added to ``METRIC_LINE`` with the notebook that
-needs it.
+printed line carries a label. An individual answer or a per-example line may carry none and still
+comes from the mode the header names (the paragraph says "may follow" for that reason). A new
+spelling is added to a pattern with the notebook that needs it.
 """
 
 from __future__ import annotations
@@ -63,7 +87,7 @@ SELECTION = "a selection step, not a reported result"
 # Published before the paragraph existed and never carried the old "carries that mode" sentence.
 # Their setup text makes no claim about which lines carry a label (the forbidden-wording test
 # below covers every notebook), so they were not swept. This list is CLOSED: it names only recipes
-# numbered 50 or lower (`test_the_legacy_list_is_closed`), so a new recipe is never exempt and
+# numbered 50 or lower (`test_the_legacy_list_is_closed`), so one above 50 is never exempt and
 # must carry the paragraph, which `tools/new_recipe.py` now scaffolds. Remove a name here when
 # that notebook gains the paragraph (the stale-exemption test fails otherwise). 36 was on this
 # list until review 1 of PR #317 (M2): its setup text made exactly the claim #233 removed.
@@ -109,7 +133,8 @@ def squash(text: str) -> str:
 # Wordings that made a claim about every number or line a notebook prints, in the variants the
 # claim took. #233 removed the first from 44 notebooks; recipe 36 (review 1 of PR #317, M2), 45
 # and 50 had their own variants and are fixed with it. None is true of an individual answer or a
-# per-example line, which carry no label, or of the headings and counts that carry only one.
+# per-example line, which may carry no label, or of the headings and counts that carry only one.
+# Each entry is matched as a literal string in markdown with its whitespace squashed.
 FORBIDDEN_WORDINGS = (
     "carries that mode",
     "labelled a selection step instead",
@@ -130,14 +155,17 @@ FORBIDDEN_WORDINGS = (
     "every number below already being labelled",
     # Recipe 50: its leak-check and N lines name validation and carry only the pipeline check.
     "printed on every validation line",
+    # The #326 prose sweep: the `evaluation-md` sentence in its variants. False wherever a
+    # per-example line, a table row or a count carries neither label or only one, and "in an
+    # offline run" is false of a recorded replay, which prints no pipeline-check label.
+    "In an offline run every `test` number",
+    "In an offline run every number",
+    "every `validation` number, in every run mode",
+    "every `validation` number and figure, in every run mode",
+    # Recipe 38, and recipe 45's metric claim beside an unlabelled example count and matrix.
+    "every number drawn from it below carries",
+    "each metric line below already being labelled",
 )
-# Notebooks that still say a retired wording because it is TRUE of their own committed output (not
-# of the template's): recipe 40 prints no unlabelled numeric line after that sentence, so it was
-# not reworded here. Closed: the stale-exemption test below fails once the sentence is gone from
-# it, so the exemption cannot outlive the wording. Reworded with the rest in the #326 sweep.
-RETIRED_BUT_TRUE_IN = {
-    "every number here, `test` and `validation` alike": {"40-hierarchical-classification"},
-}
 # Wordings the scaffolder's own evaluation stub used to carry (review 1 of PR #317, round 2, M2):
 # a recorded replay is also an offline run, and in it `check` is empty.
 RETIRED_SCAFFOLD_WORDINGS = (
@@ -153,22 +181,7 @@ def test_the_old_false_sentence_is_gone_everywhere():
             " ".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "markdown")
         )
         for wording in FORBIDDEN_WORDINGS:
-            if path.parent.name in RETIRED_BUT_TRUE_IN.get(wording, ()):
-                continue
             assert wording not in text, (path.parent.name, wording)
-
-
-def test_a_retired_wording_exemption_is_still_needed():
-    """An exemption in ``RETIRED_BUT_TRUE_IN`` must name a notebook that still says the wording,
-    and the wording must be on the forbidden list, or the entry is stale and must be removed."""
-    for wording, names in RETIRED_BUT_TRUE_IN.items():
-        assert wording in FORBIDDEN_WORDINGS
-        for name in names:
-            nb = load(REPO / "recipes" / name / "notebook.ipynb")
-            text = squash(
-                " ".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "markdown")
-            )
-            assert wording in text, f"{name} no longer says it; drop the exemption"
 
 
 def legacy_rank(name: str) -> int:
@@ -192,8 +205,8 @@ def test_a_three_digit_recipe_is_never_treated_as_legacy():
 
 
 def test_the_legacy_list_is_closed():
-    """The exemption cannot grow: it names only recipes that already existed, and each must
-    still exist and still lack the paragraph (remove a name when the paragraph is added)."""
+    """The exemption stays within recipes numbered 50 or lower, and each must still exist and
+    still lack the paragraph (remove a name when the paragraph is added)."""
     names = {p.parent.name for p in NOTEBOOKS}
     assert LEGACY_WITHOUT_THE_PARAGRAPH <= names
     assert all(is_legacy_rank(name) for name in LEGACY_WITHOUT_THE_PARAGRAPH)
@@ -246,9 +259,10 @@ def test_the_paragraph_is_verbatim_and_its_claims_hold_in_the_committed_output(p
     check_run_mode_claims(nb)
 
 
-# A metric line, as opposed to a demo answer or a per-example line: a figure of merit with its
-# value, a comparison of Jev with a baseline, or the example count of a scored split. Only notebooks
-# whose run is synthetic or scripted are held to it (a recorded run prints no pipeline-check label).
+# Some metric lines, as opposed to a demo answer or a per-example line: a figure of merit with its
+# value, a comparison of Jev with a baseline, or the example count of a scored split, in the
+# spellings the module docstring lists. Only notebooks whose run is synthetic or scripted are held
+# to it (a recorded run prints no pipeline-check label).
 METRIC_LINE = re.compile(
     r"\b(accuracy|precision|recall|f1|coverage|risk)\b.*\d\.\d"
     r"|\bbeats\b.*\d\.\d"
@@ -260,24 +274,60 @@ def run_modes(lines: list[str]) -> set[str]:
     return {m for line in lines for g in PROVENANCE.findall(line) for m in g if m}
 
 
+# Some score, action log, review queue and size lines of the `validation` split alone, in the
+# spellings the module docstring lists. They carry the selection label; the check runs on synthetic
+# and scripted runs only. A line that also counts another split (``N: 19 validation and
+# 19 test examples``) or describes the fixture set (``validation: 20 episodes``) is not matched.
+VALIDATION_LINE = re.compile(
+    r"^\s*(?:best )?validation(?:(?: score| action log| review queue| headline).*|: \d+/| \(|, )\d"
+)
+# The first row of a matrix printed as a nested list or an array, and the start of the line of class
+# names that may precede it. No other printed matrix (an aligned table, `name  [1, 0]` rows) is
+# recognised.
+MATRIX_START = re.compile(r"^\s*\[\[ ?\d")
+CLASS_NAMES = ("['", '["')
+
+
+def unlabelled_matrices(cell: dict) -> list[str]:
+    """First rows of the recognised matrices one cell prints with no pipeline-check label on the
+    row, on its class names, or on the heading (a line ending in a colon) above either. Any other
+    labelled line above, such as a metric line, does not count, nor does one in the cell before."""
+    lines = list(output_lines({"cells": [cell]}))
+    found = []
+    for i, line in enumerate(lines):
+        if not MATRIX_START.search(line):
+            continue
+        head = [line]
+        above = i - 1
+        if above >= 0 and lines[above].startswith(CLASS_NAMES):
+            head.append(lines[above])
+            above -= 1
+        if above >= 0 and lines[above].rstrip().endswith(":"):
+            head.append(lines[above])
+        if not any(CHECK in near for near in head):
+            found.append(line)
+    return found
+
+
 def unlabelled_metric_lines(nb: dict) -> list[str]:
-    """Lines a synthetic or scripted run prints that break the labelling rule of #326: a line with
-    the selection label but not the pipeline-check label, or a metric line with neither."""
+    """Lines a synthetic or scripted run prints that break one of the four numbered rules in
+    the module docstring, each limited to the spellings it lists there."""
     lines = list(output_lines(nb))
     if not run_modes(lines) & {"synthetic", "scripted"}:
         return []
     return [
         line
         for line in lines
-        if CHECK not in line and (SELECTION in line or METRIC_LINE.search(line))
-    ]
+        if (CHECK not in line and (SELECTION in line or METRIC_LINE.search(line)))
+        or (SELECTION not in line and VALIDATION_LINE.search(line))
+    ] + [line for cell in nb["cells"] for line in unlabelled_matrices(cell)]
 
 
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.parent.name)
 def test_every_metric_line_is_labelled_in_a_synthetic_or_scripted_run(path):
-    """#326: the lines the paragraph above says "may" carry a label do carry it, in every
-    notebook that carries the paragraph. The recipes this was filed for (06-10, 18, 37, 39, 47
-    and 49) are held to it like the rest; there is no exemption list to grow."""
+    """#326: the lines the four rules recognise carry their label in every notebook that
+    carries the paragraph. The recipes this was filed for (06-10, 18, 37, 39, 47 and 49) are held
+    to it like the rest; the only exemption is the closed legacy list."""
     nb = load(path)
     if not carries(nb):
         assert path.parent.name in LEGACY_WITHOUT_THE_PARAGRAPH
@@ -287,7 +337,8 @@ def test_every_metric_line_is_labelled_in_a_synthetic_or_scripted_run(path):
 
 def test_the_metric_label_checks_fail_on_an_unlabelled_line():
     """The labelling check is not vacuous: a selection-only line (recipe 06's pooled validation
-    count) and an unlabelled metric line (recipe 47's baseline comparison) each turn it red."""
+    count), an unlabelled metric line (recipe 47's baseline comparison), an unlabelled matrix and
+    `validation` lines without the selection label each turn it red."""
     nb = load(REPO / "recipes" / "06-multiple-topic-labels" / "notebook.ipynb")
     assert unlabelled_metric_lines(nb) == []
     selection_only = mutated(
@@ -303,6 +354,51 @@ def test_the_metric_label_checks_fail_on_an_unlabelled_line():
         lambda t: t.replace(f" ({CHECK})", "") if t.startswith("the name-pattern baseline") else t,
     )
     assert unlabelled_metric_lines(unlabelled)
+
+    # An unlabelled matrix heading: recipe 47's, and recipe 14's, whose cell follows one that ends
+    # in a labelled line.
+    for recipe, start in (
+        ("47-evidence-conflict-diagnosis", "gold (rows)"),
+        ("14-source-span-selection", "['not_stated', 'named']"),
+    ):
+        nb = load(REPO / "recipes" / recipe / "notebook.ipynb")
+        assert unlabelled_metric_lines(nb) == []
+        matrix = mutated(
+            nb,
+            lambda t, start=start: t.replace(f" ({CHECK})", "") if t.startswith(start) else t,
+        )
+        assert len(unlabelled_metric_lines(matrix)) == 1, recipe
+
+    # A labelled metric line above recipe 14's unlabelled class names, in the same cell, does not
+    # stand in for their label.
+    nb = load(REPO / "recipes" / "14-source-span-selection" / "notebook.ipynb")
+    covered = mutated(
+        nb,
+        lambda t: (
+            f"accuracy: 0.8000 ({CHECK})\n" + t.replace(f" ({CHECK})", "")
+            if t.startswith("['not_stated', 'named']")
+            else t
+        ),
+    )
+    assert len(unlabelled_metric_lines(covered)) == 1
+
+    # `validation` lines that carry only the pipeline-check label.
+    for recipe, start in (
+        ("19-ci-failure-classification", "validation action log"),
+        ("19-ci-failure-classification", "validation review queue"),
+        ("19-ci-failure-classification", "validation, 19 examples"),
+        ("49-multi-agent-task-assignment", "validation (6 subtasks)"),
+        ("49-multi-agent-task-assignment", "validation headline"),
+        ("49-multi-agent-task-assignment", "best validation score"),
+        ("49-multi-agent-task-assignment", "  validation: "),
+    ):
+        nb = load(REPO / "recipes" / recipe / "notebook.ipynb")
+        assert unlabelled_metric_lines(nb) == []
+        check_only = mutated(
+            nb,
+            lambda t, start=start: t.replace(f" ({SELECTION})", "") if t.startswith(start) else t,
+        )
+        assert len(unlabelled_metric_lines(check_only)) == 1, (recipe, start)
 
 
 def mutated(nb: dict, change) -> dict:
@@ -342,7 +438,8 @@ def test_the_label_checks_fail_on_a_mutated_run(recipe):
 
 def test_the_template_prints_both_labels_on_a_validation_metric():
     """The paragraph says the two labels may follow a number; the template is where a reader sees
-    them stacked, so pin that its validation metric lines carry both."""
+    them stacked, so pin that one of its "right among those routed automatically" lines carries
+    both."""
     nb = load(REPO / "recipes" / "_template" / "notebook.ipynb")
     validation = [
         line for line in output_lines(nb) if "right among those routed automatically" in line
