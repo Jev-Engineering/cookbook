@@ -78,7 +78,9 @@ use in the README and, separately, the first use in the notebook's markdown cell
 order) must be a relative Markdown link of the form `../../docs/glossary.md#anchor` to an anchor
 that [glossary.md](glossary.md) defines. A later use may be bare, a bare path or a link that comes
 after the first use fails, and headings, code and quoted fixture text are not prose. Whether the
-sentence defines the term stays with the reviewer.
+sentence defines the term stays with the reviewer. Separately, every link to `glossary.md#anchor`
+in the README or a markdown cell, whatever its text and not only a lexicon first use (`#confidence`
+and `#provenance` too), must name an anchor [glossary.md](glossary.md) defines.
 
 ### Choices the template makes for you
 
