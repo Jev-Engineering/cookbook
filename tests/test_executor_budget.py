@@ -57,7 +57,7 @@ def test_the_fit_message_names_the_reserve_and_the_job_timeout_to_update():
 
 
 def test_the_reserve_covers_the_recorded_measurement_constant():
-    # MEASURED_JOB_SECONDS: the longest of the green Tests jobs measured for #347 (see the module
+    # MEASURED_JOB_SECONDS: the longest of the green Tests jobs measured for #117 (see the module
     # docstring); a reserve below the measurement would let the largest guard fire after the job
     # is killed.
     measured = executor_budget.MEASURED_JOB_SECONDS

@@ -1413,6 +1413,89 @@ def test_a_failed_start_leaves_no_exit_time_noise(tmp_path):
     assert "atexit" not in result.stderr, (result.stderr, kernels)
 
 
+# The first ``silent`` kernel launches are a process that stays alive and never answers, which is
+# what a kernel too slow to answer looks like to the tool. jupyter_client's own wait for such a
+# launch is cut to SILENT_WAIT seconds, and the wait the tool asked for is written down first, so
+# the test reads the tool's real waits without spending them. Later launches are real kernels, and
+# their waits are the tool's own.
+SLOW_STARTS = """
+import atexit, json, sys
+from jupyter_client.asynchronous.client import AsyncKernelClient
+launch_a_kernel = provisioner.launch_kernel
+wait_for_ready = AsyncKernelClient.wait_for_ready
+launched, waits = [], []
+def launch_silent_first(cmd, **kwargs):
+    if len(launched) < {silent}:
+        cmd = [sys.executable, "-c", "import time; time.sleep(600)"]
+    launched.append(launch_a_kernel(cmd, **kwargs))
+    return launched[-1]
+async def wait_less_for_the_silent(self, timeout=None):
+    waits.append(timeout)
+    return await wait_for_ready(self, timeout={wait} if len(launched) <= {silent} else timeout)
+def report():
+    alive = [process.poll() is None for process in launched]
+    with open({report!r}, "w", encoding="utf-8") as file:
+        json.dump(dict(waits=waits, launched=len(launched), alive=alive), file)
+provisioner.launch_kernel = launch_silent_first
+AsyncKernelClient.wait_for_ready = wait_less_for_the_silent
+atexit.register(report)
+"""
+SILENT_WAIT = 2
+
+
+@pytest.mark.parametrize(
+    ("silent", "source", "arguments", "status", "message"),
+    [
+        pytest.param(1, "print('ran')", (), 0, "executed", id="then-runs"),
+        pytest.param(1, "1 / 0", (), 1, "a cell failed", id="then-a-cell-fails"),
+        pytest.param(
+            1, "while True:\n    pass", ("--timeout", 3), 1, "ran longer than 3 s", id="then-loops"
+        ),
+        pytest.param(
+            1, "import sys\nsys.stderr.write('x')", (), 1, "wrote to stderr", id="then-stderr"
+        ),
+        pytest.param(2, "print('ran')", (), 1, "the kernel did not start", id="never-starts"),
+    ],
+)
+def test_a_silent_kernel_gets_its_whole_start_budget_and_the_hang_guards_outlast_it(
+    tmp_path, silent, source, arguments, status, message
+):
+    """A controlled slow start (#117): the tool, run in a subprocess as the guarded tests run it,
+    meets kernels that are alive and silent. It asks for START_WAIT on each of two starts and for
+    no third, every hang guard is longer than those waits together with the warm-up, and a slow
+    start changes nothing about what follows: a failing cell, a cell timeout and a stderr write
+    still end the run at once with the file unchanged. No silent process is left alive
+    when the tool exits."""
+    folder = tmp_path / "slow"
+    write_notebook(folder, source)
+    before = (folder / "notebook.ipynb").read_bytes()
+    report = tmp_path / "report.json"
+    result, kernels = run_script(
+        tmp_path,
+        SLOW_STARTS + RUN_THE_TOOL_AS_A_SCRIPT,
+        silent=silent,
+        wait=SILENT_WAIT,
+        report=str(report),
+        tool=str(REPO / "tools" / "execute_notebook.py"),
+        arguments=[str(argument) for argument in (folder, *arguments)],
+    )
+    assert result.returncode == status, (result.stderr, kernels)
+    assert message in result.stdout + result.stderr, (result.stderr, kernels)
+    assert result.stderr.count("Kernel didn't respond") == silent, (result.stderr, kernels)
+    assert result.stderr.count("starting a fresh one (attempt 2 of 2)") == 1, result.stderr
+    seen = json.loads(report.read_text("utf-8"))
+    assert seen["waits"] == [180, 180]
+    assert seen["launched"] == 2
+    assert not any(seen["alive"][:silent]), seen
+    for user, guard in executor_budget.every_guard(execute_notebook).items():
+        assert guard > sum(seen["waits"]) + executor_budget.WARM_UP_SECONDS, user
+    if status == 0:
+        nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
+        assert nb.cells[0].outputs[0].text == "ran\n"
+    else:
+        assert (folder / "notebook.ipynb").read_bytes() == before
+
+
 def test_a_failing_cell_is_never_retried(tmp_path, monkeypatch):
     folder = tmp_path / "failsonce"
     write_notebook(folder, "raise ValueError('nope')")
