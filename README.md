@@ -9,7 +9,7 @@
 **100 notebook recipes for typed decisions with Jev, covering text and images, starting from a first `Choice` question.**
 
 <!-- catalog:progress:start -->
-![Recipes: 57 of 100 published](https://img.shields.io/badge/Recipes-57%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 58 of 100 published](https://img.shields.io/badge/Recipes-58%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -283,7 +283,7 @@ Multiple judgments or stages, structured evidence, deterministic composition, an
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 62 | **Visual regression detection**<br>Compare before-and-after screenshots for missing elements, misalignment, clipping, and other predefined visual changes, then score each change against an explicit severity rubric. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon · [#405](https://github.com/Jev-Engineering/cookbook/issues/405) |
+| 62 | **Visual regression detection**<br>Compare before-and-after screenshots for missing elements, misalignment, clipping, and other predefined visual changes, then score each change against an explicit severity rubric. | Image understanding & visual judgments | `Noul` + `Score` | [Open notebook](recipes/62-visual-regression-detection/notebook.ipynb) |
 | 63 | **Manufacturing defect inspection**<br>Check synthetic product photographs for scratches, dents, missing components, and incorrect assembly with independent judgments and a defined defect-severity rubric. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon · [#412](https://github.com/Jev-Engineering/cookbook/issues/412) |
 | 64 | **Field maintenance photo triage**<br>Classify predefined equipment conditions in maintenance photographs and independently flag visible corrosion, leaks, or disconnected cabling for a simulated review queue. | Image understanding & visual judgments | `Choice` + `Noul` | Coming soon · [#413](https://github.com/Jev-Engineering/cookbook/issues/413) |
 | 65 | **Retail shelf compliance**<br>Compare shelf photographs with an approved planogram image using independent checks for misplaced or missing product groups while Python combines the findings. | Image understanding & visual judgments | `Noul` | Coming soon · [#414](https://github.com/Jev-Engineering/cookbook/issues/414) |
