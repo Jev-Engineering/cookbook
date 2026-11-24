@@ -5,7 +5,6 @@ The fixture generator, the notebook and the tests all load this file with
 ``jev_cookbook.load_helpers``, so the questions and the states cannot disagree.
 """
 
-import re
 import unicodedata
 from dataclasses import dataclass, replace
 from typing import Any
@@ -175,13 +174,29 @@ def verify_state(claim: str, evidence: list[str]) -> dict[str, Any]:
 
 # ------------------------------------------------------------------------- Python's candidate list
 
-# Unicode letters and numbers, excluding underscores. CJK runs stay whole: this is a
-# deterministic overlap heuristic, not language-specific word segmentation.
-_WORD_RE = re.compile(r"[^\W_]+")
+# Variation selectors choose how the character before them is drawn (an emoji or a text glyph, a
+# Han or Mongolian glyph variant), so they are removed before words are formed. Their category
+# is Mn, and one kept inside a word would make two spellings of the same word differ.
+_VARIATION_SELECTORS = dict.fromkeys(
+    (*range(0x180B, 0x180E), 0x180F, *range(0xFE00, 0xFE10), *range(0xE0100, 0xE01F0))
+)
+
+
+def _in_word(char: str) -> bool:
+    """A letter, a number or a combining mark of any kind (categories Mn, Mc and Me)."""
+    return char.isalnum() or unicodedata.category(char).startswith("M")
 
 
 def _words(text: str) -> frozenset[str]:
-    return frozenset(_WORD_RE.findall(unicodedata.normalize("NFC", text).casefold()))
+    """The distinct maximal runs of letters, numbers and combining marks, compared under NFC and
+    case folding. Every other character separates words, zero-width joiners and non-joiners
+    included. A mark with no letter or number before it still counts, as a word or the start of
+    one. Text written without spaces stays in whole runs: this is a deterministic overlap
+    heuristic, not language-specific word segmentation."""
+    text = unicodedata.normalize("NFC", text.translate(_VARIATION_SELECTORS))
+    # Case folding can leave a letter and a mark that compose, so NFC is applied again.
+    text = unicodedata.normalize("NFC", text.casefold())
+    return frozenset("".join(c if _in_word(c) else " " for c in text).split())
 
 
 def word_overlap(a: str, b: str) -> float:

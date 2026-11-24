@@ -39,6 +39,69 @@ def test_unicode_case_and_canonical_equivalents_overlap(first, second):
     assert helpers.word_overlap("one_two", "one two") == 1.0
 
 
+def test_case_pairs_that_compose_only_after_folding_overlap():
+    # Capital iota with dialytika has no precomposed form with tonos; the small letter has.
+    assert helpers.word_overlap("Ϊ́", "ΐ") == 1.0
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        pytest.param("कि 7", "की 7", id="devanagari-vowel-signs-mc"),
+        pytest.param("กี 7", "กู 7", id="thai-vowel-signs-mn"),
+        pytest.param("x́ 7", "x̀ 7", id="latin-marks-nfc-cannot-compose"),
+        pytest.param("x⃝ 7", "x⃞ 7", id="enclosing-marks-me"),
+        pytest.param("◌ि 7", "◌ी 7", id="mark-on-a-symbol"),
+        pytest.param("́ 7", "̀ 7", id="mark-with-no-base"),
+    ],
+)
+def test_passages_differing_only_in_a_combining_mark_remain_distinct(first, second):
+    assert helpers.word_overlap(first, second) == pytest.approx(1 / 3)
+    fields = {"passages": [{"passage_id": "a", "text": first}, {"passage_id": "b", "text": second}]}
+    assert [c.passage_id for c in helpers.candidates(fields)] == ["a", "b"]
+
+
+@pytest.mark.parametrize("word", ["कि", "กี", "x́", "x⃝"])
+def test_a_mark_stays_in_one_word_and_the_same_word_still_matches(word):
+    assert helpers._words(f"{word}a") == {f"{word}a"}
+    assert helpers.word_overlap(f"{word} 7", f"7, {word.upper()}!") == 1.0
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        # Two marks in either order: canonically equivalent, with no composed form.
+        ("x̣́ 7", "x̣́ 7"),
+        ("क़ 7", "क़ 7"),  # Devanagari qa, and ka with nukta
+        ("7️ 8", "7 8"),
+        ("葛\U000e0100城 8", "葛城 8"),
+        ("ᠠ᠋ᠠ 8", "ᠠᠠ 8"),
+        ("ᠠ᠏ᠠ 8", "ᠠᠠ 8"),
+        ("❤️ 8", "❤ 8"),
+        ("e️́", "é"),  # removed before NFC, so it cannot block composition
+    ],
+)
+def test_canonical_equivalents_and_variation_selectors_still_match(first, second):
+    assert helpers.word_overlap(first, second) == 1.0
+
+
+@pytest.mark.parametrize("joiner", ["‌", "‍"])
+def test_zero_width_joiners_and_non_joiners_separate_words(joiner):
+    word = f"क्{joiner}ष"
+    assert helpers._words(word) == {"क्", "ष"}
+    assert helpers.word_overlap(word, word.replace(joiner, "")) == 0.0
+
+
+def test_text_written_without_spaces_is_one_word():
+    thai = "ที่นี่"
+    assert helpers._words(thai) == {thai}
+    assert helpers.word_overlap(f"{thai}กี", f"{thai}กู") == 0.0
+
+
+def test_separators_word_order_and_repeats_are_not_compared():
+    assert helpers.word_overlap("5 + 7", "7-5 (5)") == 1.0
+
+
 def test_pipeline_exposes_the_two_request_states_instead_of_an_unused_fields_adapter():
     assert not hasattr(helpers, "build_state")
     evidence = ["first", "second"]
