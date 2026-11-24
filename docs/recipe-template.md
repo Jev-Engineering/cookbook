@@ -80,7 +80,12 @@ that [glossary.md](glossary.md) defines. A later use may be bare, a bare path or
 after the first use fails, and headings, code and quoted fixture text are not prose. Whether the
 sentence defines the term stays with the reviewer. Separately, every link to `glossary.md#anchor`
 in the README or a markdown cell, whatever its text and not only a lexicon first use (`#confidence`
-and `#provenance` too), must name an anchor [glossary.md](glossary.md) defines.
+and `#provenance` too), must name an anchor [glossary.md](glossary.md) defines, and a link to a file
+named `glossary.md` that does not resolve to `docs/glossary.md` (a wrong folder depth or case)
+fails. A code span that is exactly one of the recipe's declared `LABELS` values in `helpers.py`
+(for a dict, its keys; a topic label `support`, say) is that label, not the lexicon term, unless it is
+inside a link to a file named `glossary.md`; outside one the guard does not check it, even where
+it means the metric.
 
 ### Choices the template makes for you
 

@@ -82,13 +82,24 @@ check id                              rule -> detection
                                        first use. Prose is paragraphs, list items and table
                                        cells: headings, code, HTML and double-quoted fixture text
                                        are skipped, a code span counts only when it is exactly
-                                       the term, and a few everyday senses (a customer review,
-                                       some risk of, test coverage, support outside a sentence
-                                       naming precision, recall or F1) are skipped by name. Not
-                                       seen: whether the sentence defines the term, any other
-                                       everyday sense, an inflection other than the plural of
-                                       gold label, business threshold and confidence gate, and a
-                                       use in a code cell's prose. Drift is recorded in
+                                       the term and is not one of the recipe's declared label
+                                       values (a dict's keys, or the items of a tuple, list or
+                                       set, in the ``LABELS`` of its ``helpers.py``) outside a
+                                       link to a file named ``glossary.md``, so recipe 06's
+                                       topic label ``support`` is not the metric (#723), and a
+                                       few everyday senses (a customer review, some risk of,
+                                       test coverage, support outside a sentence naming
+                                       precision, recall or F1) are skipped by name. Not seen:
+                                       in a recipe whose ``LABELS`` contains a lexicon term, an
+                                       exact code span of that term outside such a link, even
+                                       where it means the metric; whether the sentence defines
+                                       the term, any other everyday sense, an inflection other
+                                       than the plural of gold label, business threshold and
+                                       confidence gate, and a use in a code cell's prose. Only
+                                       a module-level ``LABELS`` in ``helpers.py`` is read (a
+                                       literal, or names bound to one): label values under
+                                       another name, starred, unpacked or computed are not
+                                       exempt. Drift is recorded in
                                        ``tests/recipe_guard_known_failures.py``.
 ``glossary_link_anchors``             #211 acceptance item 4: every Markdown link in a
                                        recipe's README or notebook markdown cells that resolves
@@ -97,9 +108,13 @@ check id                              rule -> detection
                                        ``-1`` after a repeat), whatever the link text, not only a
                                        lexicon first use. A root-relative ``/docs/glossary.md``
                                        link resolves from the repository root and a query is
-                                       dropped, as in ``tests/test_docs_links.py``. Not seen: a
-                                       link with no fragment, an external URL to the glossary,
-                                       a bare path in prose, and an HTML ``<a href>``.
+                                       dropped, as in ``tests/test_docs_links.py``. A link to
+                                       a file named ``glossary.md`` in any case that does not
+                                       resolve to ``docs/glossary.md`` (a wrong folder depth,
+                                       ``GLOSSARY.md``) fails, fragment or not (#723). Not
+                                       seen: a link with no fragment that resolves to the
+                                       glossary, an external URL to the glossary, a bare path
+                                       in prose, and an HTML ``<a href>``.
 ``stored_answers_strong_form``        G1(c): ``test_stored_answers_are_not_all_right``
                                        re-derives the frozen threshold (preferring the
                                        confidence gate over a plain business threshold when
@@ -1347,8 +1362,63 @@ def _uses_term(term: str, text: str, unit_text: str) -> bool:
     return False
 
 
-def _scan_inline(children, first: dict[str, GlossaryUse]) -> None:
-    """Record the first use of each term in the children of one inline token."""
+def _declared_label_values(helpers_path: Path) -> frozenset[str]:
+    """The label values a recipe's ``helpers.py`` declares in its module-level ``LABELS``: the
+    string keys of a dict literal, or the strings of a tuple, list or set literal, where an item
+    or the whole value may be a module-level name bound to one of those (``LABELS = (A, B)``,
+    ``LABELS = CONSTRAINTS``). Read from the source without importing it. Anything else, or no
+    ``LABELS``, declares nothing."""
+    if not helpers_path.is_file():
+        return frozenset()
+    bindings: dict[str, ast.expr] = {}
+    for stmt in ast.parse(helpers_path.read_text("utf-8")).body:
+        if isinstance(stmt, ast.Assign):
+            for target in stmt.targets:
+                if isinstance(target, ast.Name):
+                    bindings[target.id] = stmt.value
+        elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name) and stmt.value:
+            bindings[stmt.target.id] = stmt.value
+
+    def resolve(node: ast.expr | None, seen: frozenset[str]) -> ast.expr | None:
+        while isinstance(node, ast.Name) and node.id not in seen:
+            seen |= {node.id}
+            node = bindings.get(node.id)
+        return None if isinstance(node, ast.Name) else node
+
+    def text(node: ast.expr | None) -> str | None:
+        node = resolve(node, frozenset())
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        return None
+
+    labels = resolve(bindings.get("LABELS"), frozenset({"LABELS"}))
+    if isinstance(labels, ast.Dict):
+        items = list(labels.keys)
+    elif isinstance(labels, (ast.Tuple, ast.List, ast.Set)):
+        items = list(labels.elts)
+    else:
+        return frozenset()
+    return frozenset(value for item in items if (value := text(item)) is not None)
+
+
+def _names_glossary_file(href: str | None) -> bool:
+    """Is this link's target a file named ``glossary.md``, in any folder, case or host? A code span
+    inside such a link is meant as the lexicon term, so ``glossary_first_use_links`` judges it."""
+    try:
+        path = urllib.parse.unquote(urllib.parse.urlsplit(href or "").path)
+    except ValueError:
+        return False
+    return posixpath.basename(posixpath.normpath(path)).casefold() == "glossary.md"
+
+
+def _scan_inline(
+    children, first: dict[str, GlossaryUse], code_values: frozenset[str] = frozenset()
+) -> None:
+    """Record the first use of each term in the children of one inline token. A code span that
+    is exactly one of ``code_values`` (the recipe's declared label values) is that value, not a
+    lexicon term (recipe 06's topic label ``support`` is not the metric), unless it sits in a link
+    to a file named ``glossary.md``, which shows the term is meant. Inside any other link it is
+    still the label."""
     unit_text = " ".join(c.content for c in children if c.type in {"text", "code_inline"})
     state: dict = {"href": None, "depth": 0, "run": []}
 
@@ -1381,6 +1451,8 @@ def _scan_inline(children, first: dict[str, GlossaryUse]) -> None:
                     state["href"] = None
             elif child.type == "code_inline":
                 code = child.content.strip()
+                if code in code_values and not _names_glossary_file(state["href"]):
+                    continue
                 for term in GLOSSARY_LEXICON:
                     exact = code == term if term == "F1" else code.lower() == term.lower()
                     if exact and term not in first:
@@ -1388,7 +1460,9 @@ def _scan_inline(children, first: dict[str, GlossaryUse]) -> None:
     flush()
 
 
-def _glossary_first_uses(markdown: str) -> dict[str, GlossaryUse]:
+def _glossary_first_uses(
+    markdown: str, code_values: frozenset[str] = frozenset()
+) -> dict[str, GlossaryUse]:
     """The first use of each lexicon term in the prose of one Markdown source, in document
     order, with the link it sits in. Prose is paragraphs, list items, table cells and quotes.
     Headings are structure, fenced and indented code and HTML are not prose, double-quoted text
@@ -1396,7 +1470,9 @@ def _glossary_first_uses(markdown: str) -> dict[str, GlossaryUse]:
     which is how the bare form `` `gold label` `` names a term without linking it. Text is
     matched in runs: a soft line break reads as a space and emphasis markers are transparent, so
     ``gold`` + newline + ``label`` and ``**gold** label`` are the term. A link, a code span, an
-    image or inline HTML ends a run."""
+    image or inline HTML ends a run. A code span that is exactly one of ``code_values``, the
+    recipe's declared label values, is a code value and not a use of any term, unless it sits in
+    a link to a file named ``glossary.md``."""
     first: dict[str, GlossaryUse] = {}
     in_heading = False
     for token in _GLOSSARY_MARKDOWN.parse(markdown):
@@ -1404,7 +1480,7 @@ def _glossary_first_uses(markdown: str) -> dict[str, GlossaryUse]:
             in_heading = token.type == "heading_open"
         if token.type != "inline" or in_heading:
             continue
-        _scan_inline(token.children or (), first)
+        _scan_inline(token.children or (), first, code_values)
     return first
 
 
@@ -1423,9 +1499,12 @@ def _glossary_link_problem(use: GlossaryUse) -> str | None:
     return None
 
 
-def _glossary_link_hits(markdown: str, location: str) -> list[str]:
+def _glossary_link_hits(
+    markdown: str, location: str, code_values: frozenset[str] = frozenset()
+) -> list[str]:
     hits = []
-    for use in sorted(_glossary_first_uses(markdown).values(), key=lambda u: u.ordinal):
+    uses = _glossary_first_uses(markdown, code_values)
+    for use in sorted(uses.values(), key=lambda u: u.ordinal):
         problem = _glossary_link_problem(use)
         if problem:
             hits.append(f"{location}: first use of {use.term!r} {problem}")
@@ -1435,18 +1514,21 @@ def _glossary_link_hits(markdown: str, location: str) -> list[str]:
 def _recipe_glossary_link_hits(recipe_dir_: Path) -> list[str]:
     """The README is checked on its own. In the notebook a term's first use is in the first
     markdown cell, in notebook order, that uses it, so a term first used in one cell and again,
-    unlinked, in a later cell is one link, not two."""
+    unlinked, in a later cell is one link, not two. A code span that is exactly one of the
+    recipe's declared label values (``_declared_label_values``), outside a glossary link, is not
+    a use."""
+    labels = _declared_label_values(recipe_dir_ / "helpers.py")
     hits = []
     readme = recipe_dir_ / "README.md"
     if readme.is_file():
-        hits += _glossary_link_hits(readme.read_text("utf-8"), "README.md")
+        hits += _glossary_link_hits(readme.read_text("utf-8"), "README.md", labels)
     seen: set[str] = set()
     for cell in notebook_cells(recipe_dir_):
         if cell["cell_type"] != "markdown":
             continue
         location = f"notebook.ipynb cell {cell.get('id', '?')}"
         for use in sorted(
-            _glossary_first_uses(cell_source(cell)).values(), key=lambda u: u.ordinal
+            _glossary_first_uses(cell_source(cell), labels).values(), key=lambda u: u.ordinal
         ):
             if use.term in seen:
                 continue
@@ -1630,6 +1712,147 @@ def test_a_link_ends_a_run_so_text_either_side_is_not_one_term():
     assert _glossary_link_hits("The gold [x](y.md) label here.", "x") == []
 
 
+# Recipe 06's shape (#723): ``helpers.LABELS`` declares a topic label that is literally
+# ``support``, and the README names it in code form in the same paragraph that names precision
+# and recall, so the co-occurrence rule alone would still read it as the metric.
+_RECIPE_06_HELPERS = """LABELS: dict[str, str] = {
+    "pricing": "the price, a charge, a subscription cost, or a refund tied to money",
+    "usability": "how easy or hard the product is to learn, use, or navigate",
+    "support": "an interaction with customer support, sales, or service staff",
+}
+"""
+_RECIPE_06_PROSE = (
+    "One proposition per topic label (`pricing`, `usability`, `support`), evaluated with "
+    f"per-label {_link('precision', 'precision')} and {_link('recall', 'recall')}.\n"
+)
+
+
+@pytest.mark.parametrize("where", ["README.md", "notebook"])
+def test_a_declared_label_value_in_code_is_not_the_support_metric(tmp_path, where):
+    directory = tmp_path / "06-multiple-topic-labels"
+    _write_notebook(directory, [_RECIPE_06_PROSE if where == "notebook" else "Nothing here."])
+    if where == "README.md":
+        (directory / "README.md").write_text(_RECIPE_06_PROSE, encoding="utf-8")
+    assert _recipe_glossary_link_hits(directory)  # no helpers.py: `support` is the metric
+    (directory / "helpers.py").write_text(_RECIPE_06_HELPERS, encoding="utf-8")
+    assert _recipe_glossary_link_hits(directory) == []
+
+
+def test_an_href_that_cannot_be_split_names_no_glossary_file():
+    assert not _names_glossary_file("http://[bad/glossary.md")
+    assert not _names_glossary_file(None)
+
+
+def test_a_declared_label_value_exempts_only_its_exact_code_span(tmp_path):
+    """The exemption is narrow: in a recipe that declares a ``support`` label, the metric in
+    prose, a code span in another case and an undeclared term in code still need their link, and
+    a longer label that merely contains a term exempts nothing."""
+    companions = f"{_link('precision', 'precision')} and {_link('recall', 'recall')}"
+
+    def hits(name: str, prose: str, labels: str) -> list[str]:
+        directory = _write_notebook(tmp_path / name, [prose])
+        (directory / "helpers.py").write_text(f"LABELS = ({labels},)\n", encoding="utf-8")
+        return _recipe_glossary_link_hits(directory)
+
+    (hit,) = hits("prose", f"Label `support`: {companions}, with support reported.", '"support"')
+    assert "first use of 'support' is not a link" in hit
+    (hit,) = hits("case", f"Label `Support`: {companions}.", '"support"')
+    assert "first use of 'support' is not a link" in hit
+    (hit,) = hits("substring", f"Label `support`: {companions}.", '"support_ticket"')
+    assert "first use of 'support' is not a link" in hit
+    (hit,) = hits("other-term", "Label `support`, then `accuracy`.", '"support"')
+    assert "first use of 'accuracy' is not a link" in hit
+
+
+_METRIC_LINKS = f"{_link('precision', 'precision')} and {_link('recall', 'recall')}"
+
+
+def _labelled_recipe_hits(directory: Path, prose: str) -> list[str]:
+    """The first-use hits of one notebook cell in a recipe that declares a ``support`` label."""
+    _write_notebook(directory, [prose])
+    (directory / "helpers.py").write_text(_RECIPE_06_HELPERS, encoding="utf-8")
+    return _recipe_glossary_link_hits(directory)
+
+
+def test_a_label_span_linked_to_the_glossary_is_the_first_use(tmp_path):
+    """A glossary link shows the author means the term, so the span counts and a later bare use
+    is allowed, as it is in a recipe that declares no such label."""
+    prose = (
+        f"With {_METRIC_LINKS}, the {_link('`support`', 'support')}.\n\nThen recall and support."
+    )
+    assert _labelled_recipe_hits(tmp_path / "r", prose) == []
+
+
+@pytest.mark.parametrize(
+    "href",
+    [
+        "../../docs/glossary.md#accuracy",
+        "../docs/glossary.md#support",
+        "../../docs/GLOSSARY.md#support",
+        "../../docs/glossary%2Emd#support",
+        "../../docs/glossary.md/.#support",
+        "https://example.com/docs/glossary.md#support",
+    ],
+    ids=["wrong-anchor", "wrong-depth", "wrong-case", "encoded", "dot-segment", "external"],
+)
+def test_a_label_span_linked_to_the_glossary_in_the_wrong_form_fails(tmp_path, href):
+    prose = f"With {_METRIC_LINKS}, the [`support`]({href})."
+    (hit,) = _labelled_recipe_hits(tmp_path / "r", prose)
+    assert f"first use of 'support' links {href!r}, not" in hit
+
+
+@pytest.mark.parametrize(
+    "span",
+    [
+        "`support`",
+        "[`support`](helpers.py)",
+        "[`support`](../../docs/evaluation.md#glossary.md)",
+        "[`support`](../../docs/my-glossary.md#support)",
+    ],
+    ids=["unlinked", "other-file", "other-doc", "my-glossary"],
+)
+def test_a_label_span_outside_a_glossary_link_is_still_exempt(tmp_path, span):
+    """A label linked to something else, such as the file that declares it, is still the label:
+    only a link to the glossary says the lexicon term is meant."""
+    assert _labelled_recipe_hits(tmp_path / "r", f"With {_METRIC_LINKS}, the {span} label.") == []
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (_RECIPE_06_HELPERS, {"pricing", "usability", "support"}),
+        ('A = "a"\nB = "b"\nTIE = "tie"\nLABELS = (A, B, TIE)\n', {"a", "b", "tie"}),
+        ('X = "x"\nY: str = "y"\nC: tuple[str, ...] = (X, Y)\nLABELS = C\n', {"x", "y"}),
+        ('LABELS = ["p", "q"]\n', {"p", "q"}),
+        ('LABELS = {"p", "q"}\n', {"p", "q"}),
+        ("LABELS = make_labels()\n", set()),
+        ('OTHER = ("support",)\n', set()),
+        ("LABELS = LABELS\n", set()),
+    ],
+    ids=[
+        "dict-keys",
+        "names",
+        "aliased-tuple",
+        "list",
+        "set",
+        "computed",
+        "no-labels",
+        "self-alias",
+    ],
+)
+def test_declared_label_values_are_read_from_the_helpers_source(tmp_path, source, expected):
+    helpers = tmp_path / "helpers.py"
+    helpers.write_text(source, encoding="utf-8")
+    assert _declared_label_values(helpers) == expected
+    assert _declared_label_values(tmp_path / "missing.py") == frozenset()
+
+
+def test_recipe_06_declares_support_as_a_label():
+    """The real recipe the refinement was made for: its LABELS keys include ``support``."""
+    helpers = REPO / "recipes" / "06-multiple-topic-labels" / "helpers.py"
+    assert "support" in _declared_label_values(helpers)
+
+
 def test_support_companions_are_matched_without_regard_to_case():
     hits = _glossary_link_hits("PRECISION and support per class.", "x")
     assert any("'support'" in hit for hit in hits)
@@ -1689,8 +1912,11 @@ def _glossary_link_anchor_hits(markdown: str, location: str, source_dir: str) ->
     (as GitHub resolves it) and any other path from the repository-relative folder
     ``source_dir``; the path and fragment are percent-decoded. Every link counts, whatever its
     text and wherever it sits (a heading, a table cell, a reference definition), not only a
-    lexicon term's first use. A link with no fragment, an external URL (a scheme or a host) and
-    a bare path in prose are not checked."""
+    lexicon term's first use. A link whose decoded path names a file ``glossary.md`` (its
+    last segment, in any case) but does not resolve to ``docs/glossary.md`` (a wrong folder
+    depth, ``GLOSSARY.md``) fails too, fragment or not, so a link meant for the glossary cannot
+    miss it silently. A link with no fragment that does resolve there, an external URL (a scheme
+    or a host) and a bare path in prose are not checked."""
     hits = []
     for token in _GLOSSARY_MARKDOWN.parse(markdown):
         if token.type != "inline":
@@ -1704,11 +1930,18 @@ def _glossary_link_anchor_hits(markdown: str, location: str, source_dir: str) ->
             except ValueError:
                 continue
             path = urllib.parse.unquote(url.path)
-            if "#" not in href or not path or url.scheme or url.netloc:
+            if not path or url.scheme or url.netloc:
                 continue
             base = "" if path.startswith("/") else source_dir
             target = posixpath.normpath(posixpath.join(base, path.lstrip("/")))
             if target != "docs/glossary.md":
+                if posixpath.basename(path).casefold() == "glossary.md":
+                    hits.append(
+                        f"{location}: links {href!r}, which resolves to {target}, "
+                        "not docs/glossary.md"
+                    )
+                continue
+            if "#" not in href:
                 continue
             anchor = urllib.parse.unquote(url.fragment)
             if anchor not in _glossary_anchors():
@@ -1804,15 +2037,65 @@ def test_links_that_do_not_name_a_glossary_anchor_are_not_checked(text):
 
 def test_the_link_resolves_from_the_folder_it_sits_in():
     link = "[x](../docs/glossary.md#nope)"
-    assert _glossary_link_anchor_hits(link, "x", "recipes/01-x") == []
-    assert _glossary_link_anchor_hits(link, "x", "recipes")
+    (hit,) = _glossary_link_anchor_hits(link, "x", "recipes")
+    assert hit.endswith("defines no #nope")
+    (hit,) = _glossary_link_anchor_hits(link, "x", "recipes/01-x")
+    assert "resolves to recipes/docs/glossary.md" in hit
 
 
 def test_a_root_relative_or_queried_link_to_a_defined_anchor_passes():
     for href in ("/docs/glossary.md#confidence", "../../docs/glossary.md?plain=1#provenance"):
         assert _glossary_link_anchor_hits(f"[x]({href})", "x", "recipes/01-x") == []
     # A leading slash is the repository root, not the recipe folder.
-    assert _glossary_link_anchor_hits("[x](/glossary.md#nope)", "x", "docs") == []
+    (hit,) = _glossary_link_anchor_hits("[x](/glossary.md#nope)", "x", "docs")
+    assert (
+        hit == "x: links '/glossary.md#nope', which resolves to glossary.md, not docs/glossary.md"
+    )
+
+
+@pytest.mark.parametrize(
+    ("href", "target"),
+    [
+        ("../docs/glossary.md#confidence", "recipes/docs/glossary.md"),
+        ("../../../docs/glossary.md#confidence", "../docs/glossary.md"),
+        ("../../docs/GLOSSARY.md#confidence", "docs/GLOSSARY.md"),
+        ("../../Docs/Glossary.md#confidence", "Docs/Glossary.md"),
+        ("../docs/glossary.md", "recipes/docs/glossary.md"),
+        ("../../docs/GLOSSARY.md", "docs/GLOSSARY.md"),
+        ("../docs/glossary%2Emd#confidence", "recipes/docs/glossary.md"),
+        ("../../docs/glossary%2Emd#confidence", None),
+    ],
+    ids=[
+        "wrong-depth-short",
+        "wrong-depth-long",
+        "wrong-case",
+        "wrong-case-folder",
+        "wrong-depth-no-fragment",
+        "wrong-case-no-fragment",
+        "wrong-depth-encoded",
+        "encoded-control",
+    ],
+)
+def test_a_glossary_link_that_misses_docs_glossary_md_fails(href, target):
+    """#723: a link to a file named ``glossary.md`` (in any case) that resolves elsewhere was
+    meant for the glossary and lands nowhere, so it fails rather than being skipped, even when
+    its anchor exists in the real glossary and even with no fragment."""
+    hits = _glossary_link_anchor_hits(f"See the [term]({href}).", "README.md", "recipes/01-x")
+    if target is None:  # decodes to the right path, so it resolves and the anchor exists
+        assert hits == []
+        return
+    assert hits == [f"README.md: links {href!r}, which resolves to {target}, not docs/glossary.md"]
+
+
+def test_a_link_to_a_file_not_named_glossary_is_not_a_misresolved_glossary_link():
+    for href in (
+        "../../docs/evaluation.md#x",
+        "glossary.md.bak",
+        "../../docs/glossary.mdx#x",
+        "my-glossary.md",
+        "../../docs/my-glossary.md#x",
+    ):
+        assert _glossary_link_anchor_hits(f"[x]({href})", "x", "recipes/01-x") == []
 
 
 def test_the_fragment_is_percent_decoded():
