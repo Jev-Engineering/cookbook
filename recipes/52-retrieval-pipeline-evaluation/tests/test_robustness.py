@@ -83,6 +83,8 @@ def test_a_mark_stays_in_one_word_and_the_same_word_still_matches(word):
         # U+0345 folds to a letter, so the marks must be in canonical order before folding.
         ("x\u0345\u0301 8", "x\u0301\u0345 8"),
         ("e\ufe0f\u0301", "\u00e9"),  # removed before NFC, so it cannot block composition
+        # Removed before NFD, so it cannot block reordering.
+        ("x\u0345\u034f\u0301 8", "x\u0301\u0345 8"),
     ],
 )
 def test_canonical_equivalents_and_default_ignorable_marks_still_match(first, second):
@@ -112,9 +114,21 @@ def test_a_mark_that_composes_with_a_symbol_is_part_of_that_symbol():
     assert helpers.word_overlap("\u2260 7", "= 7") == 1.0
 
 
-def test_folding_keeps_a_mark_on_its_own_letter():
-    # Alpha with ypogegrammeni and dot below is not alpha, then iota with dot below.
-    assert helpers.word_overlap("\u1fb3\u0323", "\u03b1\u03b9\u0323") == 0.0
+def test_a_mark_nfd_orders_before_the_iota_subscript_stays_on_the_base_letter():
+    # Alpha with ypogegrammeni and dot below is not alpha, then iota with dot below, and
+    # str.upper() writes the second.
+    text = "\u1fb3\u0323"
+    assert text.upper() == "\u0391\u0399\u0323"
+    assert helpers._words(text) == {"\u03b1\u0323\u03b9"}
+    assert helpers.word_overlap(text, "\u03b1\u03b9\u0323") == 0.0
+    assert helpers.word_overlap(f"{text} 7", f"{text.upper()} 7") == pytest.approx(1 / 3)
+
+
+def test_a_combining_class_0_mark_stays_after_the_iota_subscript():
+    text = "\u1fb3\u20dd"
+    assert text.upper() == "\u0391\u0399\u20dd"
+    assert helpers._words(text) == {"\u03b1\u03b9\u20dd"}
+    assert helpers.word_overlap(f"{text} 7", f"{text.upper()} 7") == 1.0
 
 
 def test_compatibility_variants_remain_distinct():

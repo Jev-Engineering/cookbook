@@ -195,14 +195,20 @@ def _in_word(char: str) -> bool:
 
 
 def _words(text: str) -> frozenset[str]:
-    """The distinct maximal runs of letters, numbers and combining marks, compared under case
-    folding and NFC, with default-ignorable marks removed. Every other character separates words,
-    zero-width joiners and non-joiners included. A mark that NFC composes with a symbol is part of
-    that symbol and so is not compared (``=`` and U+0338 make U+2260, a separator); any other mark
-    with no letter or number before it counts, as a word or the start of one. Text written without
-    spaces stays in whole runs: this is a deterministic overlap heuristic, not language-specific
-    word segmentation."""
-    # NFD first, so that U+0345, which folds to a letter, is folded after the marks on its base.
+    """The distinct maximal runs of letters, numbers and combining marks in ``text``, after
+    removing default-ignorable marks, then NFD, case folding and NFC, in that order. Every other
+    character separates words, zero-width joiners and non-joiners included. A mark that NFC
+    composes with a symbol is part of that symbol and so is not compared (``=`` and U+0338 make
+    U+2260, a separator); any other mark with no letter or number before it counts, as a word or
+    the start of one. Text written without spaces stays in whole runs: this is a deterministic
+    overlap heuristic, not language-specific word segmentation.
+
+    Folding turns the Greek iota subscript (U+0345) into the letter iota, and NFD has by then put
+    a mark such as dot below on the letter before it. So U+1FB3 U+0323 does not match its
+    ``str.upper()``, U+0391 U+0399 U+0323, where the dot is on the iota. NFD never moves a mark of
+    combining class 0 such as U+20DD, so U+1FB3 U+20DD does match its ``str.upper()``."""
+    # NFD comes first because U+0345 folds to a letter: a mark that NFD orders before U+0345 stays
+    # on the base letter. NFD moves no mark of combining class 0, and none across one.
     text = unicodedata.normalize("NFD", text.translate(_IGNORABLE_MARKS))
     text = unicodedata.normalize("NFC", text.casefold())
     return frozenset("".join(c if _in_word(c) else " " for c in text).split())
