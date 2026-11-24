@@ -1426,7 +1426,7 @@ wait_for_ready = AsyncKernelClient.wait_for_ready
 launched, waits = [], []
 def launch_silent_first(cmd, **kwargs):
     if len(launched) < {silent}:
-        cmd = [sys.executable, "-c", "import time; time.sleep(600)"]
+        cmd = [sys.executable, "-c", "import time; time.sleep(60)"]
     launched.append(launch_a_kernel(cmd, **kwargs))
     return launched[-1]
 async def wait_less_for_the_silent(self, timeout=None):
