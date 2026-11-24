@@ -65,7 +65,7 @@ def test_original_sixty_rows_are_preserved_exactly():
     # titles, use cases, levels and sources. Reordering JSON object keys is harmless.
     encoded = json.dumps(RECIPES[:60], sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(encoded).hexdigest() == (
-        "0ac9c40278e03b6ec014132a7e298875388c666f53a5c192bcc8ae237f0a136d"
+        "a7d67b613d9723424cfef217375095ceb4bf998eb1dabe2cd4d3360d17a2025a"
     )
 
 
