@@ -25,8 +25,9 @@ and ``validation`` or both scored splits (review 2 of PR #317, M1).
 Labelling of metric lines (#326): in a synthetic or scripted run, every output line that carries
 the selection label also carries the pipeline-check label, and every metric line (an accuracy,
 precision, recall, f1, coverage or risk figure, a baseline comparison, or a count of a scored
-split's examples) carries the pipeline-check label. ``test_every_metric_line_is_labelled_...``
-checks this on every carrying notebook, with no list of exempt recipes, and
+split's examples) carries the pipeline-check label. A printed confusion matrix carries it on its
+heading, and a score, log or queue line of the ``validation`` split alone carries the selection
+label. ``test_every_metric_line_is_labelled_...`` checks this on every carrying notebook, with no list of exempt recipes, and
 ``test_the_metric_label_checks_fail_on_an_unlabelled_line`` proves that an unlabelled metric line
 and a selection-only line each turn it red.
 
@@ -130,14 +131,17 @@ FORBIDDEN_WORDINGS = (
     "every number below already being labelled",
     # Recipe 50: its leak-check and N lines name validation and carry only the pipeline check.
     "printed on every validation line",
+    # The #326 prose sweep: the `evaluation-md` sentence in its variants. False wherever a
+    # per-example line, a table row or a count carries neither label or only one, and "in an
+    # offline run" is false of a recorded replay, which prints no pipeline-check label.
+    "In an offline run every `test` number",
+    "In an offline run every number",
+    "every `validation` number, in every run mode",
+    "every `validation` number and figure, in every run mode",
+    # Recipe 38, and recipe 45's metric claim beside an unlabelled example count and matrix.
+    "every number drawn from it below carries",
+    "each metric line below already being labelled",
 )
-# Notebooks that still say a retired wording because it is TRUE of their own committed output (not
-# of the template's): recipe 40 prints no unlabelled numeric line after that sentence, so it was
-# not reworded here. Closed: the stale-exemption test below fails once the sentence is gone from
-# it, so the exemption cannot outlive the wording. Reworded with the rest in the #326 sweep.
-RETIRED_BUT_TRUE_IN = {
-    "every number here, `test` and `validation` alike": {"40-hierarchical-classification"},
-}
 # Wordings the scaffolder's own evaluation stub used to carry (review 1 of PR #317, round 2, M2):
 # a recorded replay is also an offline run, and in it `check` is empty.
 RETIRED_SCAFFOLD_WORDINGS = (
@@ -153,22 +157,7 @@ def test_the_old_false_sentence_is_gone_everywhere():
             " ".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "markdown")
         )
         for wording in FORBIDDEN_WORDINGS:
-            if path.parent.name in RETIRED_BUT_TRUE_IN.get(wording, ()):
-                continue
             assert wording not in text, (path.parent.name, wording)
-
-
-def test_a_retired_wording_exemption_is_still_needed():
-    """An exemption in ``RETIRED_BUT_TRUE_IN`` must name a notebook that still says the wording,
-    and the wording must be on the forbidden list, or the entry is stale and must be removed."""
-    for wording, names in RETIRED_BUT_TRUE_IN.items():
-        assert wording in FORBIDDEN_WORDINGS
-        for name in names:
-            nb = load(REPO / "recipes" / name / "notebook.ipynb")
-            text = squash(
-                " ".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "markdown")
-            )
-            assert wording in text, f"{name} no longer says it; drop the exemption"
 
 
 def legacy_rank(name: str) -> int:
@@ -260,17 +249,42 @@ def run_modes(lines: list[str]) -> set[str]:
     return {m for line in lines for g in PROVENANCE.findall(line) for m in g if m}
 
 
+# A score, action log, review queue or size heading of the `validation` split alone. It carries the
+# selection label in every run mode. A line that also counts another split (``N: 19 validation and
+# 19 test examples``) or describes the fixture set (``validation: 20 episodes``) is not matched.
+VALIDATION_LINE = re.compile(
+    r"^\s*(?:best )?validation(?:(?: score| action log| review queue| headline).*|: \d+/| \()\d"
+)
+# The first row of a confusion matrix printed as a nested list or an array. Its label is on the
+# row's own line or on one of the two lines above it (a heading, then the class names).
+MATRIX_START = re.compile(r"^\s*\[\[ ?\d")
+
+
+def unlabelled_matrices(cell: dict) -> list[str]:
+    """First rows of the matrices one cell prints with no pipeline-check label at their head. The
+    cell is the unit, so a label that ends the previous cell's output does not count."""
+    lines = list(output_lines({"cells": [cell]}))
+    return [
+        line
+        for i, line in enumerate(lines)
+        if MATRIX_START.search(line)
+        and not any(CHECK in near for near in lines[max(0, i - 2) : i + 1])
+    ]
+
+
 def unlabelled_metric_lines(nb: dict) -> list[str]:
     """Lines a synthetic or scripted run prints that break the labelling rule of #326: a line with
-    the selection label but not the pipeline-check label, or a metric line with neither."""
+    the selection label but not the pipeline-check label, a metric line or a matrix without the
+    pipeline-check label, or a ``validation`` line without the selection label."""
     lines = list(output_lines(nb))
     if not run_modes(lines) & {"synthetic", "scripted"}:
         return []
     return [
         line
         for line in lines
-        if CHECK not in line and (SELECTION in line or METRIC_LINE.search(line))
-    ]
+        if (CHECK not in line and (SELECTION in line or METRIC_LINE.search(line)))
+        or (SELECTION not in line and VALIDATION_LINE.search(line))
+    ] + [line for cell in nb["cells"] for line in unlabelled_matrices(cell)]
 
 
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.parent.name)
@@ -303,6 +317,36 @@ def test_the_metric_label_checks_fail_on_an_unlabelled_line():
         lambda t: t.replace(f" ({CHECK})", "") if t.startswith("the name-pattern baseline") else t,
     )
     assert unlabelled_metric_lines(unlabelled)
+
+    # An unlabelled matrix heading: recipe 47's, and recipe 14's, whose cell follows one that ends
+    # in a labelled line.
+    for recipe, start in (
+        ("47-evidence-conflict-diagnosis", "gold (rows)"),
+        ("14-source-span-selection", "['not_stated', 'named']"),
+    ):
+        nb = load(REPO / "recipes" / recipe / "notebook.ipynb")
+        assert unlabelled_metric_lines(nb) == []
+        matrix = mutated(
+            nb,
+            lambda t, start=start: t.replace(f" ({CHECK})", "") if t.startswith(start) else t,
+        )
+        assert len(unlabelled_metric_lines(matrix)) == 1, recipe
+
+    # `validation` lines that carry only the pipeline-check label.
+    for recipe, start in (
+        ("19-ci-failure-classification", "validation action log"),
+        ("19-ci-failure-classification", "validation review queue"),
+        ("49-multi-agent-task-assignment", "validation (6 subtasks)"),
+        ("49-multi-agent-task-assignment", "best validation score"),
+        ("49-multi-agent-task-assignment", "  validation: "),
+    ):
+        nb = load(REPO / "recipes" / recipe / "notebook.ipynb")
+        assert unlabelled_metric_lines(nb) == []
+        check_only = mutated(
+            nb,
+            lambda t, start=start: t.replace(f" ({SELECTION})", "") if t.startswith(start) else t,
+        )
+        assert len(unlabelled_metric_lines(check_only)) == 1, (recipe, start)
 
 
 def mutated(nb: dict, change) -> dict:
