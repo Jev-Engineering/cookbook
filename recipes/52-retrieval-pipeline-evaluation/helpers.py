@@ -174,11 +174,18 @@ def verify_state(claim: str, evidence: list[str]) -> dict[str, Any]:
 
 # ------------------------------------------------------------------------- Python's candidate list
 
-# Variation selectors choose how the character before them is drawn (an emoji or a text glyph, a
-# Han or Mongolian glyph variant), so they are removed before words are formed. Their category
-# is Mn, and one kept inside a word would make two spellings of the same word differ.
-_VARIATION_SELECTORS = dict.fromkeys(
-    (*range(0x180B, 0x180E), 0x180F, *range(0xFE00, 0xFE10), *range(0xE0100, 0xE01F0))
+# The combining marks that are Default_Ignorable_Code_Point: the combining grapheme joiner, two
+# Khmer inherent vowels and the variation selectors. They are normally not drawn by themselves, so
+# they are removed before words are formed: one kept inside a word would make two spellings of the
+# same word differ.
+_IGNORABLE_MARKS = dict.fromkeys(
+    (
+        0x034F,
+        *(0x17B4, 0x17B5),
+        *(*range(0x180B, 0x180E), 0x180F),
+        *range(0xFE00, 0xFE10),
+        *range(0xE0100, 0xE01F0),
+    )
 )
 
 
@@ -188,13 +195,15 @@ def _in_word(char: str) -> bool:
 
 
 def _words(text: str) -> frozenset[str]:
-    """The distinct maximal runs of letters, numbers and combining marks, compared under NFC and
-    case folding. Every other character separates words, zero-width joiners and non-joiners
-    included. A mark with no letter or number before it still counts, as a word or the start of
-    one. Text written without spaces stays in whole runs: this is a deterministic overlap
-    heuristic, not language-specific word segmentation."""
-    text = unicodedata.normalize("NFC", text.translate(_VARIATION_SELECTORS))
-    # Case folding can leave a letter and a mark that compose, so NFC is applied again.
+    """The distinct maximal runs of letters, numbers and combining marks, compared under case
+    folding and NFC, with default-ignorable marks removed. Every other character separates words,
+    zero-width joiners and non-joiners included. A mark that NFC composes with a symbol is part of
+    that symbol and so is not compared (``=`` and U+0338 make U+2260, a separator); any other mark
+    with no letter or number before it counts, as a word or the start of one. Text written without
+    spaces stays in whole runs: this is a deterministic overlap heuristic, not language-specific
+    word segmentation."""
+    # NFD first, so that U+0345, which folds to a letter, is folded after the marks on its base.
+    text = unicodedata.normalize("NFD", text.translate(_IGNORABLE_MARKS))
     text = unicodedata.normalize("NFC", text.casefold())
     return frozenset("".join(c if _in_word(c) else " " for c in text).split())
 

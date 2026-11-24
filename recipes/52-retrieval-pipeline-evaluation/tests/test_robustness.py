@@ -41,18 +41,18 @@ def test_unicode_case_and_canonical_equivalents_overlap(first, second):
 
 def test_case_pairs_that_compose_only_after_folding_overlap():
     # Capital iota with dialytika has no precomposed form with tonos; the small letter has.
-    assert helpers.word_overlap("Ϊ́", "ΐ") == 1.0
+    assert helpers.word_overlap("\u03aa\u0301", "\u0390") == 1.0
 
 
 @pytest.mark.parametrize(
     ("first", "second"),
     [
-        pytest.param("कि 7", "की 7", id="devanagari-vowel-signs-mc"),
-        pytest.param("กี 7", "กู 7", id="thai-vowel-signs-mn"),
-        pytest.param("x́ 7", "x̀ 7", id="latin-marks-nfc-cannot-compose"),
-        pytest.param("x⃝ 7", "x⃞ 7", id="enclosing-marks-me"),
-        pytest.param("◌ि 7", "◌ी 7", id="mark-on-a-symbol"),
-        pytest.param("́ 7", "̀ 7", id="mark-with-no-base"),
+        pytest.param("\u0915\u093f 7", "\u0915\u0940 7", id="devanagari-vowel-signs-mc"),
+        pytest.param("\u0e01\u0e35 7", "\u0e01\u0e39 7", id="thai-vowel-signs-mn"),
+        pytest.param("x\u0301 7", "x\u0300 7", id="latin-marks-nfc-cannot-compose"),
+        pytest.param("x\u20dd 7", "x\u20de 7", id="enclosing-marks-me"),
+        pytest.param("\u25cc\u093f 7", "\u25cc\u0940 7", id="mark-on-a-symbol"),
+        pytest.param("\u0301 7", "\u0300 7", id="mark-with-no-base"),
     ],
 )
 def test_passages_differing_only_in_a_combining_mark_remain_distinct(first, second):
@@ -61,7 +61,7 @@ def test_passages_differing_only_in_a_combining_mark_remain_distinct(first, seco
     assert [c.passage_id for c in helpers.candidates(fields)] == ["a", "b"]
 
 
-@pytest.mark.parametrize("word", ["कि", "กี", "x́", "x⃝"])
+@pytest.mark.parametrize("word", ["\u0915\u093f", "\u0e01\u0e35", "x\u0301", "x\u20dd"])
 def test_a_mark_stays_in_one_word_and_the_same_word_still_matches(word):
     assert helpers._words(f"{word}a") == {f"{word}a"}
     assert helpers.word_overlap(f"{word} 7", f"7, {word.upper()}!") == 1.0
@@ -71,31 +71,72 @@ def test_a_mark_stays_in_one_word_and_the_same_word_still_matches(word):
     ("first", "second"),
     [
         # Two marks in either order: canonically equivalent, with no composed form.
-        ("x̣́ 7", "x̣́ 7"),
-        ("क़ 7", "क़ 7"),  # Devanagari qa, and ka with nukta
-        ("7️ 8", "7 8"),
-        ("葛\U000e0100城 8", "葛城 8"),
-        ("ᠠ᠋ᠠ 8", "ᠠᠠ 8"),
-        ("ᠠ᠏ᠠ 8", "ᠠᠠ 8"),
-        ("❤️ 8", "❤ 8"),
-        ("e️́", "é"),  # removed before NFC, so it cannot block composition
+        ("x\u0301\u0323 7", "x\u0323\u0301 7"),
+        ("\u0958 7", "\u0915\u093c 7"),  # Devanagari qa, and ka with nukta
+        ("7\ufe0f 8", "7 8"),
+        ("\u845b\U000e0100\u57ce 8", "\u845b\u57ce 8"),
+        ("\u1820\u180b\u1820 8", "\u1820\u1820 8"),
+        ("\u1820\u180f\u1820 8", "\u1820\u1820 8"),
+        ("\u2764\ufe0f 8", "\u2764 8"),
+        ("a\u034f 8", "a 8"),
+        ("\u1780\u17b4 8", "\u1780 8"),
+        # U+0345 folds to a letter, so the marks must be in canonical order before folding.
+        ("x\u0345\u0301 8", "x\u0301\u0345 8"),
+        ("e\ufe0f\u0301", "\u00e9"),  # removed before NFC, so it cannot block composition
     ],
 )
-def test_canonical_equivalents_and_variation_selectors_still_match(first, second):
+def test_canonical_equivalents_and_default_ignorable_marks_still_match(first, second):
     assert helpers.word_overlap(first, second) == 1.0
 
 
-@pytest.mark.parametrize("joiner", ["‌", "‍"])
+IGNORABLE_MARK_RANGES = [
+    (0x034F, 0x034F),
+    (0x17B4, 0x17B5),
+    (0x180B, 0x180D),
+    (0x180F, 0x180F),
+    (0xFE00, 0xFE0F),
+    (0xE0100, 0xE01EF),
+]
+
+
+@pytest.mark.parametrize(("first", "last"), IGNORABLE_MARK_RANGES)
+def test_exactly_the_default_ignorable_marks_are_removed(first, last):
+    for code in range(first, last + 1):
+        assert helpers._words(f"x{chr(code)}a") == {"xa"}, hex(code)
+    for code in (first - 1, last + 1):
+        assert helpers._words(f"x{chr(code)}a") != {"xa"}, hex(code)
+
+
+def test_a_mark_that_composes_with_a_symbol_is_part_of_that_symbol():
+    assert helpers._words("=\u0338 7") == helpers._words("\u2260 7") == {"7"}
+    assert helpers.word_overlap("\u2260 7", "= 7") == 1.0
+
+
+def test_folding_keeps_a_mark_on_its_own_letter():
+    # Alpha with ypogegrammeni and dot below is not alpha, then iota with dot below.
+    assert helpers.word_overlap("\u1fb3\u0323", "\u03b1\u03b9\u0323") == 0.0
+
+
+def test_compatibility_variants_remain_distinct():
+    assert helpers.word_overlap("\u00b2 7", "2 7") == pytest.approx(1 / 3)
+
+
+@pytest.mark.parametrize("symbol", ["+", "$", "^", "\u2764"], ids=["Sm", "Sc", "Sk", "So"])
+def test_every_kind_of_symbol_separates_words(symbol):
+    assert helpers._words(f"a{symbol}b") == {"a", "b"}
+
+
+@pytest.mark.parametrize("joiner", ["\u200c", "\u200d"])
 def test_zero_width_joiners_and_non_joiners_separate_words(joiner):
-    word = f"क्{joiner}ष"
-    assert helpers._words(word) == {"क्", "ष"}
+    word = f"\u0915\u094d{joiner}\u0937"
+    assert helpers._words(word) == {"\u0915\u094d", "\u0937"}
     assert helpers.word_overlap(word, word.replace(joiner, "")) == 0.0
 
 
 def test_text_written_without_spaces_is_one_word():
-    thai = "ที่นี่"
+    thai = "\u0e17\u0e35\u0e48\u0e19\u0e35\u0e48"
     assert helpers._words(thai) == {thai}
-    assert helpers.word_overlap(f"{thai}กี", f"{thai}กู") == 0.0
+    assert helpers.word_overlap(f"{thai}\u0e01\u0e35", f"{thai}\u0e01\u0e39") == 0.0
 
 
 def test_separators_word_order_and_repeats_are_not_compared():
