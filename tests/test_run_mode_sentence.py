@@ -26,10 +26,21 @@ Labelling of metric lines (#326): in a synthetic or scripted run, every output l
 the selection label also carries the pipeline-check label, and every metric line (an accuracy,
 precision, recall, f1, coverage or risk figure, a baseline comparison, or a count of a scored
 split's examples) carries the pipeline-check label. A printed confusion matrix carries it on its
-heading, and a score, log or queue line of the ``validation`` split alone carries the selection
-label. ``test_every_metric_line_is_labelled_...`` checks this on every carrying notebook, with no list of exempt recipes, and
+heading. A line that starts with one of the ``validation`` spellings listed under "What it
+recognises" carries the selection label. ``test_every_metric_line_is_labelled_...`` checks this on
+every carrying notebook, with no list of exempt recipes, and
 ``test_the_metric_label_checks_fail_on_an_unlabelled_line`` proves that an unlabelled metric line
 and a selection-only line each turn it red.
+
+What it recognises. ``VALIDATION_LINE`` matches a line that starts (after spaces) with
+``validation, N``, ``validation (N``, ``validation: N/``, ``validation score``, ``validation action
+log``, ``validation review queue`` or ``validation headline``, or with ``best`` before one of them,
+and that has a digit. Every other ``validation`` line can lose its selection label unseen. Known
+misses: a line that does not start with the word (recipe 22's baseline lines, all of recipe 49's
+leak sweep and the ``swept``, ``chosen word`` and indented baseline lines above it, the thresholds
+and the accuracy, coverage and risk lines under a ``validation, N examples`` heading) and other
+spellings after it (``validation threshold 0.50 ...``, ``validation, evaluate_outcomes: ...``,
+``validation raw accuracy``). ``METRIC_LINE`` and ``MATRIX_START`` are patterns in the same way.
 
 What it deliberately does NOT claim, because it is not true of the published set: that every
 printed line carries a label. An individual answer or a per-example line carries none and still
@@ -253,7 +264,7 @@ def run_modes(lines: list[str]) -> set[str]:
 # selection label in every run mode. A line that also counts another split (``N: 19 validation and
 # 19 test examples``) or describes the fixture set (``validation: 20 episodes``) is not matched.
 VALIDATION_LINE = re.compile(
-    r"^\s*(?:best )?validation(?:(?: score| action log| review queue| headline).*|: \d+/| \()\d"
+    r"^\s*(?:best )?validation(?:(?: score| action log| review queue| headline).*|: \d+/| \(|, )\d"
 )
 # The first row of a confusion matrix printed as a nested list or an array. Its label is on the
 # row's own line or on one of the two lines above it (a heading, then the class names).
@@ -336,7 +347,9 @@ def test_the_metric_label_checks_fail_on_an_unlabelled_line():
     for recipe, start in (
         ("19-ci-failure-classification", "validation action log"),
         ("19-ci-failure-classification", "validation review queue"),
+        ("19-ci-failure-classification", "validation, 19 examples"),
         ("49-multi-agent-task-assignment", "validation (6 subtasks)"),
+        ("49-multi-agent-task-assignment", "validation headline"),
         ("49-multi-agent-task-assignment", "best validation score"),
         ("49-multi-agent-task-assignment", "  validation: "),
     ):
