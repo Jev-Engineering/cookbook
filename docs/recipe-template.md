@@ -83,7 +83,9 @@ in the README or a markdown cell, whatever its text and not only a lexicon first
 and `#provenance` too), must name an anchor [glossary.md](glossary.md) defines, and a link to a file
 named `glossary.md` that does not resolve to `docs/glossary.md` (a wrong folder depth or case)
 fails. A code span that is exactly one of the recipe's declared `LABELS` values in `helpers.py`
-(a topic label `support`, say) is that label, not the lexicon term.
+(for a dict, its keys; a topic label `support`, say) is that label, not the lexicon term, unless it is
+inside a link to a file named `glossary.md`; outside one the guard does not check it, even where
+it means the metric.
 
 ### Choices the template makes for you
 

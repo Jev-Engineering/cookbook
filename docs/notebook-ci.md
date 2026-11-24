@@ -792,13 +792,17 @@ actually defines the term, everyday senses of a lexicon word that the check's sh
 or F1) does not cover (the check fails closed there: a reviewer judges a spurious flag and rewords the
 sentence, not a miss), an inflection other than the plural of gold label, business threshold and
 confidence gate, and a term used only in a heading, a quotation or a code cell. A code span that is
-exactly one of the recipe's declared label values (the strings of `LABELS` in its `helpers.py`, read
-without importing it) is that value, not a lexicon term, so recipe 06's topic label `support` is not
-the metric (#723); the same word in prose, or as a code span in a recipe that declares no such label,
-still is. Two limits follow. In a recipe whose `LABELS` contains a lexicon term, an exact code span
-of that term is never checked, even where it means the metric. And only a module-level `LABELS` in
-`helpers.py` is read (a literal, or names bound to one): label values declared under another name,
-starred, unpacked or computed are not exempt, so the check fails closed there.
+exactly one of the recipe's declared label values (a dict's keys, or the items of a tuple, list or
+set, in the `LABELS` of its `helpers.py`, read without importing it) is that value, not a lexicon
+term, so recipe 06's topic label `support` is not the metric (#723). Inside a link to a file named
+`glossary.md` it is the term, because the link shows that is what the author means, and its link is
+checked as usual; inside any other link, such as one to `helpers.py`, it is still the label. The same
+word in prose, or as a code span in a recipe that declares no such label, is still the term. Two
+limits follow. In a recipe whose `LABELS` contains a lexicon term, an exact code span of that term
+outside a link to a file named `glossary.md` is never checked, even where it means the metric. And
+only a module-level `LABELS` in `helpers.py` is read (a literal, or names bound to one): label values
+declared under another name, starred, unpacked or computed are not exempt, so the check fails closed
+there.
 
 `glossary_link_anchors` (#211) covers the links that check does not read. Every Markdown link in a
 recipe's README or notebook markdown cells that resolves to `docs/glossary.md#anchor` must name an
