@@ -1417,25 +1417,39 @@ def test_a_failed_start_leaves_no_exit_time_noise(tmp_path):
 # what a kernel too slow to answer looks like to the tool. jupyter_client's own wait for such a
 # launch is cut to SILENT_WAIT seconds, and the wait the tool asked for is written down first, so
 # the test reads the tool's real waits without spending them. Later launches are real kernels, and
-# their waits are the tool's own.
+# their waits are the tool's own. A real kernel can lose the race for its port (#328), which the tool
+# absorbs from a budget of its own, so the test counts those starts and does not forbid them; ``lose``
+# makes the first real launch fail that way for certain: "port" takes its port
+# (kernel_port_collisions.py), "exit" replaces it with a process that exits at once. Whether a silent
+# process outlived its failed start is read at the launch that follows it, and at exit for the last.
 SLOW_STARTS = """
 import atexit, json, sys
+sys.path.insert(0, {tests!r})
+import kernel_port_collisions
 from jupyter_client.asynchronous.client import AsyncKernelClient
 launch_a_kernel = provisioner.launch_kernel
 wait_for_ready = AsyncKernelClient.wait_for_ready
-launched, waits = [], []
+collisions = kernel_port_collisions.PortCollisions(0).install()
+launched, waits, leaked = [], [], []
+def note_leaks():
+    leaked.extend(n for n, process in enumerate(launched[:{silent}]) if process.poll() is None)
 def launch_silent_first(cmd, **kwargs):
+    note_leaks()
     if len(launched) < {silent}:
         cmd = [sys.executable, "-c", "import time; time.sleep(60)"]
+    elif len(launched) == {silent} and {lose!r} == "exit":
+        cmd = [sys.executable, "-c", "raise SystemExit(1)"]
     launched.append(launch_a_kernel(cmd, **kwargs))
+    if len(launched) == {silent} and {lose!r} == "port":
+        collisions.left = 1  # the next start, the first real one
     return launched[-1]
 async def wait_less_for_the_silent(self, timeout=None):
     waits.append(timeout)
     return await wait_for_ready(self, timeout={wait} if len(launched) <= {silent} else timeout)
 def report():
-    alive = [process.poll() is None for process in launched]
+    note_leaks()
     with open({report!r}, "w", encoding="utf-8") as file:
-        json.dump(dict(waits=waits, launched=len(launched), alive=alive), file)
+        json.dump(dict(waits=waits, launched=len(launched), leaked=leaked), file)
 provisioner.launch_kernel = launch_silent_first
 AsyncKernelClient.wait_for_ready = wait_less_for_the_silent
 atexit.register(report)
@@ -1444,28 +1458,37 @@ SILENT_WAIT = 2
 
 
 @pytest.mark.parametrize(
-    ("silent", "source", "arguments", "status", "message"),
+    ("silent", "lose", "source", "arguments", "status", "message"),
     [
-        pytest.param(1, "print('ran')", (), 0, "executed", id="then-runs"),
-        pytest.param(1, "1 / 0", (), 1, "a cell failed", id="then-a-cell-fails"),
+        pytest.param(1, "", "print('ran')", (), 0, "executed", id="then-runs"),
+        pytest.param(1, "port", "print('ran')", (), 0, "executed", id="then-lost-port-then-runs"),
+        pytest.param(1, "exit", "print('ran')", (), 0, "executed", id="then-exits-then-runs"),
+        pytest.param(1, "", "1 / 0", (), 1, "a cell failed", id="then-a-cell-fails"),
         pytest.param(
-            1, "while True:\n    pass", ("--timeout", 3), 1, "ran longer than 3 s", id="then-loops"
+            1,
+            "",
+            "while True:\n    pass",
+            ("--timeout", 3),
+            1,
+            "ran longer than 3 s",
+            id="then-loops",
         ),
         pytest.param(
-            1, "import sys\nsys.stderr.write('x')", (), 1, "wrote to stderr", id="then-stderr"
+            1, "", "import sys\nsys.stderr.write('x')", (), 1, "wrote to stderr", id="then-stderr"
         ),
-        pytest.param(2, "print('ran')", (), 1, "the kernel did not start", id="never-starts"),
+        pytest.param(2, "", "print('ran')", (), 1, "the kernel did not start", id="never-starts"),
     ],
 )
 def test_a_silent_kernel_gets_its_whole_start_budget_and_the_hang_guards_outlast_it(
-    tmp_path, silent, source, arguments, status, message
+    tmp_path, silent, lose, source, arguments, status, message
 ):
     """A controlled slow start (#117): the tool, run in a subprocess as the guarded tests run it,
-    meets kernels that are alive and silent. It asks for START_WAIT on each of two starts and for
-    no third, every hang guard is longer than those waits together with the warm-up, and a slow
-    start changes nothing about what follows: a failing cell, a cell timeout and a stderr write
-    still end the run at once with the file unchanged. No silent process is left alive
-    when the tool exits."""
+    meets kernels that are alive and silent. It asks for START_WAIT on every start and makes no
+    third silent one; a real kernel that exits before replying is started again from its own budget.
+    Every hang guard is longer than two such waits together with the warm-up and the allowance for
+    the starts that exited, and a slow start changes nothing about what follows: a failing cell, a
+    cell timeout and a stderr write still end the run at once with the file unchanged. No silent
+    process outlives its failed start."""
     folder = tmp_path / "slow"
     write_notebook(folder, source)
     before = (folder / "notebook.ipynb").read_bytes()
@@ -1473,7 +1496,9 @@ def test_a_silent_kernel_gets_its_whole_start_budget_and_the_hang_guards_outlast
     result, kernels = run_script(
         tmp_path,
         SLOW_STARTS + RUN_THE_TOOL_AS_A_SCRIPT,
+        tests=str(Path(__file__).resolve().parent),
         silent=silent,
+        lose=lose,
         wait=SILENT_WAIT,
         report=str(report),
         tool=str(REPO / "tools" / "execute_notebook.py"),
@@ -1484,11 +1509,16 @@ def test_a_silent_kernel_gets_its_whole_start_budget_and_the_hang_guards_outlast
     assert result.stderr.count("Kernel didn't respond") == silent, (result.stderr, kernels)
     assert result.stderr.count("starting a fresh one (attempt 2 of 2)") == 1, result.stderr
     seen = json.loads(report.read_text("utf-8"))
-    assert seen["waits"] == [180, 180]
-    assert seen["launched"] == 2
-    assert not any(seen["alive"][:silent]), seen
+    # Starts that exited before replying, each with the retry note that spends the quick budget.
+    lost = result.stderr.count("Kernel died before replying")
+    assert result.stderr.count(" of 4)") == lost, (result.stderr, kernels)
+    assert (1 if lose else 0) <= lost <= 3, (result.stderr, kernels)
+    assert seen["waits"] == [180] * (2 + lost), (seen, result.stderr)
+    assert seen["launched"] == 2 + lost, (seen, result.stderr)
+    assert seen["leaked"] == [], seen
+    allowed = 2 * seen["waits"][0] + lost * executor_budget.QUICK_START_SECONDS
     for user, guard in executor_budget.every_guard(execute_notebook).items():
-        assert guard > sum(seen["waits"]) + executor_budget.WARM_UP_SECONDS, user
+        assert guard > allowed + executor_budget.WARM_UP_SECONDS, user
     if status == 0:
         nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
         assert nb.cells[0].outputs[0].text == "ran\n"
