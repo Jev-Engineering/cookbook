@@ -1,0 +1,1226 @@
+{
+  "schema": 1,
+  "assets": [
+    {
+      "path": "assets/after-d01.png",
+      "sha256": "cf919555d1882bd7e29c9e4f8a61622d397c73773f36c14428f8cadb68a47a35",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "e",
+        "changes": [
+          "field_nudged",
+          "help_clipped_half"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'e', drawn with: field_nudged, help_clipped_half.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t01.png",
+      "sha256": "482a6c530b788df80c4d361f8b5113380c434f82280a94322508dce6e27d4cc6",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": []
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: no change.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t02.png",
+      "sha256": "9b1bc42c41e676eb641e8037be7fa7a808cf27f42e7eb1fd658ca13d4cd3a21a",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "timestamp_updated"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: timestamp_updated.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t03.png",
+      "sha256": "6b6591cda32d62d4ac1e2b28367d3094c457b6ca63ab03a42ac9dbda690ddbb6",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "accent_colour"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: accent_colour.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t04.png",
+      "sha256": "babde3cf1c3a1d88ea21da8e661f7dee729ff92096b5179df22abea93a11462c",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "save_missing"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: save_missing.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t05.png",
+      "sha256": "809eb48c6fc21c7ae7628d6c6b78fa01db45f1d7e9bd41c4010c0c3e6b87b20d",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "avatar_missing"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: avatar_missing.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t06.png",
+      "sha256": "338d08c8b436ff2792758d761765fcdf6b5abb8315d7328cffabc00f9696abcd",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "field_nudged"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: field_nudged.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t07.png",
+      "sha256": "b8fb11fff1a921c4dde7a27b43a13783db39c3629d5fbc9c295270b2d89164de",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "labels_shifted"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: labels_shifted.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t08.png",
+      "sha256": "c5a917457d9593174c7d0f6712a73cef71d9ca8eb09a0afe401d1012b9d2b052",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "help_clipped_boundary"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: help_clipped_boundary.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t09.png",
+      "sha256": "7130445c0cff685b9830002792dc7108e023e006166e057aa0338a68dcf87bb1",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "help_clipped_half"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: help_clipped_half.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t10.png",
+      "sha256": "8e5fb37dd090bd62ca40b015e4f6bbbcb2cad54349a1ebdc556d279fbee915d7",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "toast_over_help"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: toast_over_help.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t11.png",
+      "sha256": "278435c548c93c697ab5a4cf205948942b13841274e6ff16a035149eef81ac87",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t12.png",
+      "sha256": "a18c593e077b1f8a8e497e3960acf3c9ddd8e468d40ef15f3d31bdcdffd79a65",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "help_missing",
+          "field_shifted"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: help_missing, field_shifted.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t13.png",
+      "sha256": "13a597a236937080f2497c47b6d5ec82d017f86e91218babd3d0f681a5f57ed4",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "avatar_missing",
+          "help_clipped_half"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: avatar_missing, help_clipped_half.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t14.png",
+      "sha256": "056ca9b6406f9dc09fa7afe6fea0d3decc9efcf899224674d04d39914f00f013",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "save_missing",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: save_missing, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t15.png",
+      "sha256": "329a9c3ad60d2f73dbfad64d7ada906f284e8ebdc3d8c0aba14186d47d172573",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "field_nudged",
+          "help_clipped_half"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: field_nudged, help_clipped_half.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t16.png",
+      "sha256": "180a1ebaaa73ca88e97278d471060ff41711f3afab4d768792987e4b362eb18c",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "field_shifted",
+          "toast_over_save"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: field_shifted, toast_over_save.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t17.png",
+      "sha256": "4f7ffdf77dbc07fc1b2f5a3902dec72b77176796f4d4075bd8b8a5a7d2d862aa",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "help_clipped_edge",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: help_clipped_edge, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t18.png",
+      "sha256": "0b806f29e3db0c658d20eccd723a68daedc3d67202b05190efac20cebc1f964d",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "save_missing",
+          "field_nudged",
+          "help_clipped_boundary"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: save_missing, field_nudged, help_clipped_boundary.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t19.png",
+      "sha256": "569858061fe9ef915740527240fac3797e68dc2e853b7f7cda7956f8f8c60f30",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "avatar_missing",
+          "labels_shifted",
+          "toast_over_save"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: avatar_missing, labels_shifted, toast_over_save.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t20.png",
+      "sha256": "6325f08cd6f3391eb39a4500a010ab255c7aad44663af57392030fa60052fd8b",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "avatar_missing",
+          "help_clipped_edge",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: avatar_missing, help_clipped_edge, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t21.png",
+      "sha256": "d3957edeb47bfda8b283eec1851fa34f1ecb2dda6fdbc0861c382ce7343e6c01",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": [
+          "labels_shifted",
+          "help_clipped_edge",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: labels_shifted, help_clipped_edge, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-t22.png",
+      "sha256": "02325d4d35a3bd9db4a749361fbc1df7cf2c43c0c6faab7a0701358e74281d7f",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": [
+          "avatar_missing",
+          "field_nudged",
+          "help_clipped_boundary",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: avatar_missing, field_nudged, help_clipped_boundary, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v01.png",
+      "sha256": "bbf40c2b41c86c3ce5ed3e578cd268839a058a963fa1923d7c20393ca1c0b886",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": []
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: no change.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v02.png",
+      "sha256": "9fd83c370a7dacc477f9efd3f58afd067659ed982314cb49135bbec5f706b9a5",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "accent_colour"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: accent_colour.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v03.png",
+      "sha256": "55ca9e1ac136dfb9e66526eecb9ed7a94228d52a1722d38f7e086b19f13ac143",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "avatar_missing"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: avatar_missing.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v04.png",
+      "sha256": "3e62762c4cd38542a3a4ec940ae118d8880e78554065ddf64379ff702d0f3784",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "help_missing"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: help_missing.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v05.png",
+      "sha256": "54eb6fcc8c3581e06343a6b98b67cef682615f9b012334a379d80cb6cb028a58",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "field_shifted"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: field_shifted.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v06.png",
+      "sha256": "ff07621550d00aecb408d544ffcbb1b78d62f2f61cb9a7373ed17546553c84df",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "labels_shifted"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: labels_shifted.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v07.png",
+      "sha256": "4a0b28528036d44b4325babb2d4b87a8012cbd041725679030c89b42bd7809df",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "help_clipped_edge"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: help_clipped_edge.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v08.png",
+      "sha256": "21242b9a6a6d5e595f7e1df662ea3af187b791ad743bb8921b94c61d480b73e6",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "help_clipped_half"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: help_clipped_half.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v09.png",
+      "sha256": "ae92ab84384685aacb267de0458a0bf62cc44696e8643f77405fb76665ad8778",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "help_clipped_boundary"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: help_clipped_boundary.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v10.png",
+      "sha256": "1b366f152ebc76f0f50a37112408d71fe10647d9bbb321e5f453e99b2f6af707",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v11.png",
+      "sha256": "ad81bd507e4d854b11a7802d00c9211d9bc17533c2a2cfd002ec1a7d8b7d098a",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "toast_over_save"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: toast_over_save.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v12.png",
+      "sha256": "df036f11b420bde9bec764213717e269b4388a50669fb5f111cd604a97b5dfa9",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "avatar_missing",
+          "field_nudged"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: avatar_missing, field_nudged.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v13.png",
+      "sha256": "852ef77cf4ee409e6c83bae6b300e2842282a0d2c2412892f5d04c27eeb063ec",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "save_missing",
+          "help_clipped_edge"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: save_missing, help_clipped_edge.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v14.png",
+      "sha256": "75e8e730bbc0acc6cf4ab32453377bd13c7e6f5b665857f0fbf15a6873d1a7ed",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "avatar_missing",
+          "toast_over_help"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: avatar_missing, toast_over_help.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v15.png",
+      "sha256": "6733d9d39fd04bf84efd3d89982455e25667c055fcf54dcedbf53dad66d5e31c",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "field_nudged",
+          "help_clipped_half"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: field_nudged, help_clipped_half.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v16.png",
+      "sha256": "24eed3741858f41ca3296a8a0a40a4ee074d61606509f781cec8295549d83e56",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "labels_shifted",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: labels_shifted, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v17.png",
+      "sha256": "db279ba3d62e3a8156127372ba6fdcd3e8463cfb3a3ca4c4557767669170ead3",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "help_clipped_edge",
+          "toast_over_save"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: help_clipped_edge, toast_over_save.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v18.png",
+      "sha256": "700d8a9bfa0c72338ea4dac1804b9af645c68ba83264f5befa41359ce01b3166",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "avatar_missing",
+          "field_shifted",
+          "help_clipped_boundary"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: avatar_missing, field_shifted, help_clipped_boundary.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v19.png",
+      "sha256": "3b2e10c951bd2f52d6fbbd3cce1f14099ee049dae4768452da2202faf4c09728",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "help_missing",
+          "labels_shifted",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: help_missing, labels_shifted, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v20.png",
+      "sha256": "b76c23bd46f8f588aff7c80bd88fe8f771cc15ad02958af0d82719a641938878",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "save_missing",
+          "help_clipped_edge",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: save_missing, help_clipped_edge, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v21.png",
+      "sha256": "f435a84eea2b8586cada69744d3f4bc9f92856f5890a3a9e4a8857fe35244cd0",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": [
+          "field_nudged",
+          "help_clipped_half",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: field_nudged, help_clipped_half, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/after-v22.png",
+      "sha256": "64194f8043bbd0acd6c186ab7ae11e4350f0df77361991aa8c87712011cece4b",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": [
+          "avatar_missing",
+          "field_shifted",
+          "help_clipped_edge",
+          "badge_overlap"
+        ]
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: avatar_missing, field_shifted, help_clipped_edge, badge_overlap.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/before-a.png",
+      "sha256": "bbf40c2b41c86c3ce5ed3e578cd268839a058a963fa1923d7c20393ca1c0b886",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "a",
+        "changes": []
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'a', drawn with: no change.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/before-b.png",
+      "sha256": "023184139aafc59059e327b42047227c813b1d2da1c29fd23b623c2085fdefb4",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "b",
+        "changes": []
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'b', drawn with: no change.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/before-c.png",
+      "sha256": "482a6c530b788df80c4d361f8b5113380c434f82280a94322508dce6e27d4cc6",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "c",
+        "changes": []
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'c', drawn with: no change.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/before-d.png",
+      "sha256": "49f35875f626c6be46ad13248aa55e05fe9ef5e64bf5fb08b8bace01f053e492",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "d",
+        "changes": []
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'd', drawn with: no change.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    },
+    {
+      "path": "assets/before-e.png",
+      "sha256": "df97e92b6fc785594a8b70745c493eed5ebab5faf0a661eb1ff662e6bd8c4b38",
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "origin": "generated",
+      "generator": "build_fixtures.py:settings_page",
+      "parameters": {
+        "base": "e",
+        "changes": []
+      },
+      "licence": "CC0-1.0",
+      "description": "An invented account settings page, base 'e', drawn with: no change.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    }
+  ]
+}

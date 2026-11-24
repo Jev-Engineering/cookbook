@@ -1,0 +1,44 @@
+{"id": "v01", "label": {"missing_element": false, "misalignment": false, "clipping": false, "overlap": false, "severity": {}}}
+{"id": "v02", "label": {"missing_element": false, "misalignment": false, "clipping": false, "overlap": false, "severity": {}}}
+{"id": "v03", "label": {"missing_element": true, "misalignment": false, "clipping": false, "overlap": false, "severity": {"missing_element": 1}}}
+{"id": "v04", "label": {"missing_element": true, "misalignment": false, "clipping": false, "overlap": false, "severity": {"missing_element": 2}}}
+{"id": "v05", "label": {"missing_element": false, "misalignment": true, "clipping": false, "overlap": false, "severity": {"misalignment": 1}}}
+{"id": "v06", "label": {"missing_element": false, "misalignment": true, "clipping": false, "overlap": false, "severity": {"misalignment": 2}}}
+{"id": "v07", "label": {"missing_element": false, "misalignment": false, "clipping": true, "overlap": false, "severity": {"clipping": 1}}}
+{"id": "v08", "label": {"missing_element": false, "misalignment": false, "clipping": true, "overlap": false, "severity": {"clipping": 2}}}
+{"id": "v09", "label": {"missing_element": false, "misalignment": false, "clipping": true, "overlap": false, "severity": {"clipping": 1}}}
+{"id": "v10", "label": {"missing_element": false, "misalignment": false, "clipping": false, "overlap": true, "severity": {"overlap": 1}}}
+{"id": "v11", "label": {"missing_element": false, "misalignment": false, "clipping": false, "overlap": true, "severity": {"overlap": 3}}}
+{"id": "v12", "label": {"missing_element": true, "misalignment": true, "clipping": false, "overlap": false, "severity": {"missing_element": 1, "misalignment": 0}}}
+{"id": "v13", "label": {"missing_element": true, "misalignment": false, "clipping": true, "overlap": false, "severity": {"missing_element": 3, "clipping": 1}}}
+{"id": "v14", "label": {"missing_element": true, "misalignment": false, "clipping": false, "overlap": true, "severity": {"missing_element": 1, "overlap": 2}}}
+{"id": "v15", "label": {"missing_element": false, "misalignment": true, "clipping": true, "overlap": false, "severity": {"misalignment": 0, "clipping": 2}}}
+{"id": "v16", "label": {"missing_element": false, "misalignment": true, "clipping": false, "overlap": true, "severity": {"misalignment": 2, "overlap": 1}}}
+{"id": "v17", "label": {"missing_element": false, "misalignment": false, "clipping": true, "overlap": true, "severity": {"clipping": 1, "overlap": 3}}}
+{"id": "v18", "label": {"missing_element": true, "misalignment": true, "clipping": true, "overlap": false, "severity": {"missing_element": 1, "misalignment": 1, "clipping": 1}}}
+{"id": "v19", "label": {"missing_element": true, "misalignment": true, "clipping": false, "overlap": true, "severity": {"missing_element": 2, "misalignment": 2, "overlap": 1}}}
+{"id": "v20", "label": {"missing_element": true, "misalignment": false, "clipping": true, "overlap": true, "severity": {"missing_element": 3, "clipping": 1, "overlap": 1}}}
+{"id": "v21", "label": {"missing_element": false, "misalignment": true, "clipping": true, "overlap": true, "severity": {"misalignment": 0, "clipping": 2, "overlap": 1}}}
+{"id": "v22", "label": {"missing_element": true, "misalignment": true, "clipping": true, "overlap": true, "severity": {"missing_element": 1, "misalignment": 1, "clipping": 1, "overlap": 1}}}
+{"id": "t01", "label": {"missing_element": false, "misalignment": false, "clipping": false, "overlap": false, "severity": {}}}
+{"id": "t02", "label": {"missing_element": false, "misalignment": false, "clipping": false, "overlap": false, "severity": {}}}
+{"id": "t03", "label": {"missing_element": false, "misalignment": false, "clipping": false, "overlap": false, "severity": {}}}
+{"id": "t04", "label": {"missing_element": true, "misalignment": false, "clipping": false, "overlap": false, "severity": {"missing_element": 3}}}
+{"id": "t05", "label": {"missing_element": true, "misalignment": false, "clipping": false, "overlap": false, "severity": {"missing_element": 1}}}
+{"id": "t06", "label": {"missing_element": false, "misalignment": true, "clipping": false, "overlap": false, "severity": {"misalignment": 0}}}
+{"id": "t07", "label": {"missing_element": false, "misalignment": true, "clipping": false, "overlap": false, "severity": {"misalignment": 2}}}
+{"id": "t08", "label": {"missing_element": false, "misalignment": false, "clipping": true, "overlap": false, "severity": {"clipping": 1}}}
+{"id": "t09", "label": {"missing_element": false, "misalignment": false, "clipping": true, "overlap": false, "severity": {"clipping": 2}}}
+{"id": "t10", "label": {"missing_element": false, "misalignment": false, "clipping": false, "overlap": true, "severity": {"overlap": 2}}}
+{"id": "t11", "label": {"missing_element": false, "misalignment": false, "clipping": false, "overlap": true, "severity": {"overlap": 1}}}
+{"id": "t12", "label": {"missing_element": true, "misalignment": true, "clipping": false, "overlap": false, "severity": {"missing_element": 2, "misalignment": 1}}}
+{"id": "t13", "label": {"missing_element": true, "misalignment": false, "clipping": true, "overlap": false, "severity": {"missing_element": 1, "clipping": 2}}}
+{"id": "t14", "label": {"missing_element": true, "misalignment": false, "clipping": false, "overlap": true, "severity": {"missing_element": 3, "overlap": 1}}}
+{"id": "t15", "label": {"missing_element": false, "misalignment": true, "clipping": true, "overlap": false, "severity": {"misalignment": 0, "clipping": 2}}}
+{"id": "t16", "label": {"missing_element": false, "misalignment": true, "clipping": false, "overlap": true, "severity": {"misalignment": 1, "overlap": 3}}}
+{"id": "t17", "label": {"missing_element": false, "misalignment": false, "clipping": true, "overlap": true, "severity": {"clipping": 1, "overlap": 1}}}
+{"id": "t18", "label": {"missing_element": true, "misalignment": true, "clipping": true, "overlap": false, "severity": {"missing_element": 3, "misalignment": 0, "clipping": 1}}}
+{"id": "t19", "label": {"missing_element": true, "misalignment": true, "clipping": false, "overlap": true, "severity": {"missing_element": 1, "misalignment": 2, "overlap": 3}}}
+{"id": "t20", "label": {"missing_element": true, "misalignment": false, "clipping": true, "overlap": true, "severity": {"missing_element": 1, "clipping": 1, "overlap": 1}}}
+{"id": "t21", "label": {"missing_element": false, "misalignment": true, "clipping": true, "overlap": true, "severity": {"misalignment": 2, "clipping": 1, "overlap": 1}}}
+{"id": "t22", "label": {"missing_element": true, "misalignment": true, "clipping": true, "overlap": true, "severity": {"missing_element": 1, "misalignment": 0, "clipping": 1, "overlap": 1}}}
