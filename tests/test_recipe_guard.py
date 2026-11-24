@@ -95,9 +95,11 @@ check id                              rule -> detection
                                        to ``docs/glossary.md#anchor`` names an anchor the
                                        glossary defines (GitHub's slug of a heading at any level,
                                        ``-1`` after a repeat), whatever the link text, not only a
-                                       lexicon first use. Not seen: a link with no fragment, an
-                                       external URL to the glossary, a bare path in prose, and
-                                       an HTML ``<a href>``.
+                                       lexicon first use. A root-relative ``/docs/glossary.md``
+                                       link resolves from the repository root and a query is
+                                       dropped, as in ``tests/test_docs_links.py``. Not seen: a
+                                       link with no fragment, an external URL to the glossary,
+                                       a bare path in prose, and an HTML ``<a href>``.
 ``stored_answers_strong_form``        G1(c): ``test_stored_answers_are_not_all_right``
                                        re-derives the frozen threshold (preferring the
                                        confidence gate over a plain business threshold when
@@ -1679,15 +1681,16 @@ def test_the_readme_is_checked_separately_from_the_notebook(tmp_path):
 # check 2d: every link into docs/glossary.md names an anchor it defines (#211)
 # --------------------------------------------------------------------------------------------
 
-_URL_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
-
 
 def _glossary_link_anchor_hits(markdown: str, location: str, source_dir: str) -> list[str]:
-    """Each Markdown link in ``markdown`` that resolves, from the repository-relative folder
-    ``source_dir``, to ``docs/glossary.md`` with a ``#fragment`` the glossary does not define.
-    Every link counts, whatever its text and wherever it sits (a heading, a table cell, a
-    reference definition), not only a lexicon term's first use. A link with no fragment, an
-    external URL and a bare path in prose are not checked."""
+    """Each Markdown link in ``markdown`` that resolves to ``docs/glossary.md`` with a
+    ``#fragment`` the glossary does not define. The href is split as ``tests/test_docs_links.py``
+    splits it: a query is dropped, a path with a leading ``/`` resolves from the repository root
+    (as GitHub resolves it) and any other path from the repository-relative folder
+    ``source_dir``; the path and fragment are percent-decoded. Every link counts, whatever its
+    text and wherever it sits (a heading, a table cell, a reference definition), not only a
+    lexicon term's first use. A link with no fragment, an external URL (a scheme or a host) and
+    a bare path in prose are not checked."""
     hits = []
     for token in _GLOSSARY_MARKDOWN.parse(markdown):
         if token.type != "inline":
@@ -1696,13 +1699,18 @@ def _glossary_link_anchor_hits(markdown: str, location: str, source_dir: str) ->
             if child.type != "link_open":
                 continue
             href = child.attrGet("href") or ""
-            path, hash_, fragment = href.partition("#")
-            if not hash_ or not path or _URL_SCHEME.match(path):
+            try:
+                url = urllib.parse.urlsplit(href)
+            except ValueError:
                 continue
-            target = posixpath.normpath(posixpath.join(source_dir, urllib.parse.unquote(path)))
+            path = urllib.parse.unquote(url.path)
+            if "#" not in href or not path or url.scheme or url.netloc:
+                continue
+            base = "" if path.startswith("/") else source_dir
+            target = posixpath.normpath(posixpath.join(base, path.lstrip("/")))
             if target != "docs/glossary.md":
                 continue
-            anchor = urllib.parse.unquote(fragment)
+            anchor = urllib.parse.unquote(url.fragment)
             if anchor not in _glossary_anchors():
                 hits.append(
                     f"{location}: links {href!r}, but docs/glossary.md defines no #{anchor}"
@@ -1759,8 +1767,21 @@ def test_a_glossary_link_to_a_missing_anchor_fails():
         "See [it](../../docs/glossary.md#).\n",
         "See [it](../../docs/../docs/glossary.md#nope).\n",
         "See [it](../../docs/glossary.md#Confidence).\n",
+        "See [it](/docs/glossary.md#nope).\n",
+        "See [it](../../docs/glossary.md?plain=1#nope).\n",
+        "See [it](/docs/glossary.md?plain=1#nope).\n",
     ],
-    ids=["heading", "table", "reference", "empty-fragment", "dot-dot-path", "wrong-case"],
+    ids=[
+        "heading",
+        "table",
+        "reference",
+        "empty-fragment",
+        "dot-dot-path",
+        "wrong-case",
+        "root-relative",
+        "query",
+        "root-relative-query",
+    ],
 )
 def test_a_missing_anchor_fails_wherever_the_link_sits(text):
     assert _glossary_link_anchor_hits(text, "x", "recipes/01-x")
@@ -1785,6 +1806,21 @@ def test_the_link_resolves_from_the_folder_it_sits_in():
     link = "[x](../docs/glossary.md#nope)"
     assert _glossary_link_anchor_hits(link, "x", "recipes/01-x") == []
     assert _glossary_link_anchor_hits(link, "x", "recipes")
+
+
+def test_a_root_relative_or_queried_link_to_a_defined_anchor_passes():
+    for href in ("/docs/glossary.md#confidence", "../../docs/glossary.md?plain=1#provenance"):
+        assert _glossary_link_anchor_hits(f"[x]({href})", "x", "recipes/01-x") == []
+    # A leading slash is the repository root, not the recipe folder.
+    assert _glossary_link_anchor_hits("[x](/glossary.md#nope)", "x", "docs") == []
+
+
+def test_the_fragment_is_percent_decoded():
+    assert (
+        _glossary_link_anchor_hits(f"[x]({GLOSSARY_LINK}gold%2Dlabel)", "x", "recipes/01-x") == []
+    )
+    (hit,) = _glossary_link_anchor_hits(f"[x]({GLOSSARY_LINK}gold%2Dlabelz)", "x", "recipes/01-x")
+    assert hit.endswith("defines no #gold-labelz")
 
 
 def test_glossary_anchors_cover_every_heading_level_and_repeats():

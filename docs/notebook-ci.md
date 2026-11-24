@@ -797,8 +797,9 @@ confidence gate, and a term used only in a heading, a quotation or a code cell.
 recipe's README or notebook markdown cells that resolves to `docs/glossary.md#anchor` must name an
 anchor the glossary defines (GitHub's slug of one of its headings), whatever the link text and
 wherever it sits, so a link to `#confidence` or `#provenance` is resolved as well as a lexicon
-first use. Not checked: a link with no fragment, an external URL, a bare path in prose and an HTML
-`<a href>`. Every recipe passed it when it landed, so it has no allowlist entries.
+first use. A root-relative `/docs/glossary.md#anchor` link resolves from the repository root, and a
+query string before the fragment is ignored. Not checked: a link with no fragment, an external URL,
+a bare path in prose and an HTML `<a href>`. Every recipe passed it when it landed, so it has no allowlist entries.
 
 ## Local commands
 
