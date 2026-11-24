@@ -56,7 +56,8 @@ jobs:
   test:
     name: Tests (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Room for the suite and one tests/executor_budget.py hang guard, which reads this number.
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:

@@ -20,13 +20,14 @@ The arithmetic, for a run that has nothing wrong with its notebook (seconds):
     total             480-525
 
 The job running the suite (``.github/workflows/ci.yml``, ``test``) is killed at its
-``timeout-minutes`` (20, 1200 s). ``SUITE_SECONDS`` is the room reserved for everything else in
-that job, set from a measurement: on 20 green ``Tests`` jobs (both Python versions, the 10 latest
-completed ``ci.yml`` runs of ``main``, 2026-11-14 to 2026-11-17: 44113766564, 43548719512,
-43547789988, 43546902789, 43546036249, 43545101814, 43544155609, 43543486345, 43541850720,
-43535601674), the whole job, set-up and install included, took 276 to 463 s
-(``MEASURED_JOB_SECONDS``). The reserve is that maximum plus about 21%, 560 s, so no guard here may
-exceed what is left, 640 s; the largest (525) leaves 115 s. When the suite grows past the reserve,
+``timeout-minutes`` (35, 2100 s). ``SUITE_SECONDS`` is the room reserved for everything else in
+that job, set from a measurement: on 40 green ``Tests`` jobs (both Python versions, the 20 latest
+completed ``ci.yml`` runs of ``main``, 2026-11-23 to 2026-11-24: 45331038848, 45325473338,
+45312755626, 45297265734, 45292659298, 45286323114, 45278896910, 45273047052, 45269922191,
+45264123735, 45260332723, 45247056990, 45243951827, 45227786640, 45224571272, 45208293006,
+45194692135, 45184488922, 45180364231, 45175463327), the whole job, set-up and install included,
+took 598 to 1053 s (``MEASURED_JOB_SECONDS``). The reserve is that maximum plus about 22%, 1280 s,
+so no guard here may exceed what is left, 820 s; the largest (525) leaves 295 s. When the suite grows past the reserve,
 raise ``MEASURED_JOB_SECONDS`` and ``SUITE_SECONDS`` from a new measurement and, if a guard then no
 longer fits, the job's ``timeout-minutes``: never shorten a guard below what the tool may
 legitimately take.
@@ -56,8 +57,8 @@ QUICK_START = "Kernel died before replying"
 WARM_UP_SECONDS = 30
 QUICK_START_SECONDS = 15
 SLACK_SECONDS = 30
-MEASURED_JOB_SECONDS = 463  # longest of the 20 Tests jobs measured above (run 44113766564, py3.10)
-SUITE_SECONDS = 560  # MEASURED_JOB_SECONDS 463 s, plus about 21%
+MEASURED_JOB_SECONDS = 1053  # longest of the 40 Tests jobs measured above (45331038848, py3.10)
+SUITE_SECONDS = 1280  # MEASURED_JOB_SECONDS 1053 s, plus about 22%
 
 # What the notebooks the three users run need for their cells, on top of the start-up.
 NO_CELLS = 0  # tests/test_new_recipe.py: a dead kernel, a cell that loops for 3 seconds
