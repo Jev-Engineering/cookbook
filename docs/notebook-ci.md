@@ -795,15 +795,18 @@ confidence gate, and a term used only in a heading, a quotation or a code cell. 
 exactly one of the recipe's declared label values (the strings of `LABELS` in its `helpers.py`, read
 without importing it) is that value, not a lexicon term, so recipe 06's topic label `support` is not
 the metric (#723); the same word in prose, or as a code span in a recipe that declares no such label,
-still is.
+still is. Two limits follow. In a recipe whose `LABELS` contains a lexicon term, an exact code span
+of that term is never checked, even where it means the metric. And only a module-level `LABELS` in
+`helpers.py` is read (a literal, or names bound to one): label values declared under another name,
+starred, unpacked or computed are not exempt, so the check fails closed there.
 
 `glossary_link_anchors` (#211) covers the links that check does not read. Every Markdown link in a
 recipe's README or notebook markdown cells that resolves to `docs/glossary.md#anchor` must name an
 anchor the glossary defines (GitHub's slug of one of its headings), whatever the link text and
 wherever it sits, so a link to `#confidence` or `#provenance` is resolved as well as a lexicon
 first use. A root-relative `/docs/glossary.md#anchor` link resolves from the repository root, and a
-query string before the fragment is ignored. A link whose path ends in `glossary.md` (in any case)
-but does not resolve to `docs/glossary.md`, such as `../docs/glossary.md#x` from a recipe folder or
+query string before the fragment is ignored. A link to a file named `glossary.md` (in any case)
+that does not resolve to `docs/glossary.md`, such as `../docs/glossary.md#x` from a recipe folder or
 `../../docs/GLOSSARY.md#x`, fails whether or not it has a fragment, since it was meant for the
 glossary and lands nowhere (#723). Not checked: a link with no fragment that resolves to the
 glossary, an external URL, a bare path in prose and an HTML `<a href>`. Every recipe passed it when it landed, so it has no allowlist entries.

@@ -88,10 +88,17 @@ check id                              rule -> detection
                                        metric, #723), and a few everyday senses (a customer review,
                                        some risk of, test coverage, support outside a sentence
                                        naming precision, recall or F1) are skipped by name. Not
-                                       seen: whether the sentence defines the term, any other
-                                       everyday sense, an inflection other than the plural of
+                                       seen: in a recipe whose ``LABELS`` contains a lexicon
+                                       term, an exact code span of that term, even where it
+                                       means the metric; whether the sentence defines the
+                                       term, any other everyday sense, an inflection other
+                                       than the plural of
                                        gold label, business threshold and confidence gate, and a
-                                       use in a code cell's prose. Drift is recorded in
+                                       use in a code cell's prose. Only a module-level
+                                       ``LABELS`` in ``helpers.py`` is read (a literal, or
+                                       names bound to one): label values under another name,
+                                       starred, unpacked or computed are not exempt. Drift is
+                                       recorded in
                                        ``tests/recipe_guard_known_failures.py``.
 ``glossary_link_anchors``             #211 acceptance item 4: every Markdown link in a
                                        recipe's README or notebook markdown cells that resolves
@@ -100,8 +107,8 @@ check id                              rule -> detection
                                        ``-1`` after a repeat), whatever the link text, not only a
                                        lexicon first use. A root-relative ``/docs/glossary.md``
                                        link resolves from the repository root and a query is
-                                       dropped, as in ``tests/test_docs_links.py``. A link whose
-                                       path ends in ``glossary.md`` in any case but does not
+                                       dropped, as in ``tests/test_docs_links.py``. A link to
+                                       a file named ``glossary.md`` in any case that does not
                                        resolve to ``docs/glossary.md`` (a wrong folder depth,
                                        ``GLOSSARY.md``) fails, fragment or not (#723). Not
                                        seen: a link with no fragment that resolves to the
@@ -1717,16 +1724,24 @@ def test_a_declared_label_value_in_code_is_not_the_support_metric(tmp_path, wher
 
 
 def test_a_declared_label_value_exempts_only_its_exact_code_span(tmp_path):
-    """The exemption is narrow: the metric in prose, and a lexicon term that is not a declared
-    label, still need their link in a recipe that declares a ``support`` label."""
-    directory = _write_notebook(
-        tmp_path / "06",
-        ["Per-label precision, recall and support are reported; `support` is a label."],
-    )
-    (directory / "helpers.py").write_text(_RECIPE_06_HELPERS, encoding="utf-8")
-    hits = _recipe_glossary_link_hits(directory)
-    assert any("first use of 'support'" in hit for hit in hits)
-    assert any("first use of 'precision'" in hit for hit in hits)
+    """The exemption is narrow: in a recipe that declares a ``support`` label, the metric in
+    prose, a code span in another case and an undeclared term in code still need their link, and
+    a longer label that merely contains a term exempts nothing."""
+    companions = f"{_link('precision', 'precision')} and {_link('recall', 'recall')}"
+
+    def hits(name: str, prose: str, labels: str) -> list[str]:
+        directory = _write_notebook(tmp_path / name, [prose])
+        (directory / "helpers.py").write_text(f"LABELS = ({labels},)\n", encoding="utf-8")
+        return _recipe_glossary_link_hits(directory)
+
+    (hit,) = hits("prose", f"Label `support`: {companions}, with support reported.", '"support"')
+    assert "first use of 'support' is not a link" in hit
+    (hit,) = hits("case", f"Label `Support`: {companions}.", '"support"')
+    assert "first use of 'support' is not a link" in hit
+    (hit,) = hits("substring", f"Label `support`: {companions}.", '"support_ticket"')
+    assert "first use of 'support' is not a link" in hit
+    (hit,) = hits("other-term", "Label `support`, then `accuracy`.", '"support"')
+    assert "first use of 'accuracy' is not a link" in hit
 
 
 @pytest.mark.parametrize(
@@ -1814,8 +1829,9 @@ def _glossary_link_anchor_hits(markdown: str, location: str, source_dir: str) ->
     (as GitHub resolves it) and any other path from the repository-relative folder
     ``source_dir``; the path and fragment are percent-decoded. Every link counts, whatever its
     text and wherever it sits (a heading, a table cell, a reference definition), not only a
-    lexicon term's first use. A link whose decoded path ends in ``glossary.md`` (in any case)
-    but does not resolve to ``docs/glossary.md`` (a wrong folder depth, ``GLOSSARY.md``) fails
+    lexicon term's first use. A link whose decoded path names a file ``glossary.md`` (its
+    last segment, in any case) but does not resolve to ``docs/glossary.md`` (a wrong folder
+    depth, ``GLOSSARY.md``) fails
     too, fragment or not, so a link meant for the glossary cannot miss it silently. A link with
     no fragment that does resolve there, an external URL (a scheme or a host) and a bare path in
     prose are not checked."""
@@ -1837,7 +1853,7 @@ def _glossary_link_anchor_hits(markdown: str, location: str, source_dir: str) ->
             base = "" if path.startswith("/") else source_dir
             target = posixpath.normpath(posixpath.join(base, path.lstrip("/")))
             if target != "docs/glossary.md":
-                if path.lower().endswith("glossary.md"):
+                if posixpath.basename(path).casefold() == "glossary.md":
                     hits.append(
                         f"{location}: links {href!r}, which resolves to {target}, "
                         "not docs/glossary.md"
@@ -1964,6 +1980,7 @@ def test_a_root_relative_or_queried_link_to_a_defined_anchor_passes():
         ("../../Docs/Glossary.md#confidence", "Docs/Glossary.md"),
         ("../docs/glossary.md", "recipes/docs/glossary.md"),
         ("../../docs/GLOSSARY.md", "docs/GLOSSARY.md"),
+        ("../docs/glossary%2Emd#confidence", "recipes/docs/glossary.md"),
         ("../../docs/glossary%2Emd#confidence", None),
     ],
     ids=[
@@ -1973,11 +1990,12 @@ def test_a_root_relative_or_queried_link_to_a_defined_anchor_passes():
         "wrong-case-folder",
         "wrong-depth-no-fragment",
         "wrong-case-no-fragment",
+        "wrong-depth-encoded",
         "encoded-control",
     ],
 )
 def test_a_glossary_link_that_misses_docs_glossary_md_fails(href, target):
-    """#723: a link whose path ends in ``glossary.md`` (in any case) but resolves elsewhere was
+    """#723: a link to a file named ``glossary.md`` (in any case) that resolves elsewhere was
     meant for the glossary and lands nowhere, so it fails rather than being skipped, even when
     its anchor exists in the real glossary and even with no fragment."""
     hits = _glossary_link_anchor_hits(f"See the [term]({href}).", "README.md", "recipes/01-x")
@@ -1988,7 +2006,13 @@ def test_a_glossary_link_that_misses_docs_glossary_md_fails(href, target):
 
 
 def test_a_link_to_a_file_not_named_glossary_is_not_a_misresolved_glossary_link():
-    for href in ("../../docs/evaluation.md#x", "glossary.md.bak", "../../docs/glossary.mdx#x"):
+    for href in (
+        "../../docs/evaluation.md#x",
+        "glossary.md.bak",
+        "../../docs/glossary.mdx#x",
+        "my-glossary.md",
+        "../../docs/my-glossary.md#x",
+    ):
         assert _glossary_link_anchor_hits(f"[x]({href})", "x", "recipes/01-x") == []
 
 
