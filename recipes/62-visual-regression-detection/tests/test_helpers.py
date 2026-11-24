@@ -403,3 +403,54 @@ def test_the_selections_use_the_f1_objective_and_the_target_accuracy():
     source = "".join(cell["source"])
     assert "target_accuracy=1.0" in source
     assert "min_coverage" not in source
+
+
+def _help_line_ink_rows(path):
+    """How many pixel rows of the help line's band (y 300 to 313) hold any non-white pixel."""
+    picture = helpers.open_image(path)
+    rows = 0
+    for y in range(300, 314):
+        if any(picture.getpixel((x, y)) != (255, 255, 255) for x in range(44, 400)):
+            rows += 1
+    return rows
+
+
+def test_the_clipping_cuts_remove_2_6_and_10_of_the_14_rows():
+    # The quantities the notebook's hard-case prose states, read from the committed pictures:
+    # the help line is 14 rows tall, and the boundary cut removes 6, leaving 8.
+    assert _help_line_ink_rows("assets/before-a.png") == 14
+    assert _help_line_ink_rows("assets/after-v07.png") == 14 - 2  # help_clipped_edge
+    assert _help_line_ink_rows("assets/after-v09.png") == 14 - 6  # help_clipped_boundary
+    assert _help_line_ink_rows("assets/after-v08.png") == 14 - 10  # help_clipped_half
+
+
+def test_the_next_steps_exercise_turns_both_test_reviews_into_verdicts():
+    # Next steps: target_accuracy 1.0 -> 0.95 lowers the gate, the two test reviews become
+    # verdicts, coverage rises and so does the risk among delivered verdicts (t22 is failed
+    # against a gold pass).
+    _examples, val_results, val_golds = all_results("validation")
+    thresholds = helpers.choose_noul_thresholds(val_results, val_golds)
+    cutoff = helpers.choose_severity_cutoff(val_results, val_golds)
+    examples, test_results, test_golds = all_results("test")
+
+    def run(target):
+        gate, _n = helpers.choose_gate(
+            val_results, val_golds, thresholds, cutoff, target_accuracy=target
+        )
+        policy = helpers.Policy(thresholds, cutoff, gate)
+        verdicts = {
+            e.id: helpers.decide(e.fields["pair"], r, policy).kind
+            for e, r in zip(examples, test_results, strict=True)
+        }
+        delivered = [i for i, kind in verdicts.items() if kind != "review"]
+        gold = {e.id: helpers.gold_verdict(g) for e, g in zip(examples, test_golds, strict=True)}
+        wrong = sum(verdicts[i] != gold[i] for i in delivered)
+        return gate, verdicts, len(delivered), wrong
+
+    gate_1, verdicts_1, delivered_1, wrong_1 = run(1.0)
+    gate_95, verdicts_95, delivered_95, wrong_95 = run(0.95)
+    assert gate_95 < gate_1
+    assert [i for i, kind in verdicts_1.items() if kind == "review"] == ["t13", "t22"]
+    assert (verdicts_95["t13"], verdicts_95["t22"]) == ("fail", "fail")
+    assert delivered_95 > delivered_1
+    assert wrong_95 / delivered_95 > wrong_1 / delivered_1
