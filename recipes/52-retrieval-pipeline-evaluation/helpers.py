@@ -5,7 +5,6 @@ The fixture generator, the notebook and the tests all load this file with
 ``jev_cookbook.load_helpers``, so the questions and the states cannot disagree.
 """
 
-import re
 import unicodedata
 from dataclasses import dataclass, replace
 from typing import Any
@@ -175,13 +174,44 @@ def verify_state(claim: str, evidence: list[str]) -> dict[str, Any]:
 
 # ------------------------------------------------------------------------- Python's candidate list
 
-# Unicode letters and numbers, excluding underscores. CJK runs stay whole: this is a
-# deterministic overlap heuristic, not language-specific word segmentation.
-_WORD_RE = re.compile(r"[^\W_]+")
+# The combining marks that are Default_Ignorable_Code_Point: the combining grapheme joiner, two
+# Khmer inherent vowels and the variation selectors. They are normally not drawn by themselves, so
+# they are removed before words are formed: one kept inside a word would make two spellings of the
+# same word differ.
+_IGNORABLE_MARKS = dict.fromkeys(
+    (
+        0x034F,
+        *(0x17B4, 0x17B5),
+        *(*range(0x180B, 0x180E), 0x180F),
+        *range(0xFE00, 0xFE10),
+        *range(0xE0100, 0xE01F0),
+    )
+)
+
+
+def _in_word(char: str) -> bool:
+    """A letter, a number or a combining mark of any kind (categories Mn, Mc and Me)."""
+    return char.isalnum() or unicodedata.category(char).startswith("M")
 
 
 def _words(text: str) -> frozenset[str]:
-    return frozenset(_WORD_RE.findall(unicodedata.normalize("NFC", text).casefold()))
+    """The distinct maximal runs of letters, numbers and combining marks in ``text``, after
+    removing default-ignorable marks, then NFD, case folding and NFC, in that order. Every other
+    character separates words, zero-width joiners and non-joiners included. A mark that NFC
+    composes with a symbol is part of that symbol and so is not compared (``=`` and U+0338 make
+    U+2260, a separator); any other mark with no letter or number before it counts, as a word or
+    the start of one. Text written without spaces stays in whole runs: this is a deterministic
+    overlap heuristic, not language-specific word segmentation.
+
+    Folding turns the Greek iota subscript (U+0345) into the letter iota, and NFD has by then put
+    a mark such as dot below on the letter before it. So U+1FB3 U+0323 does not match its
+    ``str.upper()``, U+0391 U+0399 U+0323, where the dot is on the iota. NFD never moves a mark of
+    combining class 0 such as U+20DD, so U+1FB3 U+20DD does match its ``str.upper()``."""
+    # NFD comes first because U+0345 folds to a letter: a mark that NFD orders before U+0345 stays
+    # on the base letter. NFD moves no mark of combining class 0, and none across one.
+    text = unicodedata.normalize("NFD", text.translate(_IGNORABLE_MARKS))
+    text = unicodedata.normalize("NFC", text.casefold())
+    return frozenset("".join(c if _in_word(c) else " " for c in text).split())
 
 
 def word_overlap(a: str, b: str) -> float:

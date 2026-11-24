@@ -28,10 +28,18 @@ checks the selected evidence against the gold passages. The request counts use t
 backend, with the full pipeline's stage-one requests counted for both configurations that use
 that shared execution.
 
-The duplicate check compares NFC-normalized, case-folded Unicode letter-and-number runs.
-It preserves non-ASCII text; CJK runs stay whole rather than receiving language-specific word
-segmentation. Requests use the separate `stage_one_state(claim, passage)` and
-`verify_state(claim, evidence)` constructors because a retrieved example produces several states.
+The duplicate check compares the sets of words in two passages. A word is a run of Unicode
+letters, numbers and combining marks (categories Mn, Mc and Me, as Python's `unicodedata`
+classifies them). Before words are formed, default-ignorable marks (variation selectors, U+034F,
+U+17B4 and U+17B5) are removed, and the text goes through NFD normalization, case folding and NFC
+normalization, in that order. Every other character separates words: punctuation, symbols,
+underscores, and zero-width joiners and non-joiners. A mark that NFC composes with a symbol is part
+of that symbol and is not compared, so "≠ 7" and "= 7" score 1.0. Which separators stand between
+words, word order and repeated words do not affect the score. Text written without spaces, such as
+Chinese or Thai, stays in whole runs rather than receiving language-specific word segmentation, so
+two runs that still differ in one letter do not match at all. Requests use the separate
+`stage_one_state(claim, passage)` and `verify_state(claim, evidence)` constructors because a
+retrieved example produces several states.
 The fixture builder drives `run_pipeline` with a backend that answers from the synthetic spec.
 The `t04` decoys include an embedded instruction and a claim of decisive relevance. Their stored
 answers exercise request construction and pipeline behavior, not a model's resistance to those
